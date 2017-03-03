@@ -1,0 +1,123 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package environs_test
+
+import (
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/1.25-upgrade/juju1/environs"
+	"github.com/juju/1.25-upgrade/juju1/environs/config"
+	"github.com/juju/1.25-upgrade/juju1/environs/configstore"
+	"github.com/juju/1.25-upgrade/juju1/environs/simplestreams"
+	sstesting "github.com/juju/1.25-upgrade/juju1/environs/simplestreams/testing"
+	envtesting "github.com/juju/1.25-upgrade/juju1/environs/testing"
+	"github.com/juju/1.25-upgrade/juju1/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju1/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju1/testing"
+)
+
+type ImageMetadataSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&ImageMetadataSuite{})
+
+func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Environ {
+	attrs := dummy.SampleConfig()
+	if stream != "" {
+		attrs = attrs.Merge(testing.Attrs{
+			"image-stream": stream,
+		})
+	}
+	if imageMetadataURL != "" {
+		attrs = attrs.Merge(testing.Attrs{
+			"image-metadata-url": imageMetadataURL,
+		})
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
+	env := s.env(c, "", "")
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		"https://streams.canonical.com/juju/images/releases/",
+		"http://cloud-images.ubuntu.com/releases/",
+	})
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
+	env := s.env(c, "config-image-metadata-url", "")
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		"config-image-metadata-url/",
+		"https://streams.canonical.com/juju/images/releases/",
+		"http://cloud-images.ubuntu.com/releases/",
+	})
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
+	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames), nil
+	})
+	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames), nil
+	})
+	// overwrite the one previously registered against id1
+	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		return nil, errors.NewNotSupported(nil, "oyvey")
+	})
+	environs.RegisterUserImageDataSourceFunc("id2", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("id2", "foobar", utils.NoVerifySSLHostnames), nil
+	})
+	defer environs.UnregisterImageDataSourceFunc("id0")
+	defer environs.UnregisterImageDataSourceFunc("id1")
+	defer environs.UnregisterImageDataSourceFunc("id2")
+
+	env := s.env(c, "config-image-metadata-url", "")
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		"config-image-metadata-url/",
+		"foobar/",
+		"betwixt/releases/",
+		"https://streams.canonical.com/juju/images/releases/",
+		"http://cloud-images.ubuntu.com/releases/",
+	})
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncsError(c *gc.C) {
+	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		return nil, errors.New("oyvey!")
+	})
+	defer environs.UnregisterImageDataSourceFunc("id0")
+
+	env := s.env(c, "config-image-metadata-url", "")
+	_, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.ErrorMatches, "oyvey!")
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {
+	env := s.env(c, "", "daily")
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		"https://streams.canonical.com/juju/images/daily/",
+		"http://cloud-images.ubuntu.com/daily/",
+	})
+}

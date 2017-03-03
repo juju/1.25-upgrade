@@ -1,0 +1,64 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// +build go1.3
+
+package lxd
+
+import (
+	"github.com/juju/errors"
+	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
+
+	"github.com/juju/juju/environs/config"
+)
+
+var (
+	configSchema                 = environschema.Fields{}
+	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
+		fields, defaults, err := configSchema.ValidationSchema()
+		if err != nil {
+			panic(err)
+		}
+		return fields, defaults
+	}()
+)
+
+type environConfig struct {
+	*config.Config
+	attrs map[string]interface{}
+}
+
+// newConfig builds a new environConfig from the provided Config and
+// returns it.
+func newConfig(cfg *config.Config) *environConfig {
+	return &environConfig{
+		Config: cfg,
+		attrs:  cfg.UnknownAttrs(),
+	}
+}
+
+// newValidConfig builds a new environConfig from the provided Config
+// and returns it. This includes applying the provided defaults
+// values, if any. The resulting config values are validated.
+func newValidConfig(cfg *config.Config) (*environConfig, error) {
+	// Ensure that the provided config is valid.
+	if err := config.Validate(cfg, nil); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Build the config.
+	ecfg := newConfig(cfg)
+
+	// Do final (more complex, provider-specific) validation.
+	if err := ecfg.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ecfg, nil
+}
+
+// validate validates LXD-specific configuration.
+func (c *environConfig) validate() error {
+	return nil
+}

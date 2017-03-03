@@ -1,0 +1,6 @@
+juju1
+ - copied from 090baf5631f8c989547dfd741ee71fa1f33c02bd with additional edits
+ for migration
+
+juju2
+ - coppied from 53789527c5223644aa0c618bfa885a4da72b7d7d

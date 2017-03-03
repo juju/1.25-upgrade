@@ -1,0 +1,332 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package apiserver_test
+
+import (
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
+)
+
+type watcherSuite struct {
+	testing.BaseSuite
+	resources  *common.Resources
+	authorizer apiservertesting.FakeAuthorizer
+}
+
+var _ = gc.Suite(&watcherSuite{})
+
+func (s *watcherSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.resources = common.NewResources()
+	s.AddCleanup(func(*gc.C) {
+		s.resources.StopAll()
+	})
+	s.authorizer = apiservertesting.FakeAuthorizer{}
+}
+
+func (s *watcherSuite) getFacade(
+	c *gc.C,
+	name string,
+	version int,
+	id string,
+	dispose func(),
+) interface{} {
+	factory := getFacadeFactory(c, name, version)
+	facade, err := factory(s.facadeContext(id, dispose))
+	c.Assert(err, jc.ErrorIsNil)
+	return facade
+}
+
+func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Context {
+	return facadetest.Context{
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        id,
+		Dispose_:   dispose,
+	}
+}
+
+func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
+	factory, err := common.Facades.GetFactory(name, version)
+	c.Assert(err, jc.ErrorIsNil)
+	return factory
+}
+
+func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
+	ch := make(chan []string, 1)
+	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
+	s.authorizer.Tag = names.NewMachineTag("123")
+
+	ch <- []string{"0:1", "1:2"}
+	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
+		Changes: []params.MachineStorageId{
+			{MachineTag: "machine-0", AttachmentTag: "volume-1"},
+			{MachineTag: "machine-1", AttachmentTag: "volume-2"},
+		},
+	})
+}
+
+func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
+	ch := make(chan []string, 1)
+	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
+	s.authorizer.Tag = names.NewMachineTag("123")
+
+	ch <- []string{"0:1", "1:2"}
+	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
+		Changes: []params.MachineStorageId{
+			{MachineTag: "machine-0", AttachmentTag: "filesystem-1"},
+			{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
+		},
+	})
+}
+
+func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
+	ch := make(chan params.RemoteApplicationChange, 1)
+	id := s.resources.Register(&fakeRemoteApplicationWatcher{ch: ch})
+	s.authorizer.Controller = true
+
+	ch <- params.RemoteApplicationChange{
+		ApplicationTag: names.NewApplicationTag("foo").String(),
+		Life:           params.Life("alive"),
+		Relations: params.RemoteRelationsChange{
+			RemovedRelations: []int{1, 2, 3},
+		},
+	}
+	facade := s.getFacade(c, "RemoteApplicationWatcher", 1, id, nopDispose).(remoteApplicationWatcher)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, jc.DeepEquals, params.RemoteApplicationWatchResult{
+		Change: &params.RemoteApplicationChange{
+			ApplicationTag: names.NewApplicationTag("foo").String(),
+			Life:           params.Life("alive"),
+			Relations: params.RemoteRelationsChange{
+				RemovedRelations: []int{1, 2, 3},
+			},
+		},
+	})
+}
+
+type remoteApplicationWatcher interface {
+	Next() (params.RemoteApplicationWatchResult, error)
+}
+
+type fakeRemoteApplicationWatcher struct {
+	state.RemoteApplicationWatcher
+	ch chan params.RemoteApplicationChange
+}
+
+func (w *fakeRemoteApplicationWatcher) Changes() <-chan params.RemoteApplicationChange {
+	return w.ch
+}
+
+func (w *fakeRemoteApplicationWatcher) Stop() error {
+	return nil
+}
+
+func (s *watcherSuite) TestRemoteRelationsWatcher(c *gc.C) {
+	ch := make(chan params.RemoteRelationsChange, 1)
+	id := s.resources.Register(&fakeRemoteRelationsWatcher{ch: ch})
+	s.authorizer.Controller = true
+
+	ch <- params.RemoteRelationsChange{
+		RemovedRelations: []int{1, 2, 3},
+	}
+	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, nopDispose).(remoteRelationsWatcher)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, jc.DeepEquals, params.RemoteRelationsWatchResult{
+		Change: &params.RemoteRelationsChange{
+			RemovedRelations: []int{1, 2, 3},
+		},
+	})
+}
+
+func (s *watcherSuite) TestStopDiscards(c *gc.C) {
+	id := s.resources.Register(&fakeRemoteRelationsWatcher{})
+	s.authorizer.Controller = true
+	var disposed bool
+	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, func() {
+		disposed = true
+	}).(remoteRelationsWatcher)
+	err := facade.Stop()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(disposed, jc.IsTrue)
+}
+
+type remoteRelationsWatcher interface {
+	Next() (params.RemoteRelationsWatchResult, error)
+	Stop() error
+}
+
+type fakeRemoteRelationsWatcher struct {
+	state.RemoteRelationsWatcher
+	ch chan params.RemoteRelationsChange
+}
+
+func (w *fakeRemoteRelationsWatcher) Changes() <-chan params.RemoteRelationsChange {
+	return w.ch
+}
+
+func (w *fakeRemoteRelationsWatcher) Stop() error {
+	return nil
+}
+
+func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
+	w := apiservertesting.NewFakeNotifyWatcher()
+	id := s.resources.Register(w)
+	s.authorizer.Tag = names.NewMachineTag("12")
+	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend))
+	apiserver.PatchGetControllerCACert(s, "no worries")
+
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
+	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		MigrationId:    "id",
+		Attempt:        2,
+		Phase:          "IMPORT",
+		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
+		SourceCACert:   "no worries",
+		TargetAPIAddrs: []string{"1.2.3.4:5555"},
+		TargetCACert:   "trust me",
+	})
+}
+
+func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
+	w := apiservertesting.NewFakeNotifyWatcher()
+	id := s.resources.Register(w)
+	s.authorizer.Tag = names.NewMachineTag("12")
+	apiserver.PatchGetMigrationBackend(s, &fakeMigrationBackend{noMigration: true})
+
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
+	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		Phase: "NONE",
+	})
+}
+
+func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
+	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
+	s.authorizer.Tag = names.NewUserTag("frogdog")
+
+	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = factory(facadetest.Context{
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        id,
+	})
+	c.Assert(err, gc.Equals, common.ErrPerm)
+}
+
+type machineStorageIdsWatcher interface {
+	Next() (params.MachineStorageIdsWatchResult, error)
+}
+
+type fakeStringsWatcher struct {
+	state.StringsWatcher
+	ch chan []string
+}
+
+func (w *fakeStringsWatcher) Changes() <-chan []string {
+	return w.ch
+}
+
+func (w *fakeStringsWatcher) Stop() error {
+	return nil
+}
+
+type fakeMigrationBackend struct {
+	noMigration bool
+}
+
+func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
+	if b.noMigration {
+		return nil, errors.NotFoundf("migration")
+	}
+	return new(fakeModelMigration), nil
+}
+
+func (b *fakeMigrationBackend) APIHostPorts() ([][]network.HostPort, error) {
+	return [][]network.HostPort{
+		MustParseHostPorts("1.2.3.4:5", "2.3.4.5:6"),
+		MustParseHostPorts("3.4.5.6:7"),
+	}, nil
+}
+
+func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
+	return nil, nil
+}
+
+func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
+	return nil, nil
+}
+
+func MustParseHostPorts(hostports ...string) []network.HostPort {
+	out, err := network.ParseHostPorts(hostports...)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+type fakeModelMigration struct {
+	state.ModelMigration
+}
+
+func (m *fakeModelMigration) Id() string {
+	return "id"
+}
+
+func (m *fakeModelMigration) Attempt() int {
+	return 2
+}
+
+func (m *fakeModelMigration) Phase() (migration.Phase, error) {
+	return migration.IMPORT, nil
+}
+
+func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
+	return &migration.TargetInfo{
+		ControllerTag: names.NewControllerTag("uuid"),
+		Addrs:         []string{"1.2.3.4:5555"},
+		CACert:        "trust me",
+		AuthTag:       names.NewUserTag("admin"),
+		Password:      "sekret",
+	}, nil
+}
+
+type migrationStatusWatcher interface {
+	Next() (params.MigrationStatus, error)
+	Stop() error
+}
+
+func nopDispose() {}

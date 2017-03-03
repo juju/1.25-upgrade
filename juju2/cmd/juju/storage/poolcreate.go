@@ -1,0 +1,103 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package storage
+
+import (
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/utils/keyvalues"
+
+	"github.com/juju/juju/cmd/modelcmd"
+)
+
+// PoolCreateAPI defines the API methods that pool create command uses.
+type PoolCreateAPI interface {
+	Close() error
+	CreatePool(pname, ptype string, pconfig map[string]interface{}) error
+}
+
+const poolCreateCommandDoc = `
+Pools are a mechanism for administrators to define sources of storage that
+they will use to satisfy application storage requirements.
+
+A single pool might be used for storage from units of many different applications -
+it is a resource from which different stores may be drawn.
+
+A pool describes provider-specific parameters for creating storage,
+such as performance (e.g. IOPS), media type (e.g. magnetic vs. SSD),
+or durability.
+
+For many providers, there will be a shared resource
+where storage can be requested (e.g. EBS in amazon).
+Creating pools there maps provider specific settings
+into named resources that can be used during deployment.
+
+Pools defined at the model level are easily reused across applications.
+Pool creation requires a pool name, the provider type and attributes for
+configuration as space-separated pairs, e.g. tags, size, path, etc.
+`
+
+// NewPoolCreateCommand returns a command that creates or defines a storage pool
+func NewPoolCreateCommand() cmd.Command {
+	cmd := &poolCreateCommand{}
+	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return modelcmd.Wrap(cmd)
+}
+
+// poolCreateCommand lists storage pools.
+type poolCreateCommand struct {
+	PoolCommandBase
+	newAPIFunc func() (PoolCreateAPI, error)
+	poolName   string
+	// TODO(anastasiamac 2015-01-29) type will need to become optional
+	// if type is unspecified, use the environment's default provider type
+	provider string
+	attrs    map[string]interface{}
+}
+
+// Init implements Command.Init.
+func (c *poolCreateCommand) Init(args []string) (err error) {
+	if len(args) < 3 {
+		return errors.New("pool creation requires names, provider type and attrs for configuration")
+	}
+
+	c.poolName = args[0]
+	c.provider = args[1]
+
+	options, err := keyvalues.Parse(args[2:], false)
+	if err != nil {
+		return err
+	}
+
+	if len(options) == 0 {
+		return errors.New("pool creation requires attrs for configuration")
+	}
+	c.attrs = make(map[string]interface{})
+	for key, value := range options {
+		c.attrs[key] = value
+	}
+	return nil
+}
+
+// Info implements Command.Info.
+func (c *poolCreateCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "create-storage-pool",
+		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
+		Purpose: "Create or define a storage pool.",
+		Doc:     poolCreateCommandDoc,
+	}
+}
+
+// Run implements Command.Run.
+func (c *poolCreateCommand) Run(ctx *cmd.Context) (err error) {
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
+	}
+	defer api.Close()
+	return api.CreatePool(c.poolName, c.provider, c.attrs)
+}

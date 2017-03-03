@@ -1,0 +1,1831 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package maas
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+	"text/template"
+
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
+	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
+	"launchpad.net/gomaasapi"
+
+	"github.com/juju/1.25-upgrade/juju1/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju1/constraints"
+	"github.com/juju/1.25-upgrade/juju1/environs"
+	"github.com/juju/1.25-upgrade/juju1/environs/bootstrap"
+	"github.com/juju/1.25-upgrade/juju1/environs/config"
+	"github.com/juju/1.25-upgrade/juju1/environs/simplestreams"
+	envstorage "github.com/juju/1.25-upgrade/juju1/environs/storage"
+	envtesting "github.com/juju/1.25-upgrade/juju1/environs/testing"
+	envtools "github.com/juju/1.25-upgrade/juju1/environs/tools"
+	"github.com/juju/1.25-upgrade/juju1/instance"
+	"github.com/juju/1.25-upgrade/juju1/juju/arch"
+	"github.com/juju/1.25-upgrade/juju1/juju/testing"
+	"github.com/juju/1.25-upgrade/juju1/network"
+	"github.com/juju/1.25-upgrade/juju1/provider/common"
+	"github.com/juju/1.25-upgrade/juju1/storage"
+	"github.com/juju/1.25-upgrade/juju1/version"
+)
+
+type environSuite struct {
+	providerSuite
+}
+
+const (
+	allocatedNode = `{"system_id": "test-allocated"}`
+)
+
+var _ = gc.Suite(&environSuite{})
+
+// getTestConfig creates a customized sample MAAS provider configuration.
+func getTestConfig(name, server, oauth, secret string) *config.Config {
+	ecfg, err := newConfig(map[string]interface{}{
+		"name":            name,
+		"maas-server":     server,
+		"maas-oauth":      oauth,
+		"admin-secret":    secret,
+		"authorized-keys": "I-am-not-a-real-key",
+	})
+	if err != nil {
+		panic(err)
+	}
+	return ecfg.Config
+}
+
+func (suite *environSuite) setupFakeTools(c *gc.C) {
+	storageDir := c.MkDir()
+	toolsDir := path.Join(storageDir, "tools")
+	suite.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
+	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
+}
+
+func (suite *environSuite) addNode(jsonText string) instance.Id {
+	node := suite.testMAASObject.TestServer.NewNode(jsonText)
+	resourceURI, _ := node.GetField("resource_uri")
+	return instance.Id(resourceURI)
+}
+
+func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
+	id := suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().Instances([]instance.Id{id})
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Id(), gc.Equals, id)
+}
+
+func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
+	suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().Instances([]instance.Id{})
+
+	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(instances, gc.IsNil)
+}
+
+func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
+	suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().Instances(nil)
+
+	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(instances, gc.IsNil)
+}
+
+func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
+	instances, err := suite.makeEnviron().Instances([]instance.Id{"unknown"})
+	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(instances, gc.IsNil)
+}
+
+func (suite *environSuite) TestAllInstances(c *gc.C) {
+	id := suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().AllInstances()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Id(), gc.Equals, id)
+}
+
+func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
+	instances, err := suite.makeEnviron().AllInstances()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(instances, gc.HasLen, 0)
+}
+
+func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
+	known := suite.addNode(allocatedNode)
+	suite.addNode(`{"system_id": "test2"}`)
+	unknown := instance.Id("unknown systemID")
+	instances, err := suite.makeEnviron().Instances([]instance.Id{known, unknown})
+
+	c.Check(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(instances, gc.HasLen, 2)
+	c.Check(instances[0].Id(), gc.Equals, known)
+	c.Check(instances[1], gc.IsNil)
+}
+
+func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
+	env := suite.makeEnviron()
+	stor := env.Storage()
+	c.Check(stor, gc.NotNil)
+	// The Storage object is really a maasStorage.
+	specificStorage := stor.(*maasStorage)
+	// Its environment pointer refers back to its environment.
+	c.Check(specificStorage.environUnlocked, gc.Equals, env)
+}
+
+func decodeUserData(userData string) ([]byte, error) {
+	data, err := base64.StdEncoding.DecodeString(userData)
+	if err != nil {
+		return []byte(""), err
+	}
+	return utils.Gunzip(data)
+}
+
+const lshwXMLTemplate = `
+<?xml version="1.0" standalone="yes" ?>
+<!-- generated by lshw-B.02.16 -->
+<list>
+<node id="node1" claimed="true" class="system" handle="DMI:0001">
+ <description>Computer</description>
+ <product>VirtualBox ()</product>
+ <width units="bits">64</width>
+  <node id="core" claimed="true" class="bus" handle="DMI:0008">
+   <description>Motherboard</description>
+    <node id="pci" claimed="true" class="bridge" handle="PCIBUS:0000:00">
+     <description>Host bridge</description>{{$list := .}}{{range $mac, $ifi := $list}}
+      <node id="network{{if gt (len $list) 1}}:{{$ifi.DeviceIndex}}{{end}}"{{if $ifi.Disabled}} disabled="true"{{end}} claimed="true" class="network" handle="PCI:0000:00:03.0">
+       <description>Ethernet interface</description>
+       <product>82540EM Gigabit Ethernet Controller</product>
+       <logicalname>{{$ifi.InterfaceName}}</logicalname>
+       <serial>{{$mac}}</serial>
+      </node>{{end}}
+    </node>
+  </node>
+</node>
+</list>
+`
+
+func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (string, error) {
+	tmpl, err := template.New("test").Parse(lshwXMLTemplate)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, netMacs)
+	if err != nil {
+		return "", err
+	}
+	return string(buf.Bytes()), nil
+}
+
+func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	// Create node 0: it will be used as the bootstrap node.
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1, "zone": {"name": "test_zone"}}`,
+		arch.HostArch()),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	// The bootstrap node has been acquired and started.
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	actions, found := operations["node0"]
+	c.Check(found, jc.IsTrue)
+	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
+
+	// Test the instance id is correctly recorded for the bootstrap node.
+	// Check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceIds, gc.HasLen, 1)
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.HasLen, 1)
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
+
+	// Create node 1: it will be used as instance number 1.
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1, "zone": {"name": "test_zone"}}`,
+		arch.HostArch()),
+	)
+	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	instance, hc := testing.AssertStartInstance(c, env, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance, gc.NotNil)
+	c.Assert(hc, gc.NotNil)
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
+
+	// The instance number 1 has been acquired and started.
+	actions, found = operations["node1"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
+
+	// The value of the "user data" parameter used when starting the node
+	// contains the run cmd used to write the machine information onto
+	// the node's filesystem.
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node1"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(len(nodeRequestValues), gc.Equals, 2)
+	userData := nodeRequestValues[1].Get("user_data")
+	decodedUserData, err := decodeUserData(userData)
+	c.Assert(err, jc.ErrorIsNil)
+	info := machineInfo{"host1"}
+	cloudcfg, err := cloudinit.New("precise")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudinitRunCmd, err := info.cloudinitRunCmd(cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := goyaml.Marshal(cloudinitRunCmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(decodedUserData), jc.Contains, string(data))
+
+	// Trash the tools and try to start another instance.
+	suite.PatchValue(&envtools.DefaultBaseURL, "")
+	instance, _, _, err = testing.StartInstance(env, "2")
+	c.Check(instance, gc.IsNil)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func uint64p(val uint64) *uint64 {
+	return &val
+}
+
+func stringp(val string) *string {
+	return &val
+}
+
+func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	node, err := env.selectNode(snArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node, gc.NotNil)
+}
+
+func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
+	env := suite.makeEnviron()
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	_, err := env.selectNode(snArgs)
+	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
+}
+
+func (suite *environSuite) TestAcquireNode(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, nil)
+
+	c.Check(err, jc.ErrorIsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	actions, found := operations["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(actions, gc.DeepEquals, []string{"acquire"})
+
+	// no "name" parameter should have been passed through
+	values := suite.testMAASObject.TestServer.NodeOperationRequestValues()["node0"][0]
+	_, found = values["name"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil, nil)
+
+	c.Check(err, jc.ErrorIsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	actions, found := operations["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(actions, gc.DeepEquals, []string{"acquire"})
+
+	// no "name" parameter should have been passed through
+	values := suite.testMAASObject.TestServer.NodeOperationRequestValues()["node0"][0]
+	nodeName := values.Get("name")
+	c.Assert(nodeName, gc.Equals, "host0")
+}
+
+func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic", "memory": 2048}`,
+	)
+	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
+
+	_, err := env.acquireNode("", "", constraints, nil, nil, nil)
+
+	c.Check(err, jc.ErrorIsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(nodeRequestValues[0].Get("arch"), gc.Equals, "arm")
+	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
+}
+
+func (suite *environSuite) TestParseTags(c *gc.C) {
+	tests := []struct {
+		about         string
+		input         []string
+		tags, notTags []string
+	}{{
+		about:   "nil input",
+		input:   nil,
+		tags:    []string{},
+		notTags: []string{},
+	}, {
+		about:   "empty input",
+		input:   []string{},
+		tags:    []string{},
+		notTags: []string{},
+	}, {
+		about:   "tag list with embedded spaces",
+		input:   []string{"   tag1  ", " tag2", " ^ not Tag 3  ", "  ", " ", "", "", " ^notTag4   "},
+		tags:    []string{"tag1", "tag2"},
+		notTags: []string{"notTag3", "notTag4"},
+	}, {
+		about:   "only positive tags",
+		input:   []string{"tag1", "tag2", "tag3"},
+		tags:    []string{"tag1", "tag2", "tag3"},
+		notTags: []string{},
+	}, {
+		about:   "only negative tags",
+		input:   []string{"^tag1", "^tag2", "^tag3"},
+		tags:    []string{},
+		notTags: []string{"tag1", "tag2", "tag3"},
+	}, {
+		about:   "both positive and negative tags",
+		input:   []string{"^tag1", "tag2", "^tag3", "tag4"},
+		tags:    []string{"tag2", "tag4"},
+		notTags: []string{"tag1", "tag3"},
+	}, {
+		about:   "single positive tag",
+		input:   []string{"tag1"},
+		tags:    []string{"tag1"},
+		notTags: []string{},
+	}, {
+		about:   "single negative tag",
+		input:   []string{"^tag1"},
+		tags:    []string{},
+		notTags: []string{"tag1"},
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.about)
+		tags, notTags := parseTags(test.input)
+		c.Check(tags, jc.DeepEquals, test.tags)
+		c.Check(notTags, jc.DeepEquals, test.notTags)
+	}
+}
+
+func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, nil)
+
+	c.Check(err, jc.ErrorIsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
+}
+
+func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
+
+	_, err := env.acquireNode(
+		"", "",
+		constraints.Value{Tags: &[]string{"tag1", "^tag2", "tag3", "^tag4"}},
+		nil, nil, nil,
+	)
+
+	c.Check(err, jc.ErrorIsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(nodeValues[0].Get("tags"), gc.Equals, "tag1,tag3")
+	c.Assert(nodeValues[0].Get("not_tags"), gc.Equals, "tag2,tag4")
+}
+
+func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
+	for i, test := range []struct {
+		volumes  []volumeInfo
+		expected string
+	}{
+		{
+			nil,
+			"",
+		},
+		{
+			[]volumeInfo{{"volume-1", 1234, nil}},
+			"volume-1:1234",
+		},
+		{
+			[]volumeInfo{{"", 1234, []string{"tag1", "tag2"}}},
+			"1234(tag1,tag2)",
+		},
+		{
+			[]volumeInfo{{"volume-1", 1234, []string{"tag1", "tag2"}}},
+			"volume-1:1234(tag1,tag2)",
+		},
+		{
+			[]volumeInfo{
+				{"volume-1", 1234, []string{"tag1", "tag2"}},
+				{"volume-2", 4567, []string{"tag1", "tag3"}},
+			},
+			"volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
+		},
+	} {
+		c.Logf("test %d", i)
+		env := suite.makeEnviron()
+		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, test.volumes)
+		c.Check(err, jc.ErrorIsNil)
+		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+		nodeRequestValues, found := requestValues["node0"]
+		c.Check(found, jc.IsTrue)
+		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
+		suite.testMAASObject.TestServer.Clear()
+	}
+}
+
+var testValues = []struct {
+	constraints    constraints.Value
+	expectedResult url.Values
+}{
+	{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
+	{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
+	{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
+	{constraints.Value{Tags: &[]string{"tag1", "tag2", "^tag3", "^tag4"}}, url.Values{"tags": {"tag1,tag2"}, "not_tags": {"tag3,tag4"}}},
+
+	// CpuPower is ignored.
+	{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
+
+	// RootDisk is ignored.
+	{constraints.Value{RootDisk: uint64p(8192)}, url.Values{}},
+	{constraints.Value{Tags: &[]string{"foo", "bar"}}, url.Values{"tags": {"foo,bar"}}},
+	{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192), Tags: &[]string{"foo", "bar"}}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}, "tags": {"foo,bar"}}},
+}
+
+func (*environSuite) TestConvertConstraints(c *gc.C) {
+	for _, test := range testValues {
+		c.Check(convertConstraints(test.constraints), gc.DeepEquals, test.expectedResult)
+	}
+}
+
+var testNetworkValues = []struct {
+	includeNetworks []string
+	excludeNetworks []string
+	expectedResult  url.Values
+}{
+	{
+		nil,
+		nil,
+		url.Values{},
+	},
+	{
+		[]string{"included_net_1"},
+		nil,
+		url.Values{"networks": {"included_net_1"}},
+	},
+	{
+		nil,
+		[]string{"excluded_net_1"},
+		url.Values{"not_networks": {"excluded_net_1"}},
+	},
+	{
+		[]string{"included_net_1", "included_net_2"},
+		[]string{"excluded_net_1", "excluded_net_2"},
+		url.Values{
+			"networks":     {"included_net_1", "included_net_2"},
+			"not_networks": {"excluded_net_1", "excluded_net_2"},
+		},
+	},
+}
+
+func (*environSuite) TestConvertNetworks(c *gc.C) {
+	for _, test := range testNetworkValues {
+		var vals = url.Values{}
+		addNetworks(vals, test.includeNetworks, test.excludeNetworks)
+		c.Check(vals, gc.DeepEquals, test.expectedResult)
+	}
+}
+
+func (suite *environSuite) getInstance(systemId string) *maasInstance {
+	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
+	node := suite.testMAASObject.TestServer.NewNode(input)
+	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
+}
+
+func (suite *environSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
+	var vlan string
+	if vlanTag == 0 {
+		vlan = "null"
+	} else {
+		vlan = fmt.Sprintf("%d", vlanTag)
+	}
+	var input string
+	input = fmt.Sprintf(`{"name": %q, "ip":"192.168.%d.1", "netmask": "255.255.255.0",`+
+		`"vlan_tag": %s, "description": "%s_%d_%d" }`, name, id, vlan, name, id, vlanTag)
+	network := suite.testMAASObject.TestServer.NewNetwork(input)
+	return &network
+}
+
+func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
+	suite.getInstance("test1")
+
+	err := suite.makeEnviron().StopInstances()
+	c.Check(err, jc.ErrorIsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	c.Check(operations, gc.DeepEquals, map[string][]string{})
+}
+
+func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
+	suite.getInstance("test1")
+	suite.getInstance("test2")
+	suite.getInstance("test3")
+	// mark test1 and test2 as being allocated, but not test3.
+	// The release operation will ignore test3.
+	suite.testMAASObject.TestServer.OwnedNodes()["test1"] = true
+	suite.testMAASObject.TestServer.OwnedNodes()["test2"] = true
+
+	err := suite.makeEnviron().StopInstances("test1", "test2", "test3")
+	c.Check(err, jc.ErrorIsNil)
+	operations := suite.testMAASObject.TestServer.NodesOperations()
+	c.Check(operations, gc.DeepEquals, []string{"release"})
+	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
+	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
+}
+
+func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 409}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
+	attemptedNodes := [][]string{}
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		attemptedNodes = append(attemptedNodes, ids["nodes"])
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1", "test2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedNodes := [][]string{{"test1", "test2"}, {"test1"}, {"test2"}}
+	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 405}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(maasErr.StatusCode, gc.Equals, 405)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return environs.ErrNoInstances
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
+}
+
+func (suite *environSuite) TestStateServerInstances(c *gc.C) {
+	env := suite.makeEnviron()
+	_, err := env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+
+	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
+	for _, expected := range tests {
+		err := common.SaveState(env.Storage(), &common.BootstrapState{
+			StateInstances: expected,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		stateServerInstances, err := env.StateServerInstances()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(stateServerInstances, jc.SameContents, expected)
+	}
+}
+
+func (suite *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
+	env := suite.makeEnviron()
+	_, err := env.StateServerInstances()
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+func (suite *environSuite) TestDestroy(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.getInstance("test1")
+	suite.testMAASObject.TestServer.OwnedNodes()["test1"] = true // simulate acquire
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("filename", data)
+	stor := env.Storage()
+
+	err := env.Destroy()
+	c.Check(err, jc.ErrorIsNil)
+
+	// Instances have been stopped.
+	operations := suite.testMAASObject.TestServer.NodesOperations()
+	c.Check(operations, gc.DeepEquals, []string{"release"})
+	c.Check(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
+	// Files have been cleaned up.
+	listing, err := envstorage.List(stor, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(listing, gc.DeepEquals, []string{})
+}
+
+func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
+		arch.HostArch()),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
+		arch.HostArch()),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	// Ensure node will not be reported as deployed by changing its status.
+	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
+}
+
+func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
+		arch.HostArch()),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	// Set the node status to "Failed deployment"
+	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
+}
+
+func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
+	env := suite.makeEnviron()
+	// Disable auto-uploading by setting the agent version.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"agent-version": version.Current.Number.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+}
+
+func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	// Since there are no nodes, the attempt to allocate one returns a
+	// 409: Conflict.
+	c.Check(err, gc.ErrorMatches, ".*409.*")
+}
+
+func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
+	rc, _, err := source.Fetch(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	defer rc.Close()
+	retrieved, err := ioutil.ReadAll(rc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retrieved, gc.DeepEquals, content)
+}
+
+func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	env := suite.makeEnviron()
+	// Add a dummy file to storage so we can use that to check the
+	// obtained source later.
+	data := makeRandomBytes(10)
+	stor := NewStorage(env)
+	err := stor.Put("tools/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, jc.ErrorIsNil)
+	sources, err := envtools.GetMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, gc.HasLen, 0)
+}
+
+func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
+	env := suite.makeEnviron()
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
+}
+
+func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
+	// If we cannot query boot-images (e.g. MAAS server version 1.4),
+	// then Juju will fall over to listing all the available nodes.
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
+	env := suite.makeEnviron()
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
+}
+
+func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	env := suite.makeEnviron()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
+}
+
+func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "armhf", "release": "precise"}`)
+	env := suite.makeEnviron()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse("arch=ppc64el")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
+}
+
+func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
+	env := suite.makeEnviron()
+
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_1","ip":"0.1.2.0","netmask":"255.255.255.0"}`,
+	)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_2","ip":"0.2.2.0","netmask":"255.255.255.0"}`,
+	)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_2", "aa:bb:cc:dd:ee:22")
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_2", "aa:bb:cc:dd:ee:12")
+
+	networks, err := env.getNetworkMACs("net_1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:21"})
+
+	networks, err = env.getNetworkMACs("net_2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:12", "aa:bb:cc:dd:ee:22"})
+
+	networks, err = env.getNetworkMACs("net_3")
+	c.Check(networks, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
+	suite.getNetwork("test_network", 123, 321)
+	testInstance := suite.getInstance("instance_for_network")
+	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
+	networks, err := suite.makeEnviron().getInstanceNetworks(testInstance)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networks, gc.DeepEquals, []networkDetails{
+		{Name: "test_network", IP: "192.168.123.1", Mask: "255.255.255.0", VLANTag: 321,
+			Description: "test_network_123_321"},
+	})
+}
+
+// A typical lshw XML dump with lots of things left out.
+const lshwXMLTestExtractInterfaces = `
+<?xml version="1.0" standalone="yes" ?>
+<!-- generated by lshw-B.02.16 -->
+<list>
+<node id="machine" claimed="true" class="system" handle="DMI:0001">
+ <description>Notebook</description>
+ <product>MyMachine</product>
+ <version>1.0</version>
+ <width units="bits">64</width>
+  <node id="core" claimed="true" class="bus" handle="DMI:0002">
+   <description>Motherboard</description>
+    <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
+     <description>CPU</description>
+      <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
+        <node id="network:0" claimed="true" disabled="true" class="network" handle="PCI:0000:03:00.0">
+         <logicalname>wlan0</logicalname>
+         <serial>aa:bb:cc:dd:ee:ff</serial>
+        </node>
+        <node id="network:1" claimed="true" class="network" handle="PCI:0000:04:00.0">
+         <logicalname>eth0</logicalname>
+         <serial>aa:bb:cc:dd:ee:f1</serial>
+        </node>
+      </node>
+    </node>
+  </node>
+  <node id="network:2" claimed="true" class="network" handle="">
+   <logicalname>vnet1</logicalname>
+   <serial>aa:bb:cc:dd:ee:f2</serial>
+  </node>
+</node>
+</list>
+`
+
+// An lshw XML dump with implicit network interface indexes.
+const lshwXMLTestExtractInterfacesImplicitIndexes = `
+<?xml version="1.0" standalone="yes" ?>
+<!-- generated by lshw-B.02.16 -->
+<list>
+<node id="machine" claimed="true" class="system" handle="DMI:0001">
+ <description>Notebook</description>
+ <product>MyMachine</product>
+ <version>1.0</version>
+ <width units="bits">64</width>
+  <node id="core" claimed="true" class="bus" handle="DMI:0002">
+   <description>Motherboard</description>
+    <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
+     <description>CPU</description>
+      <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
+        <node id="network" claimed="true" disabled="true" class="network" handle="PCI:0000:03:00.0">
+         <logicalname>wlan0</logicalname>
+         <serial>aa:bb:cc:dd:ee:ff</serial>
+        </node>
+        <node id="network" claimed="true" class="network" handle="PCI:0000:04:00.0">
+         <logicalname>eth0</logicalname>
+         <serial>aa:bb:cc:dd:ee:f1</serial>
+        </node>
+      </node>
+    </node>
+  </node>
+  <node id="network" claimed="true" class="network" handle="">
+   <logicalname>vnet1</logicalname>
+   <serial>aa:bb:cc:dd:ee:f2</serial>
+  </node>
+</node>
+</list>
+`
+
+func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
+	rawData := []string{
+		lshwXMLTestExtractInterfaces,
+		lshwXMLTestExtractInterfacesImplicitIndexes,
+	}
+	for _, data := range rawData {
+		inst := suite.getInstance("testInstance")
+		interfaces, primaryIface, err := extractInterfaces(inst, []byte(data))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(primaryIface, gc.Equals, "eth0")
+		c.Check(interfaces, jc.DeepEquals, map[string]ifaceInfo{
+			"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+			"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+			"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+		})
+	}
+}
+
+func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
+	inst := suite.getInstance("testInstance")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", true},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
+	interfaces, primaryIface, err := inst.environ.getInstanceNetworkInterfaces(inst)
+	c.Assert(err, jc.ErrorIsNil)
+	// Both wlan0 and eth0 are disabled in lshw output.
+	c.Check(primaryIface, gc.Equals, "vnet1")
+	c.Check(interfaces, jc.DeepEquals, templateInterfaces)
+}
+
+func (suite *environSuite) TestSetupNetworks(c *gc.C) {
+	testInstance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", true},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	suite.getNetwork("WLAN", 1, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
+		testInstance,
+		set.NewStrings("WLAN"), // Disable WLAN only.
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Note: order of networks is based on lshwXML
+	c.Check(primaryIface, gc.Equals, "vnet1")
+	// Unfortunately, because network.InterfaceInfo is unhashable
+	// (contains a map) we can't use jc.SameContents here.
+	c.Check(networkInfo, gc.HasLen, 3)
+	for _, info := range networkInfo {
+		switch info.DeviceIndex {
+		case 0:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:ff",
+				CIDR:          "192.168.1.1/24",
+				NetworkName:   "WLAN",
+				ProviderId:    "WLAN",
+				VLANTag:       0,
+				DeviceIndex:   0,
+				InterfaceName: "wlan0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 1:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				DeviceIndex:   1,
+				MACAddress:    "aa:bb:cc:dd:ee:f1",
+				CIDR:          "192.168.2.1/24",
+				NetworkName:   "LAN",
+				ProviderId:    "LAN",
+				VLANTag:       42,
+				InterfaceName: "eth0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 2:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:f2",
+				CIDR:          "192.168.3.1/24",
+				NetworkName:   "Virt",
+				ProviderId:    "Virt",
+				VLANTag:       0,
+				DeviceIndex:   2,
+				InterfaceName: "vnet1",
+				Disabled:      false,
+			})
+		}
+	}
+}
+
+// The same test, but now "Virt" network does not have matched MAC address
+func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
+	testInstance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
+	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
+		testInstance,
+		set.NewStrings(), // All enabled.
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Note: order of networks is based on lshwXML
+	c.Check(primaryIface, gc.Equals, "eth0")
+	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		CIDR:          "192.168.2.1/24",
+		NetworkName:   "LAN",
+		ProviderId:    "LAN",
+		VLANTag:       42,
+		DeviceIndex:   1,
+		InterfaceName: "eth0",
+		Disabled:      false,
+	}})
+}
+
+// The same test, but now no networks have matched MAC
+func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
+	testInstance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
+	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
+		testInstance,
+		set.NewStrings(), // All enabled.
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Note: order of networks is based on lshwXML
+	c.Check(primaryIface, gc.Equals, "eth0")
+	c.Check(networkInfo, gc.HasLen, 0)
+}
+
+func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
+	env := suite.makeEnviron()
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportsAddressAllocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
+	testInstance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+	}
+	if duplicates {
+		templateInterfaces["aa:bb:cc:dd:ee:f3"] = ifaceInfo{3, "eth1", true}
+		templateInterfaces["aa:bb:cc:dd:ee:f4"] = ifaceInfo{4, "vnet2", false}
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	// resulting CIDR 192.168.2.1/24
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	// resulting CIDR 192.168.3.1/24
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	// resulting CIDR 192.168.1.1/24
+	suite.getNetwork("WLAN", 1, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	if duplicates {
+		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
+		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
+	}
+
+	// needed for getNodeGroups to work
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+
+	jsonText1 := `{
+		"ip_range_high":        "192.168.2.255",
+		"ip_range_low":         "192.168.2.128",
+		"broadcast_ip":         "192.168.2.255",
+		"static_ip_range_low":  "192.168.2.0",
+		"name":                 "eth0",
+		"ip":                   "192.168.2.1",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.2.127",
+		"interface":            "eth0"
+	}`
+	jsonText2 := `{
+		"ip_range_high":        "172.16.0.128",
+		"ip_range_low":         "172.16.0.2",
+		"broadcast_ip":         "172.16.0.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth1",
+		"ip":                   "172.16.0.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.0.255",
+		"interface":            "eth1"
+	}`
+	jsonText3 := `{
+		"ip_range_high":        "192.168.1.128",
+		"ip_range_low":         "192.168.1.2",
+		"broadcast_ip":         "192.168.1.255",
+		"static_ip_range_low":  "192.168.1.129",
+		"name":                 "eth2",
+		"ip":                   "192.168.1.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.1.255",
+		"interface":            "eth2"
+	}`
+	jsonText4 := `{
+		"ip_range_high":        "172.16.8.128",
+		"ip_range_low":         "172.16.8.2",
+		"broadcast_ip":         "172.16.8.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth3",
+		"ip":                   "172.16.8.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.8.255",
+		"interface":            "eth3"
+	}`
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
+	return testInstance
+}
+
+func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+
+	netInfo, err := suite.makeEnviron().NetworkInterfaces(testInstance.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		CIDR:             "192.168.1.1/24",
+		ProviderSubnetId: "WLAN",
+		VLANTag:          0,
+		InterfaceName:    "wlan0",
+		Disabled:         true,
+		NoAutoStart:      true,
+		ConfigType:       network.ConfigDHCP,
+		ExtraConfig:      nil,
+		GatewayAddress:   network.Address{},
+		Address:          network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
+	}, {
+		DeviceIndex:      1,
+		MACAddress:       "aa:bb:cc:dd:ee:f1",
+		CIDR:             "192.168.2.1/24",
+		ProviderSubnetId: "LAN",
+		VLANTag:          42,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		ExtraConfig:      nil,
+		GatewayAddress:   network.Address{},
+		Address:          network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
+	}, {
+		DeviceIndex:      2,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		CIDR:             "192.168.3.1/24",
+		ProviderSubnetId: "Virt",
+		VLANTag:          0,
+		InterfaceName:    "vnet1",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		ExtraConfig:      nil,
+		GatewayAddress:   network.Address{},
+		Address:          network.NewScopedAddress("192.168.3.1", network.ScopeCloudLocal),
+	}}
+	network.SortInterfaceInfo(netInfo)
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestSubnets(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+
+	netInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.SubnetInfo{
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+}
+
+func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"WLAN", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+}
+
+func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
+	testInstance := suite.createSubnets(c, true)
+
+	netInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.SubnetInfo{
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	// note that the default test server always succeeds if we provide a
+	// valid instance id and net id
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	// note that the default test server always succeeds if we provide a
+	// valid instance id and net id
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray := suite.getDeviceArray(c)
+	c.Assert(devicesArray, gc.HasLen, 1)
+
+	device, err := devicesArray[0].GetMap()
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostname, err := device["hostname"].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostname, gc.Equals, "bar")
+
+	parent, err := device["parent"].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	trimmedId := strings.TrimRight(string(testInstance.Id()), "/")
+	split := strings.Split(trimmedId, "/")
+	maasId := split[len(split)-1]
+	c.Assert(parent, gc.Equals, maasId)
+
+	addressesArray, err := device["ip_addresses"].GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addressesArray, gc.HasLen, 1)
+	address, err := addressesArray[0].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, gc.Equals, "192.168.2.1")
+
+	macArray, err := device["macaddress_set"].GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(macArray, gc.HasLen, 1)
+	macMap, err := macArray[0].GetMap()
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := macMap["mac_address"].GetString()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mac, gc.Equals, "foo")
+}
+
+func (suite *environSuite) getDeviceArray(c *gc.C) []gomaasapi.JSONObject {
+	devicesURL := "/api/1.0/devices/?op=list"
+	resp, err := http.Get(suite.testMAASObject.TestServer.Server.URL + devicesURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := gomaasapi.Parse(gomaasapi.Client{}, content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray, err := result.GetArray()
+	c.Assert(err, jc.ErrorIsNil)
+	return devicesArray
+}
+
+func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+	addr := network.NewAddress("192.168.2.1")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray := suite.getDeviceArray(c)
+	c.Assert(devicesArray, gc.HasLen, 1)
+
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArray = suite.getDeviceArray(c)
+	c.Assert(devicesArray, gc.HasLen, 0)
+}
+
+func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
+	env := suite.makeEnviron()
+	addr := network.Address{Value: "192.168.2.1"}
+	instId := instance.Id("foo")
+	err := env.AllocateAddress(instId, "bar", addr, "foo", "bar")
+	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", addr, instId)
+	c.Assert(err, gc.ErrorMatches, expected)
+}
+
+func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
+}
+
+func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
+
+	ipAddress := network.Address{Value: "192.168.2.1"}
+	err := env.AllocateAddress(testInstance.Id(), "LAN", ipAddress, "foo", "bar")
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, testInstance.Id())
+	c.Assert(err, gc.ErrorMatches, expected)
+}
+
+func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	placement := "zone=zone1"
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestReleaseAddress(c *gc.C) {
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddress := network.Address{Value: "192.168.2.1"}
+	macAddress := "foobar"
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// by releasing again we can test that the first release worked, *and*
+	// the error handling of ReleaseError
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q.*", ipAddress, testInstance.Id())
+	c.Assert(err, gc.ErrorMatches, expected)
+}
+
+func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
+	// Patch short attempt params.
+	suite.PatchValue(&shortAttempt, utils.AttemptStrategy{
+		Min: 5,
+	})
+	// Patch IP address release call to MAAS.
+	retries := 0
+	enoughRetries := 10
+	suite.PatchValue(&ReleaseIPAddress, func(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
+		retries++
+		if retries < enoughRetries {
+			return errors.New("ouch")
+		}
+		return nil
+	})
+
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ReleaseAddress must fail with 5 retries.
+	ipAddress := network.Address{Value: "192.168.2.1"}
+	macAddress := "foobar"
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q: ouch", ipAddress, testInstance.Id())
+	c.Assert(err, gc.ErrorMatches, expected)
+	c.Assert(retries, gc.Equals, 5)
+
+	// Now let it succeed after 3 retries.
+	retries = 0
+	enoughRetries = 3
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retries, gc.Equals, 3)
+}
+
+func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	placement := "zone=zone2"
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+}
+
+func (s *environSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
+	env := s.makeEnviron()
+	placement := "zone=test-unknown"
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *environSuite) TestPrecheckInvalidPlacement(c *gc.C) {
+	env := s.makeEnviron()
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, "notzone=anything")
+	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
+}
+
+func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
+	env := s.makeEnviron()
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, "assumed_node_name")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
+	// Add a node for the started instance.
+	s.newNode(c, "thenode1", "host1", map[string]interface{}{"zone": "test-available"})
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	inst, err := s.testStartInstanceAvailZone(c, "test-available")
+	c.Assert(err, jc.ErrorIsNil)
+	zone, err := inst.(*maasInstance).zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "test-available")
+}
+
+func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+}
+
+func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+	env := s.bootstrap(c)
+	params := environs.StartInstanceParams{Placement: "zone=" + zone}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
+}
+
+func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
+}
+
+func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
+}
+
+var nodeStorageAttrs = []map[string]interface{}{
+	{
+		"name":       "sdb",
+		"id":         1,
+		"id_path":    "/dev/disk/by-id/id_for_sda",
+		"path":       "/dev/sdb",
+		"model":      "Samsung_SSD_850_EVO_250GB",
+		"block_size": 4096,
+		"serial":     "S21NNSAFC38075L",
+		"size":       uint64(250059350016),
+	},
+	{
+		"name":       "sda",
+		"id":         2,
+		"path":       "/dev/sda",
+		"model":      "Samsung_SSD_850_EVO_250GB",
+		"block_size": 4096,
+		"serial":     "XXXX",
+		"size":       uint64(250059350016),
+	},
+	{
+		"name":       "sdc",
+		"id":         3,
+		"path":       "/dev/sdc",
+		"model":      "Samsung_SSD_850_EVO_250GB",
+		"block_size": 4096,
+		"serial":     "YYYYYYY",
+		"size":       uint64(250059350016),
+	},
+}
+
+var storageConstraintAttrs = map[string]interface{}{
+	"1": "1",
+	"2": "root",
+	"3": "3",
+}
+
+func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", map[string]interface{}{
+		"memory":                  8192,
+		"physicalblockdevice_set": nodeStorageAttrs,
+		"constraint_map":          storageConstraintAttrs,
+	})
+	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
+		{Tag: names.NewVolumeTag("1"), Size: 2000000},
+		{Tag: names.NewVolumeTag("3"), Size: 2000000},
+	}}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
+		{
+			names.NewVolumeTag("1"),
+			storage.VolumeInfo{
+				Size:       238475,
+				VolumeId:   "volume-1",
+				HardwareId: "id_for_sda",
+			},
+		},
+		{
+			names.NewVolumeTag("3"),
+			storage.VolumeInfo{
+				Size:       238475,
+				VolumeId:   "volume-3",
+				HardwareId: "",
+			},
+		},
+	})
+	c.Assert(result.VolumeAttachments, jc.DeepEquals, []storage.VolumeAttachment{
+		{
+			names.NewVolumeTag("1"),
+			names.NewMachineTag("1"),
+			storage.VolumeAttachmentInfo{
+				DeviceName: "",
+				ReadOnly:   false,
+			},
+		},
+		{
+			names.NewVolumeTag("3"),
+			names.NewMachineTag("1"),
+			storage.VolumeAttachmentInfo{
+				DeviceName: "sdc",
+				ReadOnly:   false,
+			},
+		},
+	})
+}
+
+func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", map[string]interface{}{
+		"memory": 8192,
+	})
+	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
+		{Tag: names.NewVolumeTag("1"), Size: 2000000},
+		{Tag: names.NewVolumeTag("3"), Size: 2000000},
+	}}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "the version of MAAS being used does not support Juju storage")
+	operations := s.testMAASObject.TestServer.NodesOperations()
+	c.Check(operations, gc.DeepEquals, []string{"acquire", "acquire", "release"})
+	c.Assert(s.testMAASObject.TestServer.OwnedNodes()["node0"], jc.IsTrue)
+	c.Assert(s.testMAASObject.TestServer.OwnedNodes()["thenode1"], jc.IsFalse)
+}
+
+func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
+	env := s.makeEnviron()
+
+	zones, err := env.AvailabilityZones()
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(zones, gc.IsNil)
+
+	s.testMAASObject.TestServer.AddZone("whatever", "andever")
+	zones, err = env.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
+	c.Assert(zones[0].Available(), jc.IsTrue)
+
+	// A successful result is cached, currently for the lifetime
+	// of the Environ. This will change if/when we have long-lived
+	// Environs to cut down repeated IaaS requests.
+	s.testMAASObject.TestServer.AddZone("somewhere", "outthere")
+	zones, err = env.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
+}
+
+type mockAvailabilityZoneAllocations struct {
+	group  []instance.Id // input param
+	result []common.AvailabilityZoneInstances
+	err    error
+}
+
+func (m *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
+	e common.ZonedEnviron, group []instance.Id,
+) ([]common.AvailabilityZoneInstances, error) {
+	m.group = group
+	return m.result, m.err
+}
+
+func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[string]interface{}) {
+	allAttrs := map[string]interface{}{
+		"system_id":    nodename,
+		"hostname":     hostname,
+		"architecture": fmt.Sprintf("%s/generic", arch.HostArch()),
+		"memory":       1024,
+		"cpu_count":    1,
+		"zone":         map[string]string{"name": "test_zone"},
+	}
+	for k, v := range attrs {
+		allAttrs[k] = v
+	}
+	data, err := json.Marshal(allAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMAASObject.TestServer.NewNode(string(data))
+	lshwXML, err := s.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMAASObject.TestServer.AddNodeDetails(nodename, lshwXML)
+}
+
+func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
+	s.newNode(c, "node0", "bootstrap-host", nil)
+	s.setupFakeTools(c)
+	env := s.makeEnviron()
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		Placement: "bootstrap-host",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return env
+}
+
+func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
+	env := s.bootstrap(c)
+	var mock mockAvailabilityZoneAllocations
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+
+	// no distribution group specified
+	s.newNode(c, "node1", "host1", nil)
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(mock.group, gc.HasLen, 0)
+
+	// distribution group specified: ensure it's passed through to AvailabilityZone.
+	s.newNode(c, "node2", "host2", nil)
+	expectedInstances := []instance.Id{"i-0", "i-1"}
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return expectedInstances, nil
+		},
+	}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
+}
+
+func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
+	env := s.bootstrap(c)
+	mock := mockAvailabilityZoneAllocations{
+		err: errors.New("AvailabilityZoneAllocations failed"),
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	_, _, _, err := testing.StartInstance(env, "1")
+	c.Assert(err, gc.ErrorMatches, "cannot get availability zone allocations: AvailabilityZoneAllocations failed")
+
+	mock.err = nil
+	dgErr := errors.New("DistributionGroup failed")
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return nil, dgErr
+		},
+	}
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot get distribution group: DistributionGroup failed")
+}
+
+func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
+	env := s.bootstrap(c)
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	zone, err := inst.(*maasInstance).zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "test-available")
+}
+
+func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{
+			ZoneName: "zone1",
+		}, {
+			ZoneName: "zonelord",
+		}, {
+			ZoneName: "zone2",
+		}},
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	s.testMAASObject.TestServer.AddZone("zone1", "description")
+	s.testMAASObject.TestServer.AddZone("zone2", "description")
+	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+
+	env := s.bootstrap(c)
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	zone, err := inst.(*maasInstance).zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "zone2")
+	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
+		// one acquire for the bootstrap, three for StartInstance (with zone failover)
+		"acquire", "acquire", "acquire", "acquire",
+	})
+	c.Assert(s.testMAASObject.TestServer.NodesOperationRequestValues(), gc.DeepEquals, []url.Values{{
+		"name":       []string{"bootstrap-host"},
+		"agent_name": []string{exampleAgentName},
+	}, {
+		"zone":       []string{"zone1"},
+		"agent_name": []string{exampleAgentName},
+	}, {
+		"zone":       []string{"zonelord"},
+		"agent_name": []string{exampleAgentName},
+	}, {
+		"zone":       []string{"zone2"},
+		"agent_name": []string{exampleAgentName},
+	}})
+}
+
+func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{
+			ZoneName: "zone1",
+		}, {
+			ZoneName: "zone2",
+		}},
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	s.testMAASObject.TestServer.AddZone("zone1", "description")
+	s.testMAASObject.TestServer.AddZone("zone2", "description")
+	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
+	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+
+	env := s.bootstrap(c)
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
+		// one acquire for the bootstrap, one for StartInstance.
+		"acquire", "acquire",
+	})
+}
