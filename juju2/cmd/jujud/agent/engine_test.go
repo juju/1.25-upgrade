@@ -13,12 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/cmd/jujud/agent/unit"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/machine"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/model"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/unit"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 var (

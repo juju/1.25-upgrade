@@ -17,10 +17,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/mongo"
-	mongoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/state/storage"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	mongoutils "github.com/juju/1.25-upgrade/juju2/mongo/utils"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 // MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.

@@ -18,15 +18,15 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/sync"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/api/controller"
+	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/sync"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 var usageUpgradeJujuSummary = `

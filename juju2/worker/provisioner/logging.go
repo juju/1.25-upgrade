@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/feature"
+	"github.com/juju/1.25-upgrade/juju2/feature"
 )
 
 // loggedErrorStack is a developer helper function that will cause the error

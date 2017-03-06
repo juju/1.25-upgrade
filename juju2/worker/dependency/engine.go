@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.dependency")

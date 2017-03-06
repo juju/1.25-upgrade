@@ -6,10 +6,10 @@ package lifeflag
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/lifeflag"
-	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/lifeflag"
+	"github.com/juju/1.25-upgrade/juju2/api/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 func NewWorker(config Config) (worker.Worker, error) {

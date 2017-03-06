@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // LatestCharmHandler exposes the functionality needed to deal with

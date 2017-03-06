@@ -4,7 +4,7 @@
 package utils_test
 
 import (
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/1.25-upgrade/juju2/mongo/utils"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 )

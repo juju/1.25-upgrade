@@ -11,15 +11,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cloud"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/migration"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 var (

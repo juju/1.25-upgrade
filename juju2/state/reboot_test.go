@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
 )
 
 type RebootSuite struct {

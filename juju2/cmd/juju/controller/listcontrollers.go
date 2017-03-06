@@ -13,12 +13,12 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/controller"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 var helpControllersSummary = `

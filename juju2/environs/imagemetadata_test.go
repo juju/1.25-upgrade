@@ -9,17 +9,17 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type ImageMetadataSuite struct {

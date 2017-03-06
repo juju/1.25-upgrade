@@ -7,11 +7,11 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/statemetrics"
-	"github.com/juju/juju/status"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/statemetrics"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type mockState struct {

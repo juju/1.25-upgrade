@@ -6,9 +6,9 @@ package remotestate
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 type relationUnitsWatcher struct {

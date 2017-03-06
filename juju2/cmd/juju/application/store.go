@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // TODO(natefinch): change the code in this file to use the
-// github.com/juju/juju/charmstore package to interact with the charmstore.
+// github.com/juju/1.25-upgrade/juju2/charmstore package to interact with the charmstore.
 
 package application
 
@@ -18,8 +18,8 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 // maybeTermsAgreementError returns err as a *termsAgreementError

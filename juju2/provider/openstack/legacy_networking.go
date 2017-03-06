@@ -4,7 +4,7 @@
 package openstack
 
 import (
-	"github.com/juju/juju/instance"
+	"github.com/juju/1.25-upgrade/juju2/instance"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v1/nova"
 )

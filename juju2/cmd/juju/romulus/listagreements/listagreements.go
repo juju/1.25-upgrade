@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"

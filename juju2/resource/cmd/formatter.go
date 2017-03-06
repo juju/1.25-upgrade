@@ -10,8 +10,8 @@ import (
 
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/1.25-upgrade/juju2/resource"
 	"github.com/juju/errors"
-	"github.com/juju/juju/resource"
 	"gopkg.in/juju/names.v2"
 )
 

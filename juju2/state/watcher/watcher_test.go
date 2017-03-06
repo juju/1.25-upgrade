@@ -14,8 +14,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // Test tuning parameters.

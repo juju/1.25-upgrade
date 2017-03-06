@@ -6,9 +6,9 @@ package actions
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.actions")

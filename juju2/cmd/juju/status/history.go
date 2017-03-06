@@ -14,10 +14,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // TODO(peritto666) - add tests

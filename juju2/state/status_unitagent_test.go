@@ -10,10 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"fmt"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type StatusUnitAgentSuite struct {

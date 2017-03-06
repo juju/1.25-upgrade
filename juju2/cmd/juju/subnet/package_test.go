@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/subnet"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/subnet"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

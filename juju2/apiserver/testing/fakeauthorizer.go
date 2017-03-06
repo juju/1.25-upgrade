@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/permission"
+	"github.com/juju/1.25-upgrade/juju2/permission"
 )
 
 // FakeAuthorizer implements the facade.Authorizer interface.

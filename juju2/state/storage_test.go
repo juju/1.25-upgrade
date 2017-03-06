@@ -15,14 +15,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
+	dummystorage "github.com/juju/1.25-upgrade/juju2/storage/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type StorageStateSuiteBase struct {

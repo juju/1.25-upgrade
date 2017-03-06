@@ -6,10 +6,10 @@ package resourceadapters
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api/client"
-	"github.com/juju/juju/resource/api/server"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/client"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/server"
 )
 
 // NewAPIClient is mostly a copy of the newClient code in

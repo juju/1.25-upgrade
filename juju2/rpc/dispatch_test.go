@@ -13,9 +13,9 @@ import (
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type dispatchSuite struct {

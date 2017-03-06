@@ -17,13 +17,13 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
 )
 
 var (

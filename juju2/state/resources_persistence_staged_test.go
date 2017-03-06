@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/statetest"
+	"github.com/juju/1.25-upgrade/juju2/state/statetest"
 )
 
 var _ = gc.Suite(&StagedResourceSuite{})

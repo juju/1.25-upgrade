@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/remoterelations"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {

@@ -22,14 +22,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})

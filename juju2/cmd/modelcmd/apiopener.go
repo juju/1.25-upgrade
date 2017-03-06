@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 var ErrConnTimedOut = errors.New("open connection timed out")

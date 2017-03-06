@@ -5,10 +5,10 @@
 package retrystrategy
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"gopkg.in/juju/names.v2"
 )
 

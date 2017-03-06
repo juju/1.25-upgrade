@@ -17,16 +17,16 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/authentication"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/authentication"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/juju"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 var errNoNameSpecified = errors.New("no name specified")

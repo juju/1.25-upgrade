@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 // formatListTabular writes a tabular summary of storage instances.

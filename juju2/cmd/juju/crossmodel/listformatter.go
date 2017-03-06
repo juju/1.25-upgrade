@@ -8,8 +8,8 @@ import (
 	"io"
 	"sort"
 
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/output"
 )
 
 // formatListTabular returns a tabular summary of remote applications or

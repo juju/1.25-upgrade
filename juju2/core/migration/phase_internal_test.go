@@ -7,7 +7,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type PhaseInternalSuite struct {

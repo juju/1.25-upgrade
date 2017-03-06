@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 type stubUnitDataStore struct {

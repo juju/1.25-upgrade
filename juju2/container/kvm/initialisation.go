@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/container"
+	"github.com/juju/1.25-upgrade/juju2/container"
 )
 
 var requiredPackages = []string{

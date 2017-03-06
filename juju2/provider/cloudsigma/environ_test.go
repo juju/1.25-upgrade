@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ environs.Environ = (*environ)(nil)

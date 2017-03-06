@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
 )
 
 // RequestObserver serves as a sink for API server requests and

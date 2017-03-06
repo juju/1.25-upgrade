@@ -20,15 +20,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/charm"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 const (

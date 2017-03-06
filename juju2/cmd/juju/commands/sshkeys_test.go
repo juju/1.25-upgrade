@@ -11,11 +11,11 @@ import (
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 
-	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
-	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
-	"github.com/juju/juju/juju/osenv"
-	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
+	keymanagerserver "github.com/juju/1.25-upgrade/juju2/apiserver/keymanager"
+	keymanagertesting "github.com/juju/1.25-upgrade/juju2/apiserver/keymanager/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type SSHKeysSuite struct {

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/gui"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju/keys"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/environs/gui"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type simplestreamsSuite struct {

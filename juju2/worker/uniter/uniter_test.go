@@ -22,15 +22,15 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/agent/tools"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/component/all"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
 )
 
 type UniterSuite struct {

@@ -3,7 +3,7 @@
 
 package toolsversionchecker
 
-import "github.com/juju/juju/worker"
+import "github.com/juju/1.25-upgrade/juju2/worker"
 
 func NewPeriodicWorkerForTests(api Facade, params *VersionCheckerParams) worker.Worker {
 	w := &toolsVersionWorker{

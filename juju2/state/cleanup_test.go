@@ -12,10 +12,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type CleanupSuite struct {

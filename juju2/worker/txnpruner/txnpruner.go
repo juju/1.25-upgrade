@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // TransactionPruner defines the interface for types capable of

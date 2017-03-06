@@ -17,16 +17,16 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/sync"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs/sync"
+	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type syncToolsSuite struct {

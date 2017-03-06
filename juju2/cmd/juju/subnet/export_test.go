@@ -6,7 +6,7 @@ package subnet
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 type CreateCommand struct {

@@ -4,8 +4,8 @@
 package lifeflag_test
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/worker/lifeflag"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

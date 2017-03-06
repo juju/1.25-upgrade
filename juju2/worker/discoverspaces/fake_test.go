@@ -6,11 +6,11 @@ package discoverspaces_test
 import (
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/discoverspaces"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/discoverspaces"
+	"github.com/juju/1.25-upgrade/juju2/worker/gate"
 )
 
 type fakeWorker struct {

@@ -10,12 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
-	internal "github.com/juju/juju/payload/api/private"
-	"github.com/juju/juju/payload/api/private/client"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload/api"
+	internal "github.com/juju/1.25-upgrade/juju2/payload/api/private"
+	"github.com/juju/1.25-upgrade/juju2/payload/api/private/client"
 )
 
 type clientSuite struct {

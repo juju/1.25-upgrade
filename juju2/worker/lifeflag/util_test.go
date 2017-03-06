@@ -7,10 +7,10 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/core/life"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 func newMockFacade(stub *testing.Stub, lifeResults ...life.Value) *mockFacade {

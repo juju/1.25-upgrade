@@ -4,11 +4,11 @@
 package migrationmaster
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/migrationmaster"
+	"github.com/juju/1.25-upgrade/juju2/api/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/migrationmaster"
-	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/worker"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

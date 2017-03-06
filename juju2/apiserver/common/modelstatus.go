@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // ModelStatusAPI implements the ModelStatus() API.

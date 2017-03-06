@@ -8,10 +8,10 @@ package server
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
-	internal "github.com/juju/juju/payload/api/private"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload/api"
+	internal "github.com/juju/1.25-upgrade/juju2/payload/api/private"
 )
 
 // UnitPayloads exposes the State functionality for a unit's payloads.

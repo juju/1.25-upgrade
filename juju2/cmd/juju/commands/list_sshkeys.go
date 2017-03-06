@@ -11,7 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 var usageListSSHKeysSummary = `

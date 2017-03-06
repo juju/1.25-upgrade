@@ -4,8 +4,8 @@
 package storageprovisioner
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/storage"
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 )

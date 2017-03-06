@@ -9,11 +9,11 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-const jujuPkgPrefix = "github.com/juju/juju/"
+const jujuPkgPrefix = "github.com/juju/1.25-upgrade/juju2/"
 
 // FindJujuCoreImports returns a sorted list of juju-core packages that are
 // imported by the packageName parameter.  The resulting list removes the
-// common prefix "github.com/juju/juju/" leaving just the short names.
+// common prefix "github.com/juju/1.25-upgrade/juju2/" leaving just the short names.
 func FindJujuCoreImports(c *gc.C, packageName string) []string {
 	imps, err := testing.FindImports(packageName, jujuPkgPrefix)
 	c.Assert(err, jc.ErrorIsNil)

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/symlink"
 
-	"github.com/juju/juju/juju/names"
+	"github.com/juju/1.25-upgrade/juju2/juju/names"
 )
 
 // EnsureSymlinks creates a symbolic link to jujuc within dir for each

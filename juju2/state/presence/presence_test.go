@@ -17,9 +17,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/state/presence"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 func TestPackage(t *stdtesting.T) {

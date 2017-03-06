@@ -15,12 +15,12 @@ import (
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/neutron"
 
-	"github.com/juju/juju/environs/jujutest"
-	"github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/openstack"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/jujutest"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // generate a different bucket name for each config instance, so that

@@ -22,10 +22,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/names"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/juju/names"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 )
 
 var caCertFile string
@@ -182,7 +182,7 @@ func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd
 	ps.Env = []string{
 		fmt.Sprintf("JUJU_AGENT_SOCKET=%s", sockPath),
 		fmt.Sprintf("JUJU_CONTEXT_ID=%s", contextId),
-		// Code that imports github.com/juju/juju/testing needs to
+		// Code that imports github.com/juju/1.25-upgrade/juju2/testing needs to
 		// be able to find that module at runtime (via build.Import),
 		// so we have to preserve that env variable.
 		os.ExpandEnv("GOPATH=${GOPATH}"),

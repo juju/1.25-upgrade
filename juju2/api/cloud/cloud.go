@@ -6,10 +6,10 @@ package cloud
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	jujucloud "github.com/juju/juju/cloud"
 )
 
 // Client provides methods that the Juju client command uses to interact

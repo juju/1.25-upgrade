@@ -6,9 +6,9 @@ package machine
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // APIWorkersConfig provides the dependencies for the

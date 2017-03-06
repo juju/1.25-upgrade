@@ -16,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
-	cloudfile "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/testing"
+	cloudfile "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type addSuite struct {

@@ -4,12 +4,12 @@
 package applicationscaler
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 	"gopkg.in/juju/names.v2"
 )
 

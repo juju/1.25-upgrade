@@ -12,13 +12,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/juju/paths"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
 )
 
 var (

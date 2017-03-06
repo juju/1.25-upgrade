@@ -9,13 +9,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/private"
-	"github.com/juju/juju/resource/api/private/server"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/private"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/private/server"
+	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
 )
 
 var _ = gc.Suite(&UnitFacadeSuite{})

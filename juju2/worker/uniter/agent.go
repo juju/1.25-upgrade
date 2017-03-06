@@ -3,7 +3,7 @@
 
 package uniter
 
-import "github.com/juju/juju/status"
+import "github.com/juju/1.25-upgrade/juju2/status"
 
 // setAgentStatus sets the unit's status if it has changed since last time this method was called.
 func setAgentStatus(u *Uniter, agentStatus status.Status, info string, data map[string]interface{}) error {

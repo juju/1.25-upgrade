@@ -15,9 +15,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/imagestorage"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state/imagestorage"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we

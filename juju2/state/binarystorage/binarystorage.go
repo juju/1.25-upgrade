@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/blobstore.v2"

@@ -8,10 +8,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing"
+	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type accessSuite struct {

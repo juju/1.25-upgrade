@@ -12,11 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	_ "github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	_ "github.com/juju/1.25-upgrade/juju2/juju"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type SwitchSimpleSuite struct {

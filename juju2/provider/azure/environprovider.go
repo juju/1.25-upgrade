@@ -10,10 +10,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azurestorage"
 )
 
 // Logger for the Azure provider.

@@ -6,12 +6,12 @@ package provisioner
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apiprovisioner "github.com/juju/1.25-upgrade/juju2/api/provisioner"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // ManifoldConfig defines an environment provisioner's dependencies. It's not

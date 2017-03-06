@@ -9,12 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/gate"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type FlagSuite struct {

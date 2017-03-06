@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // stateStepsFor20 returns upgrade steps for Juju 2.0 that manipulate state directly.

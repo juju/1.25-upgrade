@@ -12,9 +12,9 @@ import (
 	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type logStreamSource interface {

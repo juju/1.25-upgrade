@@ -11,10 +11,10 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.remoterelations")

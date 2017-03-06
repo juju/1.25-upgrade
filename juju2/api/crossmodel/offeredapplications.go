@@ -6,11 +6,11 @@ package crossmodel
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 // offeredApplicationsAPI allows access to a services exported from the environment.

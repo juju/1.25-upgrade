@@ -6,7 +6,7 @@ package rackspace
 import (
 	"gopkg.in/goose.v1/nova"
 
-	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
 )
 
 type rackspaceNetworkingDecorator struct{}

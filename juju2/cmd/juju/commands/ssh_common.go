@@ -20,11 +20,11 @@ import (
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/sshclient"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
-	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/1.25-upgrade/juju2/api/sshclient"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	jujussh "github.com/juju/1.25-upgrade/juju2/network/ssh"
 )
 
 // SSHCommon implements functionality shared by sshCommand, SCPCommand

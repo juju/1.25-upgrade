@@ -6,12 +6,12 @@ package logforwarder
 import (
 	"github.com/juju/errors"
 
-	apiagent "github.com/juju/juju/api/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/logstream"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/logstream"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

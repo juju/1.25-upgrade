@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 // modelBackend collects together some useful internal state methods for

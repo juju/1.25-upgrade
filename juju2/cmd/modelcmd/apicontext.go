@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 	"github.com/juju/cmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 // APIContext holds the context required for making connections to

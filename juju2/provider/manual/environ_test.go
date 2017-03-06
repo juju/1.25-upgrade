@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/instance"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type baseEnvironSuite struct {

@@ -30,14 +30,14 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/authentication"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common/apihttp"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")

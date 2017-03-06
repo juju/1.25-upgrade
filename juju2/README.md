@@ -57,7 +57,7 @@ Getting juju
 
 The easiest way to get the source for `juju` is to use the `go get` command.
 
-    go get -d -v github.com/juju/juju/...
+    go get -d -v github.com/juju/1.25-upgrade/juju2/...
 
 This command will checkout the source of `juju` and inspect it for any unmet
 Go package dependencies, downloading those as well. `go get` will also build and
@@ -67,9 +67,9 @@ install `juju` and its dependencies. To checkout without installing, use the
     go help get
 
 At this point you will have the git local repository of the `juju` source at
-`$GOPATH/github.com/juju/juju`. The source for any dependent packages will
+`$GOPATH/github.com/juju/1.25-upgrade/juju2`. The source for any dependent packages will
 also be available inside `$GOPATH`. You can use `git pull --rebase`, or the 
-less convenient `go get -u github.com/juju/juju/...` to update the source
+less convenient `go get -u github.com/juju/1.25-upgrade/juju2/...` to update the source
 from time to time.
 If you want to know more about contributing to `juju`, please read the
 [CONTRIBUTING](CONTRIBUTING.md) companion to this file.
@@ -88,7 +88,7 @@ other dependencies.
 Building juju
 =============
 
-    go install -v github.com/juju/juju/...
+    go install -v github.com/juju/1.25-upgrade/juju2/...
 
 Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
 if you have just completed the previous step to get the `juju` source, the

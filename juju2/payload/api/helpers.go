@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload"
 )
 
 // Payload2api converts a payload.FullPayloadInfo struct into

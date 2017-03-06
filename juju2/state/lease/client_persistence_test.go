@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/lease"
+	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/state/lease"
 )
 
 // ClientPersistenceSuite checks that the operations really affect the DB in

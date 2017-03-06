@@ -12,14 +12,14 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type BaseCommandSuite struct {

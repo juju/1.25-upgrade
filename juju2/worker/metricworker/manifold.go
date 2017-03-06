@@ -6,11 +6,11 @@ package metricworker
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // ManifoldConfig describes the resources used by metrics workers.

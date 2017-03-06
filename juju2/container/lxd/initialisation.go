@@ -8,7 +8,7 @@ package lxd
 import (
 	"github.com/juju/utils/proxy"
 
-	"github.com/juju/juju/container"
+	"github.com/juju/1.25-upgrade/juju2/container"
 )
 
 type containerInitialiser struct {

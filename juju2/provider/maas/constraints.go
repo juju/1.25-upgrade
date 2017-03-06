@@ -12,8 +12,8 @@ import (
 	"github.com/juju/gomaasapi"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 var unsupportedConstraints = []string{

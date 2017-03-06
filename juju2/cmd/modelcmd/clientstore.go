@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 // QualifyingClientStore wraps a jujuclient.ClientStore, modifying

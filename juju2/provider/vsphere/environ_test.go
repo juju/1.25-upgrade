@@ -12,12 +12,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider/vsphere"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/provider/vsphere"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type environSuite struct {

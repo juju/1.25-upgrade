@@ -13,15 +13,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
-	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	jujunames "github.com/juju/1.25-upgrade/juju2/juju/names"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type apiEnvironmentSuite struct {

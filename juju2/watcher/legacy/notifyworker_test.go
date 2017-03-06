@@ -12,11 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/legacy"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher/legacy"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 type NotifyWorkerSuite struct {

@@ -6,12 +6,12 @@ package singular
 import (
 	"time"
 
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 	"github.com/juju/errors"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 )

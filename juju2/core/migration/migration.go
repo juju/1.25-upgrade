@@ -10,7 +10,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 // MigrationStatus returns the details for a migration as needed by

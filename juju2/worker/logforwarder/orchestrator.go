@@ -6,7 +6,7 @@ package logforwarder
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
 )
 
 type orchestrator struct {

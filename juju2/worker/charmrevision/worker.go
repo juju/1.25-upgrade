@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // RevisionUpdater exposes the "single" capability required by the worker.

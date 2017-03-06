@@ -6,8 +6,8 @@ package private
 // TODO(ericsnow) Eliminate the params import if possible.
 
 import (
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/payload/api"
 )
 
 // TrackArgs are the arguments for the Track endpoint.

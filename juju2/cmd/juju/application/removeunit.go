@@ -8,9 +8,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/api/application"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // NewRemoveUnitCommand returns a command which removes an application's units.

@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // We test rpcreflect in this package, so that the

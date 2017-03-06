@@ -8,14 +8,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 func init() {

@@ -6,9 +6,9 @@ package hostkeyreporter
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	apihostkeyreporter "github.com/juju/juju/api/hostkeyreporter"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apihostkeyreporter "github.com/juju/1.25-upgrade/juju2/api/hostkeyreporter"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

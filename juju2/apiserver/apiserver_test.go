@@ -13,15 +13,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
-	"github.com/juju/juju/pubsub/centralhub"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
+	"github.com/juju/1.25-upgrade/juju2/pubsub/centralhub"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 const (

@@ -6,8 +6,8 @@ package base
 import (
 	"time"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // UserModel holds information about a model and the last

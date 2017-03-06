@@ -10,7 +10,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
 )
 
 // DataStore exposes the functionality of Juju state needed here.

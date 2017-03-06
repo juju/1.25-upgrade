@@ -6,8 +6,8 @@ package cmd
 import (
 	"io"
 
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
 	"github.com/juju/errors"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )

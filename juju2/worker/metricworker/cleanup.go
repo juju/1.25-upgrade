@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")

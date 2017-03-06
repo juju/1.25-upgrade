@@ -11,7 +11,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 // Resources describes the state functionality for resources.

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
 )
 
 type closingBuffer struct {

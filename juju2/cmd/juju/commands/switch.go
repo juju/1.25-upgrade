@@ -10,9 +10,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 func newSwitchCommand() cmd.Command {

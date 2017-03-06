@@ -21,9 +21,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
+	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
 	jujuos "github.com/juju/utils/os"
 )
 

@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload/api"
 )
 
 // NewPayloadResult builds a new PayloadResult from the provided tag

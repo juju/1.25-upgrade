@@ -22,15 +22,15 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/application"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	cmdtesting "github.com/juju/1.25-upgrade/juju2/cmd/testing"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type MainSuite struct {

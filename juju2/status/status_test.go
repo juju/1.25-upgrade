@@ -6,7 +6,7 @@ package status_test
 import (
 	"time"
 
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/status"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 )

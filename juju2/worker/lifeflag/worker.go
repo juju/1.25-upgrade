@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/lifeflag"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/api/lifeflag"
+	"github.com/juju/1.25-upgrade/juju2/core/life"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 // Facade exposes capabilities required by the worker.

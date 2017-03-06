@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/backups"
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	statebackups "github.com/juju/juju/state/backups"
+	"github.com/juju/1.25-upgrade/juju2/api/backups"
+	apiserverbackups "github.com/juju/1.25-upgrade/juju2/apiserver/backups"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	statebackups "github.com/juju/1.25-upgrade/juju2/state/backups"
 )
 
 // APIClient represents the backups API client functionality used by

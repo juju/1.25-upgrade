@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
 )
 
 type RepoSuite struct {

@@ -7,14 +7,14 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
 )
 
 // This file contains untested shims to let us wrap state in a sensible

@@ -7,15 +7,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apicrossmodel "github.com/juju/juju/api/crossmodel"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/crossmodel"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/testing"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	apicrossmodel "github.com/juju/1.25-upgrade/juju2/api/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type offeredApplicationsSuite struct {

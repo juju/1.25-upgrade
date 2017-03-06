@@ -22,14 +22,14 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
+	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
 )
 
 // resetReplicaSet re-initiates replica-set using the new controller

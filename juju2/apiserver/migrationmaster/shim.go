@@ -4,10 +4,10 @@
 package migrationmaster
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/migration"
+	"github.com/juju/1.25-upgrade/juju2/state"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/state"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 )

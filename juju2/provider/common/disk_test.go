@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
 	gc "gopkg.in/check.v1"
 )
 

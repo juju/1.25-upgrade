@@ -13,10 +13,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 var logger = loggo.GetLogger("juju.cmd.modelcmd")

@@ -6,9 +6,9 @@ package modelconfig
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 // Client provides methods that the Juju client command uses to interact

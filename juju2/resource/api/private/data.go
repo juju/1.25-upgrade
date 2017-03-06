@@ -6,8 +6,8 @@ package private
 // TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
 
 import (
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
 )
 
 // ListResourcesArgs holds the arguments for an API request to list

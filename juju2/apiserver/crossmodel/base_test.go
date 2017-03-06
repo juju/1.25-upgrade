@@ -9,12 +9,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/crossmodel"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/testing"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 const (

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/status"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
 	"gopkg.in/juju/names.v2"
 )
 

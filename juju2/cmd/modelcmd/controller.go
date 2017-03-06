@@ -8,11 +8,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/controller"
+	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
+	"github.com/juju/1.25-upgrade/juju2/api/usermanager"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 var (

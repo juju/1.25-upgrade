@@ -4,7 +4,7 @@
 package upgrades
 
 import (
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 	"github.com/juju/version"
 )
 

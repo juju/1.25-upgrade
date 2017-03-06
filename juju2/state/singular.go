@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/core/lease"
 )
 
 // singularSecretary implements lease.Secretary to restrict claims to a single

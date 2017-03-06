@@ -12,10 +12,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/api/application"
+	"github.com/juju/1.25-upgrade/juju2/api/charms"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // NewRemoveServiceCommand returns a command which removes an application.

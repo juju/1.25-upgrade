@@ -6,9 +6,9 @@ package singular
 import (
 	"time"
 
+	"github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/utils/clock"
 )
 

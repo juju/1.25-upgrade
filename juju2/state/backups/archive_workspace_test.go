@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups"
-	bt "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/backups"
+	bt "github.com/juju/1.25-upgrade/juju2/state/backups/testing"
 )
 
 type workspaceSuite struct {

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")

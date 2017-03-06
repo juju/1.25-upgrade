@@ -9,11 +9,11 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/worker/gate"
 )
 
 // Facade exposes the relevant capabilities of a *discoverspaces.API; it's

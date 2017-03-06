@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	jujucontroller "github.com/juju/juju/controller"
+	jujucontroller "github.com/juju/1.25-upgrade/juju2/controller"
 )
 
 const (

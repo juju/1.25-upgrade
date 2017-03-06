@@ -15,16 +15,16 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/vsphere"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	imagetesting "github.com/juju/1.25-upgrade/juju2/environs/imagemetadata/testing"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/provider/vsphere"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 type environBrokerSuite struct {

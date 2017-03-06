@@ -18,10 +18,10 @@ import (
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/debug"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/1.25-upgrade/juju2/core/actions"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/debug"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 	jujuos "github.com/juju/utils/os"
 )
 

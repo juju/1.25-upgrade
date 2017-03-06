@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // This module implements a subset of the interface provided by

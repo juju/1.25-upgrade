@@ -8,10 +8,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/state"
 	"github.com/juju/errors"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"

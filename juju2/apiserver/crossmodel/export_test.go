@@ -3,7 +3,7 @@
 
 package crossmodel
 
-import "github.com/juju/juju/apiserver/params"
+import "github.com/juju/1.25-upgrade/juju2/apiserver/params"
 
 var (
 	CreateAPI                   = createAPI

@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/vsphere"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/provider/vsphere"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type ConfigSuite struct {

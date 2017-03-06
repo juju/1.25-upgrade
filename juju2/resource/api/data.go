@@ -14,8 +14,8 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
 )
 
 // ListResourcesArgs are the arguments for the ListResources endpoint.

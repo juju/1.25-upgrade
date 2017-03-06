@@ -12,12 +12,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func init() {

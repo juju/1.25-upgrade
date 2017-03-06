@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
-	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type showSuite struct {

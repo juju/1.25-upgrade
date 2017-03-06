@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
 )
 
 // Kind enumerates the operations the uniter can perform.

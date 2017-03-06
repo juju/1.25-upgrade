@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload/api"
 )
 
 type facadeCaller interface {

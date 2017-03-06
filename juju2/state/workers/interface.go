@@ -4,10 +4,10 @@
 package workers
 
 import (
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/state/presence"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // Workers doesn't really need to exist -- it could basically just exist

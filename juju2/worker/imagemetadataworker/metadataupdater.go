@@ -6,8 +6,8 @@ package imagemetadataworker
 import (
 	"time"
 
-	"github.com/juju/juju/api/imagemetadata"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // updatePublicImageMetadataPeriod is how frequently we check for

@@ -12,14 +12,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/metricsender/testing"
-	"github.com/juju/juju/apiserver/metricsmanager"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	jujujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 	jujutesting "github.com/juju/testing"
 )
 

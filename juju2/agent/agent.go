@@ -22,12 +22,12 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/juju/paths"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.agent")

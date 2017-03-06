@@ -13,11 +13,11 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/reboot"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.reboot")

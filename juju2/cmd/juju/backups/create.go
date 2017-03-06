@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/state/backups"
 )
 
 const (

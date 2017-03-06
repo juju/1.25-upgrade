@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 // AutocertCache returns an implementation

@@ -15,9 +15,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	apicharms "github.com/juju/juju/api/charms"
-	"github.com/juju/juju/charmstore"
-	coretesting "github.com/juju/juju/testing"
+	apicharms "github.com/juju/1.25-upgrade/juju2/api/charms"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ = gc.Suite(&registrationSuite{})

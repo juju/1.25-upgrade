@@ -8,10 +8,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 var logger = loggo.GetLogger("juju.api.highavailability")

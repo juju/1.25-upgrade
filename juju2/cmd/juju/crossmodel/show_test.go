@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type showSuite struct {

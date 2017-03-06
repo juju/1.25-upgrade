@@ -6,7 +6,7 @@
 package api
 
 // TODO(natefinch) remove this once we support building on go 1.6 for all platforms.
-import "github.com/juju/juju/resource/api/internal/mime"
+import "github.com/juju/1.25-upgrade/juju2/resource/api/internal/mime"
 
 // formatMediaType serializes mediatype t and the parameters
 // param as a media type conforming to RFC 2045 and RFC 2616.

@@ -16,15 +16,15 @@ import (
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/factory"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/reboot"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/container/factory"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")

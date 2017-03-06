@@ -6,11 +6,11 @@ package undertaker
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 // Facade covers the parts of the api/undertaker.UndertakerClient that we

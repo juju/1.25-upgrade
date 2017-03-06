@@ -9,11 +9,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/1.25-upgrade/juju2/api/uniter"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/watcher/watchertest"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite

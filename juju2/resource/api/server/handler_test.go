@@ -18,9 +18,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/server"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/server"
 )
 
 const downloadContent = "body"

@@ -3,9 +3,9 @@
 package user_test
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/user"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 	"github.com/juju/cmd"
-	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

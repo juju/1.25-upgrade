@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
 )
 
 // UploadDataStore describes the the portion of Juju's "state"

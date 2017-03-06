@@ -22,17 +22,17 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo/utils"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 const (

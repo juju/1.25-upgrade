@@ -13,10 +13,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/set"
 
-	apicontroller "github.com/juju/juju/api/controller"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/controller"
+	apicontroller "github.com/juju/1.25-upgrade/juju2/api/controller"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/controller"
 )
 
 func NewGetConfigCommand() cmd.Command {

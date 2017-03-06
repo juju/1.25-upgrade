@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
 )
 
 // State describes the state of a relation.

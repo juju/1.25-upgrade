@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
 )
 
 type GuardSuite struct {

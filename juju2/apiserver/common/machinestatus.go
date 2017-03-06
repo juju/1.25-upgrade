@@ -4,8 +4,8 @@
 package common
 
 import (
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // MachineStatusGetter defines the machine functionality

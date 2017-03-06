@@ -12,8 +12,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	"github.com/juju/juju/provider/azure/internal/iputils"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/armtemplates"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/iputils"
 )
 
 const (

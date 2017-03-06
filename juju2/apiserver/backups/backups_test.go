@@ -12,13 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	backupsAPI "github.com/juju/juju/apiserver/backups"
-	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/backups"
-	backupstesting "github.com/juju/juju/state/backups/testing"
-	"github.com/juju/juju/testing/factory"
+	backupsAPI "github.com/juju/1.25-upgrade/juju2/apiserver/backups"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/backups"
+	backupstesting "github.com/juju/1.25-upgrade/juju2/state/backups/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type backupsSuite struct {

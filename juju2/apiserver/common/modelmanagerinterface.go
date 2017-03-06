@@ -8,14 +8,14 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/core/description"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // ModelManagerBackend defines methods provided by a state

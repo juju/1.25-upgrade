@@ -8,13 +8,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	providercommon "github.com/juju/juju/provider/common"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common/networkingcommon"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type SubnetsSuite struct {

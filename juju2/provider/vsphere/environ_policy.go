@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
 )
 
 // PrecheckInstance verifies that the provided series and constraints

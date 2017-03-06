@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 // machineTracker is a worker which reports changes of interest to

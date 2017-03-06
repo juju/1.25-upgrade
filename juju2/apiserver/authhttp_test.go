@@ -22,12 +22,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 // authHTTPSuite provides helpers for testing HTTP "streaming" style APIs.

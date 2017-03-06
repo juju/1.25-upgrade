@@ -8,7 +8,7 @@ package vsphere
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.

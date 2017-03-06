@@ -12,11 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/server"
-	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/server"
+	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
 )
 
 type BaseSuite struct {

@@ -13,10 +13,10 @@ import (
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/feature"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/space"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

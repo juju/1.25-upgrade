@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
 )
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud

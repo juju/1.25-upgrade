@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/version"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 // MachineContainersParams holds the arguments for making a SetSupportedContainers

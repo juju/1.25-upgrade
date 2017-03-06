@@ -18,17 +18,17 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`

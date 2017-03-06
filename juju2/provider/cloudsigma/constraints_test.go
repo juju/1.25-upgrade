@@ -7,9 +7,9 @@ import (
 	"github.com/altoros/gosigma"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 const (

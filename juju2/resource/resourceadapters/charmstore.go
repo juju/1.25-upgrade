@@ -13,9 +13,9 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // charmstoreEntityCache adapts between resource state and charmstore.EntityCache.

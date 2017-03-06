@@ -8,10 +8,10 @@ import (
 
 	"gopkg.in/amz.v3/ec2"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 type ec2Instance struct {

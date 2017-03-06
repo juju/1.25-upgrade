@@ -15,11 +15,11 @@ import (
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/gui"
-	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/gui"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type guiSuite struct {

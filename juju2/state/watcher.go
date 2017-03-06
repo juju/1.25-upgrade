@@ -19,10 +19,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/state/workers"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/state/workers"
 
 	// TODO(fwereade): 2015-11-18 lp:1517428
 	//
@@ -35,7 +35,7 @@ import (
 	// kinda stuck producing what we always have.
 	//
 	// See RelationUnitsWatcher below.
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 var watchLogger = loggo.GetLogger("juju.state.watch")

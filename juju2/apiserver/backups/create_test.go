@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/apiserver/backups"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/backups"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {

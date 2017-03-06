@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
 )
 
 type environPolSuite struct {

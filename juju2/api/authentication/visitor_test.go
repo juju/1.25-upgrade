@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/juju/juju/api/authentication"
+	"github.com/juju/1.25-upgrade/juju2/api/authentication"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/feature"
+	"github.com/juju/1.25-upgrade/juju2/feature"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"

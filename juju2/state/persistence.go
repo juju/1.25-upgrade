@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
 )
 
 // Persistence exposes persistence-layer functionality of State.

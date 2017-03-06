@@ -4,8 +4,8 @@
 package jujuclient
 
 import (
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/controller"
 )
 
 // ControllerDetails holds the details needed to connect to a controller.

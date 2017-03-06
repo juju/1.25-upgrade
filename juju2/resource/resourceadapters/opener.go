@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	csclient "github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/charmstore"
-	corestate "github.com/juju/juju/state"
+	csclient "github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/charmstore"
+	corestate "github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // resourceOpener is an implementation of server.ResourceOpener.

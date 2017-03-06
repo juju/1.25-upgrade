@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/private"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/private"
 )
 
 // FacadeCaller exposes the raw API caller functionality needed here.

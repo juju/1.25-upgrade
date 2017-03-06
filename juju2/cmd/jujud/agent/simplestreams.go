@@ -10,8 +10,8 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
 )
 
 const (

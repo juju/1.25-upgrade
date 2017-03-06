@@ -4,7 +4,7 @@
 package upgrades
 
 import (
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // stateStepsFor21 returns upgrade steps for Juju 2.1 that manipulate state directly.

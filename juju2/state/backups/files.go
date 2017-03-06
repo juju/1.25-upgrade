@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 // TODO(ericsnow) lp-1392876
 // Pull these from authoritative sources (see
-// github.com/juju/juju/juju/paths, etc.):
+// github.com/juju/1.25-upgrade/juju2/juju/paths, etc.):
 const (
 	dataDir = "/var/lib/juju"
 	logsDir = "/var/log/juju"

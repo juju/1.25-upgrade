@@ -6,11 +6,11 @@ package networkingcommon
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
-	providercommon "github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
 )
 
 // NOTE: All of the following code is only tested with a feature test.

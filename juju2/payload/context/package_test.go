@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	components "github.com/juju/juju/component/all"
+	components "github.com/juju/1.25-upgrade/juju2/component/all"
 )
 
 func Test(t *testing.T) {

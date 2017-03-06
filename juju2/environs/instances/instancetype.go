@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
 )
 
 // InstanceType holds all relevant attributes of the various instance types.

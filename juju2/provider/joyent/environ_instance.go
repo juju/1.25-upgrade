@@ -15,16 +15,16 @@ import (
 	"github.com/juju/utils/arch"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 var (

@@ -6,8 +6,8 @@ package cmd
 import (
 	"strings"
 
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
 	jujucmd "github.com/juju/cmd"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

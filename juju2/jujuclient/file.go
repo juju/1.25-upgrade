@@ -14,7 +14,7 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
 )
 
 var _ ClientStore = (*store)(nil)

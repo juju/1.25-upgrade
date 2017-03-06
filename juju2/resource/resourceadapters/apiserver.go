@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/resource"
-	internalserver "github.com/juju/juju/resource/api/private/server"
-	"github.com/juju/juju/resource/api/server"
-	corestate "github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common/apihttp"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	internalserver "github.com/juju/1.25-upgrade/juju2/resource/api/private/server"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/server"
+	corestate "github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // NewPublicFacade provides the public API facade for resources. It is

@@ -13,13 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/testing"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type ModelCommandSuite struct {

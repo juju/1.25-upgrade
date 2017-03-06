@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 const (

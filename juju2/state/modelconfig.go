@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 type attrValues map[string]interface{}

@@ -12,10 +12,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/core/leadership"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo/utils"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit

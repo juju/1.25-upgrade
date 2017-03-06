@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/1.25-upgrade/juju2/constraints"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 )

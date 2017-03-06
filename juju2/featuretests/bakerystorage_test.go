@@ -6,8 +6,8 @@ package featuretests
 import (
 	"time"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state/bakerystorage"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

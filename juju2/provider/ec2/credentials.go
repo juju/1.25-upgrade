@@ -14,8 +14,8 @@ import (
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/ini.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/environs"
 )
 
 type environProviderCredentials struct{}

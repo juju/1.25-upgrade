@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/testing"
 
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	coretesting "github.com/juju/juju/testing"
+	cmdtesting "github.com/juju/1.25-upgrade/juju2/cmd/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func badrun(c *gc.C, exit int, args ...string) string {

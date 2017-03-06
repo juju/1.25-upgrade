@@ -4,9 +4,9 @@
 package testing
 
 import (
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 // FakeNotifyWatcher is an implementation of state.NotifyWatcher which

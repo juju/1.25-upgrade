@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/environs/storage"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 var ErrNoTools = errors.New("no tools available")

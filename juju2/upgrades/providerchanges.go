@@ -4,9 +4,9 @@
 package upgrades
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/provider"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider"
 	"github.com/juju/version"
 )
 

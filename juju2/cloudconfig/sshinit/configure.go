@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
 )
 
 var logger = loggo.GetLogger("juju.cloudinit.sshinit")

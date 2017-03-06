@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/1.25-upgrade/juju2/worker"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"

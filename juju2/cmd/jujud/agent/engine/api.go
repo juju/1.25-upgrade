@@ -4,9 +4,9 @@
 package engine
 
 import (
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // Some (hopefully growing number of) manifolds completely depend on an API

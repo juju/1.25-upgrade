@@ -15,7 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")

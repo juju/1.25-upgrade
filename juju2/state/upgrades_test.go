@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"

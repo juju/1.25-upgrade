@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 // formatFilesystemListTabular writes a tabular summary of filesystem instances.

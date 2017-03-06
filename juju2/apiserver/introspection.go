@@ -6,10 +6,10 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/permission"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/permission"
 )
 
 // introspectionHandler is an http.Handler that wraps an http.Handler

@@ -8,14 +8,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	coreagent "github.com/juju/juju/agent"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
+	coreagent "github.com/juju/1.25-upgrade/juju2/agent"
+	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/machine"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
 )
 
 type ServingInfoSetterSuite struct {

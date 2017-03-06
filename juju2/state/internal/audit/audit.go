@@ -6,10 +6,10 @@ package audit
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/audit"
+	"github.com/juju/1.25-upgrade/juju2/audit"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/1.25-upgrade/juju2/mongo/utils"
 )
 
 // auditEntryDoc is the doc that is persisted to the audit collection.

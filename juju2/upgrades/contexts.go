@@ -4,9 +4,9 @@
 package upgrades
 
 import (
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // Context provides the dependencies used when executing upgrade steps.

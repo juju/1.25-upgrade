@@ -4,8 +4,8 @@
 package mongo
 
 import (
-	"github.com/juju/juju/service/common"
-	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
+	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
 )
 
 var (

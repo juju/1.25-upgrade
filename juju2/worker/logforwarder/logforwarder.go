@@ -11,10 +11,10 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/logfwd"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.logforwarder")

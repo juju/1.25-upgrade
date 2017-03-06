@@ -13,16 +13,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	cmdtesting "github.com/juju/1.25-upgrade/juju2/cmd/testing"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type DestroySuite struct {

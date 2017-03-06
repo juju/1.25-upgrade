@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/usermanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/user"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // All of the functionality of the UserInfo api call is contained elsewhere.

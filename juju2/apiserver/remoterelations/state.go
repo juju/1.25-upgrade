@@ -6,10 +6,10 @@ package remoterelations
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 )
 
 // RemoteRelationState provides the subset of global state required by the

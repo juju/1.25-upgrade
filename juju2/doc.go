@@ -3,7 +3,7 @@
 
 // Juju is devops distilled.
 //
-// Project homepage: https://github.com/juju/juju
+// Project homepage: https://github.com/juju/1.25-upgrade/juju2
 //
 // For more information please refer to the README file
 // in this directory.

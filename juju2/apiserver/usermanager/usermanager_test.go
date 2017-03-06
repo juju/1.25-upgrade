@@ -12,16 +12,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/controller"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/apiserver/usermanager"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/controller"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/usermanager"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type userManagerSuite struct {

@@ -3,7 +3,7 @@
 
 package common
 
-import "github.com/juju/juju/apiserver/facade"
+import "github.com/juju/1.25-upgrade/juju2/apiserver/facade"
 
 var (
 	MachineJobFromParams    = machineJobFromParams

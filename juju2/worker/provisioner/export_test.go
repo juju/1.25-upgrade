@@ -4,8 +4,8 @@
 package provisioner
 
 import (
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {

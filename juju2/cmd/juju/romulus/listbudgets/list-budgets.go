@@ -9,10 +9,10 @@ import (
 	"sort"
 
 	"github.com/gosuri/uitable"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/cmd/modelcmd"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	api "github.com/juju/romulus/api/budget"

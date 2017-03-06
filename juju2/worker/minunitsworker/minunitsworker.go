@@ -6,9 +6,9 @@ package minunitsworker
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/legacy"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/watcher/legacy"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")

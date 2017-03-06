@@ -8,8 +8,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/osenv"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 type CmdRelationSuite struct {

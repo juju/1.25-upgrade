@@ -18,8 +18,8 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var (

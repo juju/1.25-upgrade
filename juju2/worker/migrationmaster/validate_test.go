@@ -10,10 +10,10 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/migration"
+	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
+	"github.com/juju/1.25-upgrade/juju2/worker/migrationmaster"
 )
 
 type ValidateSuite struct {

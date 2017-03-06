@@ -9,12 +9,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	apiuniter "github.com/juju/1.25-upgrade/juju2/api/uniter"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 type ContextRelationSuite struct {

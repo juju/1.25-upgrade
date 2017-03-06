@@ -7,14 +7,14 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	crossmodelapi "github.com/juju/juju/api/crossmodel"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/crossmodel"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
+	crossmodelapi "github.com/juju/1.25-upgrade/juju2/api/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 func init() {

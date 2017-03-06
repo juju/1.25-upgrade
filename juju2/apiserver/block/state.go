@@ -4,7 +4,7 @@
 package block
 
 import (
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 	names "gopkg.in/juju/names.v2"
 )
 

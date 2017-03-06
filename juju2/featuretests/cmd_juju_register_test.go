@@ -14,12 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/juju/commands"
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/juju"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	cmdtesting "github.com/juju/1.25-upgrade/juju2/cmd/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type cmdRegistrationSuite struct {

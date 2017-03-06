@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 // StoreResourceGetter provides the functionality for getting a resource

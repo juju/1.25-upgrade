@@ -6,8 +6,8 @@ package metricworker
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // NewMetricsManager creates a runner that will run the metricsmanagement workers.

@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/setmeterstatus"
-	"github.com/juju/juju/cmd/modelcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/setmeterstatus"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 func TestPackage(t *stdtesting.T) {

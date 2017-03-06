@@ -40,7 +40,7 @@ has been read and followed prior.
 Specifically, the following commands should already have been run:
 
 ```shell
-$ go get -d -v github.com/juju/juju/...
+$ go get -d -v github.com/juju/1.25-upgrade/juju2/...
 $ make install-dependencies
 ```
 
@@ -78,7 +78,7 @@ a fork there.  The following steps will help you get that ready:
 1. Sign up for github (a free account is fine):  https://github.com/join
 2. Add your ssh public key to your account:  https://github.com/settings/ssh
 3. Hit the "Fork" button on the web page for the juju repo:
-    https://github.com/juju/juju
+    https://github.com/juju/1.25-upgrade/juju2
 
 At this point you will have your own copy under your github account.  Note
 that your fork is not automatically kept in sync with the official juju repo
@@ -97,20 +97,20 @@ juju github account.  Here is how to fix that (replace <USERNAME> with your
 github account name):
 
 ```shell
-$ cd $GOPATH/src/github.com/juju/juju
+$ cd $GOPATH/src/github.com/juju/1.25-upgrade/juju2
 $ git remote set-url origin git@github.com:<USERNAME>/juju.git
 ```
 
 To simplify staying in sync with upstream, give it a "remote" name:
 
 ```shell
-$ git remote add upstream https://github.com/juju/juju.git
+$ git remote add upstream https://github.com/juju/1.25-upgrade/juju2.git
 ```
 
 Add the check script as a git hook:
 
 ```shell
-$ cd $GOPATH/src/github.com/juju/juju
+$ cd $GOPATH/src/github.com/juju/1.25-upgrade/juju2
 $ ln -s ../../scripts/pre-push.bash .git/hooks/pre-push
 ```
 
@@ -124,7 +124,7 @@ Staying in sync
 Make sure your local copy and github fork stay in sync with upstream:
 
 ```shell
-$ cd $GOPATH/src/github.com/juju/juju
+$ cd $GOPATH/src/github.com/juju/1.25-upgrade/juju2
 $ git pull upstream master
 $ git push
 ```
@@ -153,7 +153,7 @@ This installs the `godeps` application.  You can then run `godeps` from the
 root of juju, to set the revision number on the external repositories:
 
 ```shell
-cd $GOPATH/src/github.com/juju/juju
+cd $GOPATH/src/github.com/juju/1.25-upgrade/juju2
 godeps -u dependencies.tsv
 ```
 
@@ -175,7 +175,7 @@ If you update a repo that juju depends on, you will need to recreate
 `dependencies.tsv`:
 
 ```shell
-$ godeps -t $(go list github.com/juju/juju/...) > dependencies.tsv
+$ godeps -t $(go list github.com/juju/1.25-upgrade/juju2/...) > dependencies.tsv
 ```
 
 
@@ -202,8 +202,8 @@ group is alphabetically sorted. eg:
         "github.com/juju/loggo"
         gc "gopkg.in/check.v1"
 
-        "github.com/juju/juju/state"
-        "github.com/juju/juju/worker"
+        "github.com/juju/1.25-upgrade/juju2/state"
+        "github.com/juju/1.25-upgrade/juju2/worker"
     )
 
 ```
@@ -267,7 +267,7 @@ into the source of each package so the standard `go test` command is used
 to run `gocheck` tests. For example
 
 ```shell
-$ go test github.com/juju/juju/...
+$ go test github.com/juju/1.25-upgrade/juju2/...
 ```
 will run all the tests in the `juju` project. By default `gocheck` prints
 only minimal output, and as `gocheck` is hooked into the testing framework via
@@ -300,9 +300,9 @@ Finally, because by default `go test` runs the tests in the current package, and
 is not recursive, the following commands are equal, and will produce no output.
 
 ```shell
-$ cd $GOPATH/src/github.com/juju/juju
+$ cd $GOPATH/src/github.com/juju/1.25-upgrade/juju2
 $ go test
-$ go test github.com/juju/juju
+$ go test github.com/juju/1.25-upgrade/juju2
 ```
 
 Testing and MongoDB
@@ -317,7 +317,7 @@ supported by juju-mongodb and the associated tests will fail unless disabled
 with an environment variable:
 
 ```shell
-$ JUJU_NOTEST_MONGOJS=1 go test github.com/juju/juju/...
+$ JUJU_NOTEST_MONGOJS=1 go test github.com/juju/1.25-upgrade/juju2/...
 ```
 
 Pushing

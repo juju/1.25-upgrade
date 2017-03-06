@@ -18,12 +18,12 @@ import (
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 type tooler interface {

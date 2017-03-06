@@ -6,9 +6,9 @@ package legacy
 import (
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // stringsWorker is the internal implementation of the Worker

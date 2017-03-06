@@ -6,10 +6,10 @@ package machine
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	workerstate "github.com/juju/1.25-upgrade/juju2/worker/state"
 )
 
 // StateWorkersConfig provides the dependencies for the

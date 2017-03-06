@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
 )
 
 func Test(t *testing.T) {

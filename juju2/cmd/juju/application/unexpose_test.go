@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type UnexposeSuite struct {

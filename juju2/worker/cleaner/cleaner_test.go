@@ -11,10 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/cleaner"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/cleaner"
 )
 
 type CleanerSuite struct {

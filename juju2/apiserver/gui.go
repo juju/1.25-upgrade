@@ -23,13 +23,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
-	jujuversion "github.com/juju/juju/version"
+	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common/apihttp"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 const (

@@ -16,15 +16,15 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	cloudapi "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/api/modelmanager"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	cloudapi "github.com/juju/1.25-upgrade/juju2/api/cloud"
+	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 const (

@@ -18,9 +18,9 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/juju/names"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type buildSuite struct {

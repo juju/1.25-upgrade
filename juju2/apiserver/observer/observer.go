@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/juju/juju/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
 	"gopkg.in/juju/names.v2"
 )
 

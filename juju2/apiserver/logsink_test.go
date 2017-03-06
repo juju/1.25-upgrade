@@ -22,10 +22,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type logsinkSuite struct {

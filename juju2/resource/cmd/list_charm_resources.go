@@ -11,8 +11,8 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // CharmResourceLister lists resources for the given charm ids.

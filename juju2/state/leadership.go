@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/leadership"
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/workers"
+	"github.com/juju/1.25-upgrade/juju2/core/leadership"
+	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/state/workers"
 )
 
 func removeLeadershipSettingsOp(applicationId string) txn.Op {

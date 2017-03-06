@@ -4,7 +4,7 @@
 package controller_test
 
 import (
-	"github.com/juju/juju/api"
+	"github.com/juju/1.25-upgrade/juju2/api"
 	"gopkg.in/juju/names.v2"
 )
 

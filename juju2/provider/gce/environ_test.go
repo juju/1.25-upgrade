@@ -7,13 +7,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/provider/gce"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type environSuite struct {

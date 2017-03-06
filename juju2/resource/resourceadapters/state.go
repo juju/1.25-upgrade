@@ -10,9 +10,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/state"
-	corestate "github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/state"
+	corestate "github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type service struct {

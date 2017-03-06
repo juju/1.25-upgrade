@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
 )
 
 type progressSuite struct{}

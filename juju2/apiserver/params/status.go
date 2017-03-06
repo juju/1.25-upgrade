@@ -8,8 +8,8 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
 )
 
 // StatusParams holds parameters for the Status call.

@@ -4,8 +4,8 @@
 package state
 
 import (
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state/bakerystorage"
 )
 
 // NewBakeryStorage returns a new bakery.Storage. By default, items

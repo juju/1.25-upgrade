@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.singular")

@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 const (

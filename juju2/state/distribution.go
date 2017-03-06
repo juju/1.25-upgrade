@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/1.25-upgrade/juju2/instance"
 )
 
 // distributeuUnit takes a unit and set of clean, possibly empty, instances

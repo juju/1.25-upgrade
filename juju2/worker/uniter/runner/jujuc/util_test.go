@@ -12,9 +12,9 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	jujuctesting "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc/testing"
 )
 
 func bufferBytes(stream io.Writer) []byte {

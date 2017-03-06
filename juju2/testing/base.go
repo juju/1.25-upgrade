@@ -22,8 +22,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/wrench"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/wrench"
 )
 
 var logger = loggo.GetLogger("juju.testing")

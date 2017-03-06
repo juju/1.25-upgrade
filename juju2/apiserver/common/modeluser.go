@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type modelConnectionAbleBackend interface {

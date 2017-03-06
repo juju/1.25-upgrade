@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/singular"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/singular"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // NewFacade creates a Facade from an APICaller and a controller. It's a

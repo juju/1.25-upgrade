@@ -13,16 +13,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	msapi "github.com/juju/juju/api/meterstatus"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/meterstatus"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	msapi "github.com/juju/1.25-upgrade/juju2/api/meterstatus"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/meterstatus"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
 )
 
 type ManifoldSuite struct {

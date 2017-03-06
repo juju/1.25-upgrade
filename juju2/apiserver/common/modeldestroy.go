@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {

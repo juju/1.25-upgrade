@@ -13,10 +13,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/core/description"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
 )
 
 // Export the current model for the State.

@@ -21,10 +21,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/core/leadership"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // Application represents the state of an application.

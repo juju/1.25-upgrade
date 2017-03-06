@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujussh "github.com/juju/juju/network/ssh"
-	coretesting "github.com/juju/juju/testing"
+	jujussh "github.com/juju/1.25-upgrade/juju2/network/ssh"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ = gc.Suite(&SCPSuite{})

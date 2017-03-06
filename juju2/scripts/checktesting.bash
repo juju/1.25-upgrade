@@ -2,7 +2,7 @@
 # Copyright 2013 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.
 exitstatus=0
-for i in $(go list -f '{{.Dir}}' github.com/juju/juju/...)
+for i in $(go list -f '{{.Dir}}' github.com/juju/1.25-upgrade/juju2/...)
 do
 	src=$i/*_test.go
 	# The -s flag is needed to suppress errors when

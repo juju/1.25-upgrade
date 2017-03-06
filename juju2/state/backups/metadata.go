@@ -12,8 +12,8 @@ import (
 	"os"
 	"time"
 
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 	"github.com/juju/errors"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
 )

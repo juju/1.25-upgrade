@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/controller"
+	jujucontroller "github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/juju/controller"
-	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/testing"
 )
 
 type GetConfigSuite struct {

@@ -8,8 +8,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
 	"github.com/juju/utils"
 )
 

@@ -3,7 +3,7 @@
 
 package modelcmd
 
-import "github.com/juju/juju/jujuclient"
+import "github.com/juju/1.25-upgrade/juju2/jujuclient"
 
 // NewModelCommandBase returns a new ModelCommandBase with the given client
 // store, controller name, and model name.

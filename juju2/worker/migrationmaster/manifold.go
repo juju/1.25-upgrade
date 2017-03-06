@@ -7,13 +7,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/migration"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

@@ -13,12 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/introspection"
 )
 
 type introspectionSuite struct {

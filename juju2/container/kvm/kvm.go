@@ -13,14 +13,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudconfig/containerinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/containerinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 var (

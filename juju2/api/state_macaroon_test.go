@@ -13,10 +13,10 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/rpc"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
 )
 
 var _ = gc.Suite(&macaroonLoginSuite{})

@@ -21,15 +21,15 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
+	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
 )
 
 type syslogSuite struct {

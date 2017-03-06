@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/metricobserver"
 )
 
 type observerFactorySuite struct {

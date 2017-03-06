@@ -6,8 +6,8 @@ package statushistory
 import (
 	"time"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 const apiName = "StatusHistory"

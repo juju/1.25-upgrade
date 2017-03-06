@@ -24,9 +24,9 @@ import (
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/service"
 )
 
 var (

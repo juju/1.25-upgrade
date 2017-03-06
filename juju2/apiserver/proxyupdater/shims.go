@@ -4,10 +4,10 @@
 package proxyupdater
 
 import (
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 func init() {

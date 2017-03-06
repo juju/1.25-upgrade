@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/state/workers"
-	"github.com/juju/juju/worker/lease"
+	"github.com/juju/1.25-upgrade/juju2/state/presence"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/state/workers"
+	"github.com/juju/1.25-upgrade/juju2/worker/lease"
 )
 
 type workersFactory struct {

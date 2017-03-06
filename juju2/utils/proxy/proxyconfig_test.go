@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/utils/proxy"
 
-	proxyconfig "github.com/juju/juju/utils/proxy"
+	proxyconfig "github.com/juju/1.25-upgrade/juju2/utils/proxy"
 )
 
 type Suite struct{}

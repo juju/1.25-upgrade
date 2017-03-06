@@ -13,15 +13,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/annotations"
+	"github.com/juju/1.25-upgrade/juju2/api/application"
+	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type permSuite struct {

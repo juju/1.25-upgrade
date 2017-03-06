@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 var (

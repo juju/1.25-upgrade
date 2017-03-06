@@ -6,7 +6,7 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"

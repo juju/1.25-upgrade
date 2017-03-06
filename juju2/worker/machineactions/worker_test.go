@@ -5,10 +5,10 @@
 package machineactions_test
 
 import (
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/worker/machineactions"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/machineactions"
-	"github.com/juju/juju/worker/workertest"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

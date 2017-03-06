@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 // TODO(fwereade) remove WaitForEnviron, use a manifold-managed Tracker to share

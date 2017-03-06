@@ -8,9 +8,9 @@ package vsphere
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
 )
 
 /*

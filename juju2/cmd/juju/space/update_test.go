@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/feature"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/space"
+	"github.com/juju/1.25-upgrade/juju2/feature"
 )
 
 type UpdateSuite struct {

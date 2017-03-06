@@ -6,7 +6,7 @@ ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
 
-PROJECT := github.com/juju/juju
+PROJECT := github.com/juju/1.25-upgrade/juju2
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
 ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
@@ -119,7 +119,7 @@ else
 endif
 
 
-GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/... | grep -c "gopkg.in/check.v*")"
+GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/1.25-upgrade/juju2/... | grep -c "gopkg.in/check.v*")"
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 

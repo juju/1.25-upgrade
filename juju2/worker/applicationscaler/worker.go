@@ -6,8 +6,8 @@ package applicationscaler
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // Facade defines the capabilities required by the worker.

@@ -7,8 +7,8 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // TODO(wallyworld) - convert tests moved across from commands package to not require mongo

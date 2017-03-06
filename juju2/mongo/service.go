@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
 )
 
 const (

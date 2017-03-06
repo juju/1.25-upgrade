@@ -3,7 +3,7 @@
 
 package watcher
 
-import "github.com/juju/juju/state/multiwatcher"
+import "github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
 
 // RemoteRelationUnitChange describes a relation unit change.
 type RemoteRelationUnitChange struct {

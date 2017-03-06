@@ -10,11 +10,11 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")

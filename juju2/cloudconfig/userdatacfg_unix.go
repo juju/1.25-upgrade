@@ -25,13 +25,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/systemd"
+	"github.com/juju/1.25-upgrade/juju2/service/upstart"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig")

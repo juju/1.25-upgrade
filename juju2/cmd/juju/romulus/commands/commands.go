@@ -7,17 +7,17 @@ package commands
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/juju/romulus/agree"
-	"github.com/juju/juju/cmd/juju/romulus/allocate"
-	"github.com/juju/juju/cmd/juju/romulus/createbudget"
-	"github.com/juju/juju/cmd/juju/romulus/listagreements"
-	"github.com/juju/juju/cmd/juju/romulus/listbudgets"
-	"github.com/juju/juju/cmd/juju/romulus/listplans"
-	"github.com/juju/juju/cmd/juju/romulus/setbudget"
-	"github.com/juju/juju/cmd/juju/romulus/setplan"
-	"github.com/juju/juju/cmd/juju/romulus/showbudget"
-	"github.com/juju/juju/cmd/juju/romulus/updateallocation"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/agree"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/allocate"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/createbudget"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/listagreements"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/listbudgets"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/listplans"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/setbudget"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/setplan"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/showbudget"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/updateallocation"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 type commandRegister interface {

@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/core/lease"
 )
 
 // ClientAssertSuite tests that AssertOp does what it should.

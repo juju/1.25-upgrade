@@ -8,10 +8,10 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/firewaller"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // NOTE: This suite is intended for embedding into other suites,

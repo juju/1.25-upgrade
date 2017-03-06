@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying"
