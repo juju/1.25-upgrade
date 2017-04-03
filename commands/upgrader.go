@@ -7,10 +7,14 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/loggo"
 	"github.com/juju/version"
 )
 
-var upgraderVersion = version.MustParse("0.1.0")
+var (
+	logger          = loggo.GetLogger("upgrader")
+	upgraderVersion = version.MustParse("0.1.0")
+)
 
 // NewUpgradeCommand returns the supercommand for the various upgrade
 // commands.
@@ -29,4 +33,6 @@ func NewUpgradeCommand(ctx *cmd.Context) cmd.Command {
 
 func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newVerifySourceCommand())
+	super.Register(newVerifyEnvironmentCommand())
+	super.Register(newDumpSourceDBCommand())
 }

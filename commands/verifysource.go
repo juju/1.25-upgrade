@@ -5,6 +5,7 @@ package commands
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/description"
 	"github.com/juju/errors"
 )
 
@@ -15,13 +16,13 @@ viability of a 1.25 juju environment for migration into a Juju 2.x controller.
 `
 
 func newVerifySourceCommand() cmd.Command {
-	return &verifySourceCommand{}
+	command := &verifySourceCommand{}
+	command.remoteCommand = "verify-source-impl"
+	return command
 }
 
 type verifySourceCommand struct {
-	cmd.CommandBase
-
-	name string
+	baseClientCommand
 }
 
 func (c *verifySourceCommand) Info() *cmd.Info {
@@ -34,13 +35,61 @@ func (c *verifySourceCommand) Info() *cmd.Info {
 }
 
 func (c *verifySourceCommand) Init(args []string) error {
-	if len(args) == 0 {
-		return errors.Errorf("no environment name specified")
+	args, err := c.baseClientCommand.init(args)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	c.name, args = args[0], args[1:]
 	return cmd.CheckEmpty(args)
 }
 
-func (c *verifySourceCommand) Run(ctx *cmd.Context) error {
-	return errors.Errorf("wat")
+var verifySourceImplDoc = `
+
+verify-source-impl must be executed on an API server machine of a 1.25
+environment.
+
+The command will check the export of the environment into the 2.0 model
+format.
+
+`
+
+func newVerifySourceImplCommand() cmd.Command {
+	return &verifySourceImplCommand{}
+}
+
+type verifySourceImplCommand struct {
+	baseRemoteCommand
+}
+
+func (c *verifySourceImplCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "verify-source-impl",
+		Purpose: "check the database export for migration suitability",
+		Doc:     verifySourceImplDoc,
+	}
+}
+
+func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
+	st, err := c.getState()
+	if err != nil {
+		return errors.Annotate(err, "getting state")
+	}
+	defer st.Close()
+
+	model, err := st.Export()
+	if err != nil {
+		return errors.Annotate(err, "exporting model representation")
+	}
+
+	// Check for LXC containers
+	bytes, err := description.Serialize(model)
+	if err != nil {
+		return errors.Annotate(err, "serializing model representation")
+	}
+
+	_, err = ctx.GetStdout().Write(bytes)
+	if err != nil {
+		return errors.Annotate(err, "writing model representation")
+	}
+
+	return nil
 }

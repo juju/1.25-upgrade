@@ -6,9 +6,11 @@ package main
 import (
 	"os"
 
-	"github.com/juju/1.25-upgrade/commands"
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+
+	"github.com/juju/1.25-upgrade/commands"
+	"github.com/juju/1.25-upgrade/juju1/juju/osenv"
 )
 
 var logger = loggo.GetLogger("upgrader")
@@ -31,6 +33,7 @@ func Run(args []string) int {
 	}
 
 	// Check JUJU_HOME for 1.25
+	osenv.SetJujuHome(osenv.JujuHomeDir())
 	// Check JUJU_XDG_DATA_HOME for 2.x
 
 	upgrader := commands.NewUpgradeCommand(ctx)

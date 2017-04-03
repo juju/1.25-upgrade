@@ -731,7 +731,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 // filesystems attached to the machine, and returns any mgo/txn assertions
 // required to ensure that remains true.
 func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
-	attachments := make(set.Tags)
+	var attachments []names.Tag
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
 		machineBound, err := isVolumeInherentlyMachineBound(m.st, tag)
@@ -739,7 +739,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 			return nil, errors.Trace(err)
 		}
 		if !machineBound {
-			attachments.Add(tag)
+			attachments = append(attachments, tag)
 		}
 	}
 	for _, f := range m.doc.Filesystems {
@@ -749,13 +749,13 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 			return nil, errors.Trace(err)
 		}
 		if !machineBound {
-			attachments.Add(tag)
+			attachments = append(attachments, tag)
 		}
 	}
 	if len(attachments) > 0 {
 		return nil, &HasAttachmentsError{
 			MachineId:   m.doc.Id,
-			Attachments: attachments.SortedValues(),
+			Attachments: attachments,
 		}
 	}
 	if m.doc.Life == Dying {
