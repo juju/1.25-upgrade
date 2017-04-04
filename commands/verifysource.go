@@ -69,7 +69,7 @@ func (c *verifySourceImplCommand) Info() *cmd.Info {
 }
 
 func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
-	st, err := c.getState()
+	st, err := c.getState(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting state")
 	}

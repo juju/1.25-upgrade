@@ -41,7 +41,7 @@ func (c *dumpSourceDBCommand) Init(args []string) error {
 }
 
 func newDumpSourceDBImplCommand() cmd.Command {
-	command := &dumpSourceDBImplCommand{}
+	command := &dumpSourceDBImpl{}
 	return command
 }
 
@@ -58,7 +58,7 @@ func (c *dumpSourceDBImpl) Info() *cmd.Info {
 }
 
 func (c *dumpSourceDBImpl) Run(ctx *cmd.Context) error {
-	st, err := c.getState()
+	st, err := c.getState(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting state")
 	}

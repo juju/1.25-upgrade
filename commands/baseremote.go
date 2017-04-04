@@ -18,7 +18,7 @@ type baseRemoteCommand struct {
 	cmd.CommandBase
 }
 
-func (c *baseRemoteCommand) getState() (*state.State, error) {
+func (c *baseRemoteCommand) getState(ctx *cmd.Context) (*state.State, error) {
 	tag, err := getCurrentMachineTag(dataDir)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding machine tag")

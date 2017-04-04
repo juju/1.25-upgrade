@@ -33,6 +33,7 @@ func NewUpgradeCommand(ctx *cmd.Context) cmd.Command {
 
 func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newVerifySourceCommand())
-	super.Register(newVerifyEnvironmentCommand())
+	super.Register(newVerifySourceImplCommand())
 	super.Register(newDumpSourceDBCommand())
+	super.Register(newDumpSourceDBImplCommand())
 }
