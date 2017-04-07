@@ -304,6 +304,26 @@ func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
 	return st.Action(tag.Id())
 }
 
+// AllActions returns all Actions.
+func (st *State) AllActions() ([]Action, error) {
+	actionLogger.Tracef("AllActions()")
+	actions, closer := st.getCollection(actionsC)
+	defer closer()
+
+	results := []Action{}
+	docs := []actionDoc{}
+	err := actions.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all actions")
+	}
+	for _, doc := range docs {
+		if a := newAction(st, doc); a != nil {
+			results = append(results, *a)
+		}
+	}
+	return results, nil
+}
+
 // FindActionTagsByPrefix finds Actions with ids that share the supplied prefix, and
 // returns a list of corresponding ActionTags.
 func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {

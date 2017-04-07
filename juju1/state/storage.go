@@ -76,6 +76,18 @@ const (
 	StorageKindFilesystem
 )
 
+// String returns a human readable string represting the type.
+func (k StorageKind) String() string {
+	switch k {
+	case StorageKindBlock:
+		return "block"
+	case StorageKindFilesystem:
+		return "filesystem"
+	default:
+		return "unknown"
+	}
+}
+
 type storageInstance struct {
 	st  *State
 	doc storageInstanceDoc

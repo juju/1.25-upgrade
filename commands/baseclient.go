@@ -82,9 +82,14 @@ func (c *baseClientCommand) Run(ctx *cmd.Context) error {
 
 	pluginBase := filepath.Base(c.plugin)
 
+	debug := ""
+	if logger.IsDebugEnabled() {
+		debug = "--debug"
+	}
+
 	result, err := runViaSSH(
 		c.address,
-		fmt.Sprintf("./%s %s \n", pluginBase, c.remoteCommand),
+		fmt.Sprintf("./%s %s %s\n", pluginBase, c.remoteCommand, debug),
 		"")
 
 	if err != nil {

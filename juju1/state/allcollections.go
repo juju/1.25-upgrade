@@ -353,6 +353,7 @@ const (
 	constraintsC           = "constraints"
 	containerRefsC         = "containerRefs"
 	envUsersC              = "envusers"
+	envUserLastConnectionC = "envUserLastConnection"
 	environmentsC          = "environments"
 	filesystemAttachmentsC = "filesystemAttachments"
 	filesystemsC           = "filesystems"
@@ -393,7 +394,6 @@ const (
 	userenvnameC           = "userenvname"
 	usersC                 = "users"
 	userLastLoginC         = "userLastLogin"
-	envUserLastConnectionC = "envUserLastConnection"
 	volumeAttachmentsC     = "volumeattachments"
 	volumesC               = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)

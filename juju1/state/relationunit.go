@@ -438,6 +438,14 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 	return strings.Join(parts, "#"), nil
 }
 
+// currentKey returns a string, based on the relation and the current unit name,
+// which is used as a key for that unit within this relation in the settings,
+// presence, and relationScopes collections.
+func (ru *RelationUnit) currentKey() string {
+	parts := []string{ru.scope, string(ru.endpoint.Role), ru.unit.Name()}
+	return strings.Join(parts, "#")
+}
+
 // relationScopeDoc represents a unit which is in a relation scope.
 // The relation, container, role, and unit are all encoded in the key.
 type relationScopeDoc struct {

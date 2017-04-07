@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/1.25-upgrade/juju1/payload"
 	"github.com/juju/1.25-upgrade/juju1/storage/poolmanager"
+	version1 "github.com/juju/1.25-upgrade/juju1/version"
 )
 
 // Export the current model for the State.
@@ -95,7 +97,6 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// <---- migration checked up to here...
 	if err := export.applications(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -109,21 +110,19 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// NOTE: ipaddresses should be discovered in 2.x.
 	if err := export.ipaddresses(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// No link layer devices in 1.25.
 
-	if err := export.linklayerdevices(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	// No SSH host keys in 1.25
 
-	if err := export.sshHostKeys(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// <---- migration checked up to here...
 	if err := export.actions(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -185,8 +184,8 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 	}
 	cloudType := modelConfig["type"].(string)
 	creds.Cloud = names2.NewCloudTag(cloudType)
-	creds.Name = cloudType
 	creds.Owner = e.userTag(e.dbModel.Owner())
+	creds.Name = fmt.Sprintf("%s-%s", creds.Owner.Name(), creds.Cloud.Id())
 
 	switch cloudType {
 	case "ec2":
@@ -200,10 +199,39 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 		delete(modelConfig, "maas-server")
 		// any region?
 	case "openstack":
-		return nil, creds, region, errors.Errorf("openstack not yet done")
+		creds.AuthType = modelConfig["auth-mode"].(string)
+		switch creds.AuthType {
+		case "legacy", "userpass":
+			creds.Attributes = map[string]string{
+				"username": modelConfig["username"].(string),
+				"password": modelConfig["password"].(string),
+			}
+		case "keypair":
+			creds.Attributes = map[string]string{
+				"access-key": modelConfig["access-key"].(string),
+				"secret-key": modelConfig["secret-key"].(string),
+			}
+		default:
+			return nil, creds, region, errors.NotValidf("unknown auth-mode %q", modelConfig["auth-mode"])
+		}
+		creds.Attributes["tenant-name"] = modelConfig["tenant-name"].(string)
+		region = modelConfig["region"].(string)
+
+		delete(modelConfig, "username")
+		delete(modelConfig, "password")
+		delete(modelConfig, "tenant-name")
+		delete(modelConfig, "auth-url") // should be defined in the cloud
+		delete(modelConfig, "auth-mode")
+		delete(modelConfig, "access-key")
+		delete(modelConfig, "secret-key")
+		delete(modelConfig, "region")
+		delete(modelConfig, "control-bucket")
 	default:
 		return nil, creds, region, errors.Errorf("unsupported model type for migration %q")
 	}
+
+	// TODO: delete all bootstrap only config values from modelConfig
+	//
 
 	return modelConfig, creds, region, nil
 }
@@ -434,22 +462,11 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.Trace(err)
 	}
 
-	v1 := tools.Version
 	exMachine.SetTools(description.AgentToolsArgs{
-		Version: version.Binary{
-			Number: version.Number{
-				Major: v1.Major,
-				Minor: v1.Minor,
-				Tag:   v1.Tag,
-				Patch: v1.Patch,
-				Build: v1.Build,
-			},
-			Series: v1.Series,
-			Arch:   v1.Arch,
-		},
-		URL:    tools.URL,
-		SHA256: tools.SHA256,
-		Size:   tools.Size,
+		Version: version2Binary(tools.Version),
+		URL:     tools.URL,
+		SHA256:  tools.SHA256,
+		Size:    tools.Size,
 	})
 
 	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
@@ -551,35 +568,59 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	// FIXME (thumper)
-	// leaders, err := e.st.ApplicationLeaders()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
+	leaders, err := e.readServiceLeaders()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	payloads, err := e.readAllPayloads()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// FIXME (thumper)
 	_ = meterStatus
 	_ = payloads
-	// for _, service := range services {
-	// 	name := service.Name()
-	// 	applicationUnits := e.units[name]
-	// 	leader := leaders[name]
-	// 	if err := e.addApplication(addApplicationContext{
-	// 		application: service,
-	// 		units:       applicationUnits,
-	// 		meterStatus: meterStatus,
-	// 		leader:      leader,
-	// 		payloads:    payloads,
-	// 	}); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// }
+	for _, service := range services {
+		name := service.Name()
+		applicationUnits := e.units[name]
+		leader := leaders[name]
+		if err := e.addApplication(addApplicationContext{
+			application: service,
+			units:       applicationUnits,
+			meterStatus: meterStatus,
+			leader:      leader,
+			payloads:    payloads,
+		}); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
+}
+
+func (e *exporter) readServiceLeaders() (map[string]string, error) {
+	coll, closer := e.st.getCollection(leasesC)
+	defer closer()
+
+	leaders := make(map[string]string)
+
+	var doc bson.M
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		if doc["namespace"] == "service-leadership" && doc["type"] == "lease" {
+			name, nameOK := doc["name"].(string)
+			holder, holderOK := doc["holder"].(string)
+			if nameOK && holderOK {
+				leaders[name] = holder
+			} else {
+				e.logger.Warningf("bad leadership doc %#v", doc)
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Annotate(err, "failed to read service leaders")
+	}
+	return leaders, nil
 }
 
 func (e *exporter) readAllStorageConstraints() error {
@@ -635,131 +676,148 @@ type addApplicationContext struct {
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
-	// FIXME (thumper): BROKEN
-	// application := ctx.application
-	// appName := application.Name()
-	// globalKey := application.globalKey()
-	// settingsKey := application.settingsKey()
-	// leadershipKey := leadershipSettingsKey(appName)
-	// storageConstraintsKey := application.storageConstraintsKey()
+	application := ctx.application
+	appName := application.Name()
+	globalKey := application.globalKey()
+	settingsKey := application.settingsKey()
 
-	// applicationSettingsDoc, found := e.modelSettings[settingsKey]
-	// if !found {
-	// 	return errors.Errorf("missing settings for application %q", appName)
-	// }
-	// leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
-	// if !found {
-	// 	return errors.Errorf("missing leadership settings for application %q", appName)
-	// }
+	leadershipKey := leadershipSettingsDocId(appName)
 
-	// args := description.ApplicationArgs{
-	// 	Tag:                  application.ApplicationTag(),
-	// 	Series:               application.doc.Series,
-	// 	Subordinate:          application.doc.Subordinate,
-	// 	CharmURL:             application.doc.CharmURL.String(),
-	// 	Channel:              application.doc.Channel,
-	// 	CharmModifiedVersion: application.doc.CharmModifiedVersion,
-	// 	ForceCharm:           application.doc.ForceCharm,
-	// 	Exposed:              application.doc.Exposed,
-	// 	MinUnits:             application.doc.MinUnits,
-	// 	Settings:             applicationSettingsDoc.Settings,
-	// 	Leader:               ctx.leader,
-	// 	LeadershipSettings:   leadershipSettingsDoc.Settings,
-	// 	MetricsCredentials:   application.doc.MetricCredentials,
-	// }
-	// if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
-	// 	args.StorageConstraints = e.storageConstraints(constraints)
-	// }
-	// exApplication := e.model.AddApplication(args)
-	// // Find the current application status.
-	// statusArgs, err := e.statusArgs(globalKey)
-	// if err != nil {
-	// 	return errors.Annotatef(err, "status for application %s", appName)
-	// }
-	// exApplication.SetStatus(statusArgs)
-	// exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
-	// exApplication.SetAnnotations(e.getAnnotations(globalKey))
+	applicationSettings, found := e.modelSettings[settingsKey]
+	if !found {
+		return errors.Errorf("missing settings for application %q", appName)
+	}
+	leadershipSettings, found := e.modelSettings[leadershipKey]
+	if !found {
+		return errors.Errorf("missing leadership settings for application %q", appName)
+	}
 
-	// constraintsArgs, err := e.constraintsArgs(globalKey)
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// exApplication.SetConstraints(constraintsArgs)
+	args := description.ApplicationArgs{
+		Tag:         names2.NewApplicationTag(appName),
+		Series:      application.doc.Series,
+		Subordinate: application.doc.Subordinate,
+		CharmURL:    application.doc.CharmURL.String(),
 
-	// for _, unit := range ctx.units {
-	// 	agentKey := unit.globalAgentKey()
-	// 	unitMeterStatus, found := ctx.meterStatus[agentKey]
-	// 	if !found {
-	// 		return errors.Errorf("missing meter status for unit %s", unit.Name())
-	// 	}
+		// FIXME(maybe): should we put in some default?
+		// Channel:              application.doc.Channel,
+		//   don't even know what this next one is.
+		// CharmModifiedVersion: application.doc.CharmModifiedVersion,
+		ForceCharm:         application.doc.ForceCharm,
+		Exposed:            application.doc.Exposed,
+		MinUnits:           application.doc.MinUnits,
+		Settings:           applicationSettings,
+		Leader:             ctx.leader,
+		LeadershipSettings: leadershipSettings,
+		MetricsCredentials: application.doc.MetricCredentials,
+	}
+	if constraints, found := e.modelStorageConstraints[globalKey]; found {
+		args.StorageConstraints = e.storageConstraints(constraints)
+	}
 
-	// 	workloadVersion, err := unit.WorkloadVersion()
-	// 	if err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// 	args := description.UnitArgs{
-	// 		Tag:             unit.UnitTag(),
-	// 		Machine:         names2.NewMachineTag(unit.doc.MachineId),
-	// 		WorkloadVersion: workloadVersion,
-	// 		PasswordHash:    unit.doc.PasswordHash,
-	// 		MeterStatusCode: unitMeterStatus.Code,
-	// 		MeterStatusInfo: unitMeterStatus.Info,
-	// 	}
-	// 	if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
-	// 		args.Principal = names2.NewUnitTag(principalName)
-	// 	}
-	// 	if subs := unit.SubordinateNames(); len(subs) > 0 {
-	// 		for _, subName := range subs {
-	// 			args.Subordinates = append(args.Subordinates, names2.NewUnitTag(subName))
-	// 		}
-	// 	}
-	// 	exUnit := exApplication.AddUnit(args)
+	e.logger.Debugf("Adding application %q", args.Tag.Id())
+	exApplication := e.model.AddApplication(args)
+	// Find the current application status.
+	statusArgs, err := e.statusArgs(globalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for application %s", appName)
+	}
+	exApplication.SetStatus(statusArgs)
+	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	exApplication.SetAnnotations(e.getAnnotations(globalKey))
 
-	// 	if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
+	constraintsArgs, err := e.constraintsArgs(globalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	exApplication.SetConstraints(constraintsArgs)
 
-	// 	// workload uses globalKey, agent uses globalAgentKey,
-	// 	// workload version uses globalWorkloadVersionKey.
-	// 	globalKey := unit.globalKey()
-	// 	statusArgs, err := e.statusArgs(globalKey)
-	// 	if err != nil {
-	// 		return errors.Annotatef(err, "workload status for unit %s", unit.Name())
-	// 	}
-	// 	exUnit.SetWorkloadStatus(statusArgs)
-	// 	exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
+	for _, unit := range ctx.units {
+		agentKey := unit.globalAgentKey()
+		unitMeterStatus, found := ctx.meterStatus[agentKey]
+		if !found {
+			return errors.Errorf("missing meter status for unit %s", unit.Name())
+		}
 
-	// 	statusArgs, err = e.statusArgs(agentKey)
-	// 	if err != nil {
-	// 		return errors.Annotatef(err, "agent status for unit %s", unit.Name())
-	// 	}
-	// 	exUnit.SetAgentStatus(statusArgs)
-	// 	exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
+		args := description.UnitArgs{
+			Tag:     names2.NewUnitTag(unit.Name()),
+			Machine: names2.NewMachineTag(unit.doc.MachineId),
+			// WorkloadVersion not supported.
+			PasswordHash:    unit.doc.PasswordHash,
+			MeterStatusCode: unitMeterStatus.Code,
+			MeterStatusInfo: unitMeterStatus.Info,
+		}
+		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
+			args.Principal = names2.NewUnitTag(principalName)
+		}
+		if subs := unit.SubordinateNames(); len(subs) > 0 {
+			for _, subName := range subs {
+				args.Subordinates = append(args.Subordinates, names2.NewUnitTag(subName))
+			}
+		}
+		e.logger.Debugf("Adding application %q", args.Tag.Id())
+		exUnit := exApplication.AddUnit(args)
 
-	// 	workloadVersionKey := unit.globalWorkloadVersionKey()
-	// 	exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
+		// FIXME(thumper): when we have worked out how to get them.
+		// 	if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
+		// 		return errors.Trace(err)
+		// 	}
 
-	// 	tools, err := unit.AgentTools()
-	// 	if err != nil {
-	// 		// This means the tools aren't set, but they should be.
-	// 		return errors.Trace(err)
-	// 	}
-	// 	exUnit.SetTools(description.AgentToolsArgs{
-	// 		Version: tools.Version,
-	// 		URL:     tools.URL,
-	// 		SHA256:  tools.SHA256,
-	// 		Size:    tools.Size,
-	// 	})
-	// 	exUnit.SetAnnotations(e.getAnnotations(globalKey))
+		// workload uses globalKey, agent uses globalAgentKey,
+		// workload version uses globalWorkloadVersionKey.
+		globalKey := unit.globalKey()
+		statusArgs, err := e.statusArgs(globalKey)
+		if err != nil {
+			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
+		}
+		exUnit.SetWorkloadStatus(statusArgs)
+		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
 
-	// 	constraintsArgs, err := e.constraintsArgs(agentKey)
-	// 	if err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// 	exUnit.SetConstraints(constraintsArgs)
-	// }
+		statusArgs, err = e.statusArgs(agentKey)
+		if err != nil {
+			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
+		}
+		exUnit.SetAgentStatus(statusArgs)
+		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
+
+		tools, err := unit.AgentTools()
+		if err != nil {
+			// This means the tools aren't set, but they should be.
+			return errors.Trace(err)
+		}
+		exUnit.SetTools(description.AgentToolsArgs{
+			Version: version2Binary(tools.Version),
+			URL:     tools.URL,
+			SHA256:  tools.SHA256,
+			Size:    tools.Size,
+		})
+		exUnit.SetAnnotations(e.getAnnotations(globalKey))
+
+		constraintsArgs, err := e.constraintsArgs(agentKey)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		exUnit.SetConstraints(constraintsArgs)
+	}
 
 	return nil
+}
+
+func version2Number(v version1.Number) version.Number {
+	return version.Number{
+		Major: v.Major,
+		Minor: v.Minor,
+		Tag:   v.Tag,
+		Patch: v.Patch,
+		Build: v.Build,
+	}
+}
+
+func version2Binary(v version1.Binary) version.Binary {
+	return version.Binary{
+		Number: version2Number(v.Number),
+		Series: v.Series,
+		Arch:   v.Arch,
+	}
 }
 
 func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.FullPayloadInfo) error {
@@ -782,53 +840,52 @@ func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.F
 }
 
 func (e *exporter) relations() error {
-	// FIXME (thumper): BROKEN
-	// rels, err := e.st.AllRelations()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// e.logger.Debugf("read %d relations", len(rels))
+	rels, err := e.st.AllRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d relations", len(rels))
 
-	// relationScopes, err := e.readAllRelationScopes()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
+	relationScopes, err := e.readAllRelationScopes()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	// for _, relation := range rels {
-	// 	exRelation := e.model.AddRelation(description.RelationArgs{
-	// 		Id:  relation.Id(),
-	// 		Key: relation.String(),
-	// 	})
-	// 	for _, ep := range relation.Endpoints() {
-	// 		exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
-	// 			ApplicationName: ep.ApplicationName,
-	// 			Name:            ep.Name,
-	// 			Role:            string(ep.Role),
-	// 			Interface:       ep.Interface,
-	// 			Optional:        ep.Optional,
-	// 			Limit:           ep.Limit,
-	// 			Scope:           string(ep.Scope),
-	// 		})
-	// 		// We expect a relationScope and settings for each of the
-	// 		// units of the specified application.
-	// 		units := e.units[ep.ApplicationName]
-	// 		for _, unit := range units {
-	// 			ru, err := relation.Unit(unit)
-	// 			if err != nil {
-	// 				return errors.Trace(err)
-	// 			}
-	// 			key := ru.key()
-	// 			if !relationScopes.Contains(key) {
-	// 				return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
-	// 			}
-	// 			settingsDoc, found := e.modelSettings[key]
-	// 			if !found {
-	// 				return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
-	// 			}
-	// 			exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
-	// 		}
-	// 	}
-	// }
+	for _, relation := range rels {
+		exRelation := e.model.AddRelation(description.RelationArgs{
+			Id:  relation.Id(),
+			Key: relation.String(),
+		})
+		for _, ep := range relation.Endpoints() {
+			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
+				ApplicationName: ep.ServiceName,
+				Name:            ep.Name,
+				Role:            string(ep.Role),
+				Interface:       ep.Interface,
+				Optional:        ep.Optional,
+				Limit:           ep.Limit,
+				Scope:           string(ep.Scope),
+			})
+			// We expect a relationScope and settings for each of the
+			// units of the specified application.
+			units := e.units[ep.ServiceName]
+			for _, unit := range units {
+				ru, err := relation.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				key := ru.currentKey()
+				if !relationScopes.Contains(key) {
+					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
+				}
+				settings, found := e.modelSettings[key]
+				if !found {
+					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
+				}
+				exEndPoint.SetUnitSettings(unit.Name(), settings)
+			}
+		}
+	}
 	return nil
 }
 
@@ -839,62 +896,42 @@ func (e *exporter) spaces() error {
 	}
 	e.logger.Debugf("read %d spaces", len(spaces))
 
-	// FIXME (thumper): BROKEN
-	// for _, space := range spaces {
-	// 	e.model.AddSpace(description.SpaceArgs{
-	// 		Name:       space.Name(),
-	// 		Public:     space.IsPublic(),
-	// 		ProviderID: string(space.ProviderId()),
-	// 	})
-	// }
-	return nil
-}
-
-func (e *exporter) linklayerdevices() error {
-	// FIXME (thumper): BROKEN
-	// linklayerdevices, err := e.st.AllLinkLayerDevices()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// e.logger.Debugf("read %d ip devices", len(linklayerdevices))
-	// for _, device := range linklayerdevices {
-	// 	e.model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
-	// 		ProviderID:  string(device.ProviderID()),
-	// 		MachineID:   device.MachineID(),
-	// 		Name:        device.Name(),
-	// 		MTU:         device.MTU(),
-	// 		Type:        string(device.Type()),
-	// 		MACAddress:  device.MACAddress(),
-	// 		IsAutoStart: device.IsAutoStart(),
-	// 		IsUp:        device.IsUp(),
-	// 		ParentName:  device.ParentName(),
-	// 	})
-	// }
+	for _, space := range spaces {
+		e.model.AddSpace(description.SpaceArgs{
+			Name:   space.Name(),
+			Public: space.doc.IsPublic,
+			// No provider ID in 1.25
+		})
+	}
 	return nil
 }
 
 func (e *exporter) subnets() error {
-	// FIXME (thumper): BROKEN
-	// subnets, err := e.st.AllSubnets()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// e.logger.Debugf("read %d subnets", len(subnets))
+	subnets, err := e.st.AllSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d subnets", len(subnets))
 
-	// for _, subnet := range subnets {
-	// 	e.model.AddSubnet(description.SubnetArgs{
-	// 		CIDR:             subnet.CIDR(),
-	// 		ProviderId:       string(subnet.ProviderId()),
-	// 		VLANTag:          subnet.VLANTag(),
-	// 		AvailabilityZone: subnet.AvailabilityZone(),
-	// 		SpaceName:        subnet.SpaceName(),
-	// 	})
-	// }
+	for _, subnet := range subnets {
+		e.model.AddSubnet(description.SubnetArgs{
+			CIDR:             subnet.CIDR(),
+			ProviderId:       string(subnet.ProviderId()),
+			VLANTag:          subnet.VLANTag(),
+			AvailabilityZone: subnet.AvailabilityZone(),
+			SpaceName:        subnet.SpaceName(),
+		})
+	}
 	return nil
 }
 
 func (e *exporter) ipaddresses() error {
-	// FIXME (thumper): BROKEN
+	// NOTE (thumper): pretty sure we can get away without migrating
+	// any information about ip addresses. The addresses stored in a 1.25
+	// environment don't match up with those that would be stored in 2.x
+	// as all 2.x ipaddresses are linked to a link layer device, which isn't
+	// recorded in 1.25.
+	//
 	// ipaddresses, err := e.st.AllIPAddresses()
 	// if err != nil {
 	// 	return errors.Trace(err)
@@ -911,30 +948,6 @@ func (e *exporter) ipaddresses() error {
 	// 		DNSServers:       addr.DNSServers(),
 	// 		DNSSearchDomains: addr.DNSSearchDomains(),
 	// 		GatewayAddress:   addr.GatewayAddress(),
-	// 	})
-	// }
-	return nil
-}
-
-func (e *exporter) sshHostKeys() error {
-	// FIXME (thumper): BROKEN
-	// machines, err := e.st.AllMachines()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// for _, machine := range machines {
-	// 	keys, err := e.st.GetSSHHostKeys(machine.MachineTag())
-	// 	if errors.IsNotFound(err) {
-	// 		continue
-	// 	} else if err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// 	if len(keys) == 0 {
-	// 		continue
-	// 	}
-	// 	e.model.AddSSHHostKey(description.SSHHostKeyArgs{
-	// 		MachineID: machine.Id(),
-	// 		Keys:      keys,
 	// 	})
 	// }
 	return nil
@@ -967,27 +980,26 @@ func (e *exporter) cloudimagemetadata() error {
 }
 
 func (e *exporter) actions() error {
-	// FIXME (thumper): BROKEN
-	// actions, err := e.st.AllActions()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// e.logger.Debugf("read %d actions", len(actions))
-	// for _, action := range actions {
-	// 	results, message := action.Results()
-	// 	e.model.AddAction(description.ActionArgs{
-	// 		Receiver:   action.Receiver(),
-	// 		Name:       action.Name(),
-	// 		Parameters: action.Parameters(),
-	// 		Enqueued:   action.Enqueued(),
-	// 		Started:    action.Started(),
-	// 		Completed:  action.Completed(),
-	// 		Status:     string(action.Status()),
-	// 		Results:    results,
-	// 		Message:    message,
-	// 		Id:         action.Id(),
-	// 	})
-	// }
+	actions, err := e.st.AllActions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d actions", len(actions))
+	for _, action := range actions {
+		results, message := action.Results()
+		e.model.AddAction(description.ActionArgs{
+			Receiver:   action.Receiver(),
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+			Enqueued:   action.Enqueued(),
+			Started:    action.Started(),
+			Completed:  action.Completed(),
+			Status:     string(action.Status()),
+			Results:    results,
+			Message:    message,
+			Id:         action.Id(),
+		})
+	}
 	return nil
 }
 
@@ -1020,11 +1032,10 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	}
 	e.logger.Debugf("found %d unit docs", len(docs))
 	result := make(map[string][]*Unit)
-	// FIXME (thumper): BROKEN
-	// for _, doc := range docs {
-	// 	units := result[doc.Application]
-	// 	result[doc.Application] = append(units, newUnit(e.st, &doc))
-	// }
+	for _, doc := range docs {
+		units := result[doc.Service]
+		result[doc.Service] = append(units, newUnit(e.st, &doc))
+	}
 	return result, nil
 }
 
@@ -1046,19 +1057,18 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	// FIXME (thumper): BROKEN
-	// lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
-	// defer closer()
+	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
+	defer closer()
 
-	// var docs []modelUserLastConnectionDoc
-	// if err := lastConnections.Find(nil).All(&docs); err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
+	var docs []envUserLastConnectionDoc
+	if err := lastConnections.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	result := make(map[string]time.Time)
-	// for _, doc := range docs {
-	// 	result[doc.UserName] = doc.LastConnection.UTC()
-	// }
+	for _, doc := range docs {
+		result[doc.UserName] = doc.LastConnection.UTC()
+	}
 	return result, nil
 }
 
@@ -1336,88 +1346,83 @@ func (e *exporter) volumes() error {
 		return errors.Trace(err)
 	}
 
-	// FIXME (thumper): BROKEN
-	_ = coll
-	_ = attachments
-	// var doc volumeDoc
-	// iter := coll.Find(nil).Sort("_id").Iter()
-	// defer iter.Close()
-	// for iter.Next(&doc) {
-	// 	vol := &volume{e.st, doc}
-	// 	if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// }
-	// if err := iter.Err(); err != nil {
-	// 	return errors.Annotate(err, "failed to read volumes")
-	// }
+	var doc volumeDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		vol := &volume{e.st, doc}
+		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read volumes")
+	}
 	return nil
 }
 
 func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
-	// FIXME (thumper): BROKEN
-	// args := description.VolumeArgs{
-	// 	Tag:     vol.VolumeTag(),
-	// 	Binding: vol.LifeBinding(),
-	// }
-	// if tag, err := vol.StorageInstance(); err == nil {
-	// 	// only returns an error when no storage tag.
-	// 	args.Storage = tag
-	// } else {
-	// 	if !errors.IsNotAssigned(err) {
-	// 		// This is an unexpected error.
-	// 		return errors.Trace(err)
-	// 	}
-	// }
-	// logger.Debugf("addVolume: %#v", vol.doc)
-	// if info, err := vol.Info(); err == nil {
-	// 	logger.Debugf("  info %#v", info)
-	// 	args.Provisioned = true
-	// 	args.Size = info.Size
-	// 	args.Pool = info.Pool
-	// 	args.HardwareID = info.HardwareId
-	// 	args.VolumeID = info.VolumeId
-	// 	args.Persistent = info.Persistent
-	// } else {
-	// 	params, _ := vol.Params()
-	// 	logger.Debugf("  params %#v", params)
-	// 	args.Size = params.Size
-	// 	args.Pool = params.Pool
-	// }
+	args := description.VolumeArgs{
+		Tag: names2.NewVolumeTag(vol.VolumeTag().Id()),
+	}
+	if tag, err := vol.StorageInstance(); err == nil {
+		// only returns an error when no storage tag.
+		args.Storage = names2.NewStorageTag(tag.Id())
+	} else {
+		if !errors.IsNotAssigned(err) {
+			// This is an unexpected error.
+			return errors.Trace(err)
+		}
+	}
+	logger.Debugf("addVolume: %#v", vol.doc)
+	if info, err := vol.Info(); err == nil {
+		logger.Debugf("  info %#v", info)
+		args.Provisioned = true
+		args.Size = info.Size
+		args.Pool = info.Pool
+		args.HardwareID = info.HardwareId
+		args.VolumeID = info.VolumeId
+		args.Persistent = info.Persistent
+	} else {
+		params, _ := vol.Params()
+		logger.Debugf("  params %#v", params)
+		args.Size = params.Size
+		args.Pool = params.Pool
+	}
 
-	// globalKey := vol.globalKey()
-	// statusArgs, err := e.statusArgs(globalKey)
-	// if err != nil {
-	// 	return errors.Annotatef(err, "status for volume %s", vol.doc.Name)
-	// }
+	globalKey := vol.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for volume %s", vol.doc.Name)
+	}
 
-	// exVolume := e.model.AddVolume(args)
-	// exVolume.SetStatus(statusArgs)
-	// exVolume.SetStatusHistory(e.statusHistoryArgs(globalKey))
-	// if count := len(volAttachments); count != vol.doc.AttachmentCount {
-	// 	return errors.Errorf("volume attachment count mismatch, have %d, expected %d",
-	// 		count, vol.doc.AttachmentCount)
-	// }
-	// for _, doc := range volAttachments {
-	// 	va := volumeAttachment{doc}
-	// 	logger.Debugf("  attachment %#v", doc)
-	// 	args := description.VolumeAttachmentArgs{
-	// 		Machine: va.Machine(),
-	// 	}
-	// 	if info, err := va.Info(); err == nil {
-	// 		logger.Debugf("    info %#v", info)
-	// 		args.Provisioned = true
-	// 		args.ReadOnly = info.ReadOnly
-	// 		args.DeviceName = info.DeviceName
-	// 		args.DeviceLink = info.DeviceLink
-	// 		args.BusAddress = info.BusAddress
-	// 	} else {
-	// 		params, _ := va.Params()
-	// 		logger.Debugf("    params %#v", params)
-	// 		args.ReadOnly = params.ReadOnly
-	// 	}
-	// 	exVolume.AddAttachment(args)
-	// }
+	exVolume := e.model.AddVolume(args)
+	exVolume.SetStatus(statusArgs)
+	exVolume.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	if count := len(volAttachments); count != vol.doc.AttachmentCount {
+		return errors.Errorf("volume attachment count mismatch, have %d, expected %d",
+			count, vol.doc.AttachmentCount)
+	}
+	for _, doc := range volAttachments {
+		va := volumeAttachment{doc}
+		logger.Debugf("  attachment %#v", doc)
+		args := description.VolumeAttachmentArgs{
+			Machine: names2.NewMachineTag(va.Machine().Id()),
+		}
+		if info, err := va.Info(); err == nil {
+			logger.Debugf("    info %#v", info)
+			args.Provisioned = true
+			args.ReadOnly = info.ReadOnly
+			args.DeviceName = info.DeviceName
+			args.DeviceLink = info.DeviceLink
+			args.BusAddress = info.BusAddress
+		} else {
+			params, _ := va.Params()
+			logger.Debugf("    params %#v", params)
+			args.ReadOnly = params.ReadOnly
+		}
+		exVolume.AddAttachment(args)
+	}
 	return nil
 }
 
@@ -1442,89 +1447,80 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) filesystems() error {
-	// FIXME (thumper): BROKEN
-	// coll, closer := e.st.getCollection(filesystemsC)
-	// defer closer()
+	coll, closer := e.st.getCollection(filesystemsC)
+	defer closer()
 
-	// attachments, err := e.readFilesystemAttachments()
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
+	attachments, err := e.readFilesystemAttachments()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	// var doc filesystemDoc
-	// iter := coll.Find(nil).Sort("_id").Iter()
-	// defer iter.Close()
-	// for iter.Next(&doc) {
-	// 	fs := &filesystem{e.st, doc}
-	// 	if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// }
-	// if err := iter.Err(); err != nil {
-	// 	return errors.Annotate(err, "failed to read filesystems")
-	// }
+	var doc filesystemDoc
+	iter := coll.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		fs := &filesystem{doc}
+		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read filesystems")
+	}
 	return nil
 }
 
 func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttachmentDoc) error {
 	// Here we don't care about the cases where the filesystem is not assigned to storage instances
 	// nor no backing volues. In both those situations we have empty tags.
+	storage, _ := fs.Storage()
+	volume, _ := fs.Volume()
+	args := description.FilesystemArgs{
+		Tag:     names2.NewFilesystemTag(fs.FilesystemTag().Id()),
+		Storage: names2.NewStorageTag(storage.Id()),
+		Volume:  names2.NewVolumeTag(volume.Id()),
+	}
+	logger.Debugf("addFilesystem: %#v", fs.doc)
+	if info, err := fs.Info(); err == nil {
+		logger.Debugf("  info %#v", info)
+		args.Provisioned = true
+		args.Size = info.Size
+		args.Pool = info.Pool
+		args.FilesystemID = info.FilesystemId
+	} else {
+		params, _ := fs.Params()
+		logger.Debugf("  params %#v", params)
+		args.Size = params.Size
+		args.Pool = params.Pool
+	}
 
-	// FIXME (thumper): BROKEN
-	// storage, _ := fs.Storage()
-	// volume, _ := fs.Volume()
-	// args := description.FilesystemArgs{
-	// 	Tag:     fs.FilesystemTag(),
-	// 	Storage: storage,
-	// 	Volume:  volume,
-	// 	Binding: fs.LifeBinding(),
-	// }
-	// logger.Debugf("addFilesystem: %#v", fs.doc)
-	// if info, err := fs.Info(); err == nil {
-	// 	logger.Debugf("  info %#v", info)
-	// 	args.Provisioned = true
-	// 	args.Size = info.Size
-	// 	args.Pool = info.Pool
-	// 	args.FilesystemID = info.FilesystemId
-	// } else {
-	// 	params, _ := fs.Params()
-	// 	logger.Debugf("  params %#v", params)
-	// 	args.Size = params.Size
-	// 	args.Pool = params.Pool
-	// }
+	exFilesystem := e.model.AddFilesystem(args)
+	// No status for filesystems in 1.25
+	exFilesystem.SetStatus(description.StatusArgs{Value: string(StatusUnknown)})
 
-	// globalKey := fs.globalKey()
-	// statusArgs, err := e.statusArgs(globalKey)
-	// if err != nil {
-	// 	return errors.Annotatef(err, "status for filesystem %s", fs.doc.FilesystemId)
-	// }
-
-	// exFilesystem := e.model.AddFilesystem(args)
-	// exFilesystem.SetStatus(statusArgs)
-	// exFilesystem.SetStatusHistory(e.statusHistoryArgs(globalKey))
-	// if count := len(fsAttachments); count != fs.doc.AttachmentCount {
-	// 	return errors.Errorf("filesystem attachment count mismatch, have %d, expected %d",
-	// 		count, fs.doc.AttachmentCount)
-	// }
-	// for _, doc := range fsAttachments {
-	// 	va := filesystemAttachment{doc}
-	// 	logger.Debugf("  attachment %#v", doc)
-	// 	args := description.FilesystemAttachmentArgs{
-	// 		Machine: va.Machine(),
-	// 	}
-	// 	if info, err := va.Info(); err == nil {
-	// 		logger.Debugf("    info %#v", info)
-	// 		args.Provisioned = true
-	// 		args.ReadOnly = info.ReadOnly
-	// 		args.MountPoint = info.MountPoint
-	// 	} else {
-	// 		params, _ := va.Params()
-	// 		logger.Debugf("    params %#v", params)
-	// 		args.ReadOnly = params.ReadOnly
-	// 		args.MountPoint = params.Location
-	// 	}
-	// 	exFilesystem.AddAttachment(args)
-	// }
+	if count := len(fsAttachments); count != fs.doc.AttachmentCount {
+		return errors.Errorf("filesystem attachment count mismatch, have %d, expected %d",
+			count, fs.doc.AttachmentCount)
+	}
+	for _, doc := range fsAttachments {
+		va := filesystemAttachment{doc}
+		logger.Debugf("  attachment %#v", doc)
+		args := description.FilesystemAttachmentArgs{
+			Machine: names2.NewMachineTag(va.Machine().Id()),
+		}
+		if info, err := va.Info(); err == nil {
+			logger.Debugf("    info %#v", info)
+			args.Provisioned = true
+			args.ReadOnly = info.ReadOnly
+			args.MountPoint = info.MountPoint
+		} else {
+			params, _ := va.Params()
+			logger.Debugf("    params %#v", params)
+			args.ReadOnly = params.ReadOnly
+			args.MountPoint = params.Location
+		}
+		exFilesystem.AddAttachment(args)
+	}
 	return nil
 }
 
@@ -1573,15 +1569,19 @@ func (e *exporter) storageInstances() error {
 }
 
 func (e *exporter) addStorage(instance *storageInstance, attachments []names2.UnitTag) error {
-	// FIXME (thumper): BROKEN
-	// args := description.StorageArgs{
-	// 	Tag:         instance.StorageTag(),
-	// 	Kind:        instance.Kind().String(),
-	// 	Owner:       instance.Owner(),
-	// 	Name:        instance.StorageName(),
-	// 	Attachments: attachments,
-	// }
-	// e.model.AddStorage(args)
+	ownerTag, err := names2.ParseTag(instance.Owner().String())
+	if err != nil {
+		return errors.Annotate(err, "parsing storage owner tag")
+	}
+
+	args := description.StorageArgs{
+		Tag:         names2.NewStorageTag(instance.StorageTag().Id()),
+		Kind:        instance.Kind().String(),
+		Owner:       ownerTag,
+		Name:        instance.StorageName(),
+		Attachments: attachments,
+	}
+	e.model.AddStorage(args)
 	return nil
 }
 
@@ -1607,23 +1607,18 @@ func (e *exporter) readStorageAttachments() (map[string][]names2.UnitTag, error)
 }
 
 func (e *exporter) storagePools() error {
-	// FIXME (thumper): BROKEN
-	// registry, err := e.st.storageProviderRegistry()
-	// if err != nil {
-	// 	return errors.Annotate(err, "getting provider registry")
-	// }
-	// pm := poolmanager.New(storagePoolSettingsManager{e: e}, registry)
-	// poolConfigs, err := pm.List()
-	// if err != nil {
-	// 	return errors.Annotate(err, "listing pools")
-	// }
-	// for _, cfg := range poolConfigs {
-	// 	e.model.AddStoragePool(description.StoragePoolArgs{
-	// 		Name:       cfg.Name(),
-	// 		Provider:   string(cfg.Provider()),
-	// 		Attributes: cfg.Attrs(),
-	// 	})
-	// }
+	pm := poolmanager.New(storagePoolSettingsManager{e: e})
+	poolConfigs, err := pm.List()
+	if err != nil {
+		return errors.Annotate(err, "listing pools")
+	}
+	for _, cfg := range poolConfigs {
+		e.model.AddStoragePool(description.StoragePoolArgs{
+			Name:       cfg.Name(),
+			Provider:   string(cfg.Provider()),
+			Attributes: cfg.Attrs(),
+		})
+	}
 	return nil
 }
 
