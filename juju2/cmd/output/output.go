@@ -61,6 +61,19 @@ func (w *Wrapper) Println(values ...interface{}) {
 	fmt.Fprintln(w)
 }
 
+// Headerln writes many tab separated values finished with a new line using
+// the Header context
+func (w *Wrapper) Headerln(values ...interface{}) {
+	for i, v := range values {
+		if i != len(values)-1 {
+			Heading.Fprintf(w.TabWriter, "%v\t", v)
+		} else {
+			Heading.Fprintf(w.TabWriter, "%v", v)
+		}
+	}
+	fmt.Fprintln(w)
+}
+
 // PrintColor writes the value out in the color context specified.
 func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 	if ctx != nil {
@@ -74,6 +87,8 @@ func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 func (w *Wrapper) PrintStatus(status status.Status) {
 	w.PrintColor(statusColors[status], status)
 }
+
+var Heading = ansiterm.Styles(ansiterm.Bold)
 
 // CurrentHighlight is the color used to show the current
 // controller, user or model in tabular

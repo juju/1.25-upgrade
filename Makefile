@@ -1,3 +1,5 @@
+default: install
+
 $(GOPATH)/bin/godeps:
 	go get github.com/rogpeppe/godeps
 
@@ -7,4 +9,4 @@ godeps: $(GOPATH)/bin/godeps
 install: godeps
 	go install -v ./juju-1.25-upgrade 
 
-.PHONY: godeps install
+.PHONY: default godeps install

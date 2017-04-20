@@ -36,4 +36,10 @@ func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newVerifySourceImplCommand())
 	super.Register(newDumpSourceDBCommand())
 	super.Register(newDumpSourceDBImplCommand())
+	super.Register(newAgentStatusCommand())
+	super.Register(newAgentStatusImplCommand())
+	super.Register(newStartAgentsCommand())
+	super.Register(newStartAgentsImplCommand())
+	super.Register(newStopAgentsCommand())
+	super.Register(newStopAgentsImplCommand())
 }

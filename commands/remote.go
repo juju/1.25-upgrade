@@ -54,6 +54,7 @@ func updateRemotePlugin(plugin, address string) error {
 }
 
 func checkUpdatePlugin(ctx *cmd.Context, plugin, address string) error {
+	ctx.Infof("checking remote plugin")
 	local, err := localMD5Sum(plugin)
 	if err != nil {
 		return errors.Annotate(err, "generating local md5sum")

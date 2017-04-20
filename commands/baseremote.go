@@ -24,7 +24,7 @@ func (c *baseRemoteCommand) getState(ctx *cmd.Context) (*state.State, error) {
 		return nil, errors.Annotate(err, "finding machine tag")
 	}
 
-	ctx.Infof("current machine tag: %s", tag)
+	logger.Infof("current machine tag: %s", tag)
 
 	config, err := getConfig(tag)
 	if err != nil {

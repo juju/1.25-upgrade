@@ -14,6 +14,7 @@ const systemIdentity = "/var/lib/juju/system-identity"
 
 type FlatMachine struct {
 	Model   string
+	Series  string
 	ID      string
 	Address string
 }
@@ -38,7 +39,7 @@ func runViaSSH(addr string, script, identity string) (RunResult, error) {
 	userCmd.Stdout = &stdoutBuf
 	userCmd.Stderr = &stderrBuf
 	var result RunResult
-	logger.Debugf("executing %s, script:\n%s", addr, script)
+	// logger.Debugf("executing %s, script:\n%s", addr, script)
 	err := userCmd.Run()
 	result.Stdout = stdoutBuf.String()
 	result.Stderr = stderrBuf.String()
@@ -55,6 +56,7 @@ func runViaSSH(addr string, script, identity string) (RunResult, error) {
 
 type DistResult struct {
 	Model     string
+	Series    string
 	MachineID string
 	Error     error
 	Code      int
@@ -77,6 +79,7 @@ func parallelCall(machines []FlatMachine, script string) []DistResult {
 			run, err := runViaSSH(machine.Address, script, systemIdentity)
 			result := DistResult{
 				Model:     machine.Model,
+				Series:    machine.Series,
 				MachineID: machine.ID,
 				Error:     err,
 				Code:      run.Code,
