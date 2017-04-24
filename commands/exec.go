@@ -17,6 +17,7 @@ type FlatMachine struct {
 	Series  string
 	ID      string
 	Address string
+	Tools   string
 }
 
 type RunResult struct {

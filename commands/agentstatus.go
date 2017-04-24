@@ -212,6 +212,9 @@ func getMachines(st *state.State) ([]FlatMachine, error) {
 			ID:      m.Id(),
 			Address: address,
 		}
+		if tools, err := m.AgentTools(); err == nil {
+			fm.Tools = tools.Version.String()
+		}
 		logger.Debugf("%d: %#v", i, fm)
 		result = append(result, fm)
 	}

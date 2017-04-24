@@ -11,6 +11,11 @@ import (
 	"github.com/juju/version"
 )
 
+const (
+	toolsDir  = "/home/ubuntu/juju-1.25-upgrade-tools"
+	toolsFile = "downloaded-tools.txt"
+)
+
 var (
 	logger          = loggo.GetLogger("upgrader")
 	upgraderVersion = version.MustParse("0.1.0")
@@ -42,4 +47,6 @@ func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newStartAgentsImplCommand())
 	super.Register(newStopAgentsCommand())
 	super.Register(newStopAgentsImplCommand())
+	super.Register(newUpgradeAgentsCommand())
+	super.Register(newUpgradeAgentsImplCommand())
 }

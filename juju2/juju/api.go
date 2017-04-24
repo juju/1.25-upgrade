@@ -153,6 +153,9 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	return st, nil
 }
 
+// Expose this for the upgrade.
+var ConnectionInfo = connectionInfo
+
 // connectionInfo returns connection information suitable for
 // connecting to the controller and model specified in the given
 // parameters. If there are no addresses known for the controller,
