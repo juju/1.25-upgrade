@@ -189,7 +189,16 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 
 	switch cloudType {
 	case "ec2":
-		return nil, creds, region, errors.Errorf("ec2 not yet done")
+		creds.AuthType = "access-key"
+		creds.Attributes = map[string]string{
+			"access-key": modelConfig["access-key"].(string),
+			"secret-key": modelConfig["secret-key"].(string),
+		}
+		region = modelConfig["region"].(string)
+		delete(modelConfig, "region")
+		delete(modelConfig, "access-key")
+		delete(modelConfig, "secret-key")
+
 	case "maas":
 		creds.AuthType = "oauth1"
 		creds.Attributes = map[string]string{

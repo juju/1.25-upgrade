@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/1.25-upgrade/commands"
 	"github.com/juju/1.25-upgrade/juju1/juju/osenv"
+	// Ensure all 1.25 providers are registered for export.
+	_ "github.com/juju/1.25-upgrade/juju1/provider/all"
 )
 
 var logger = loggo.GetLogger("upgrader")
