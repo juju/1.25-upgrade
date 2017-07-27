@@ -11,10 +11,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit/renderers"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.providerinit")

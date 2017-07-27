@@ -6,10 +6,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	jtesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jtesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&fakeAPISuite{})

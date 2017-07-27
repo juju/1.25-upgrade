@@ -14,22 +14,22 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
-	"github.com/juju/version"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -109,7 +109,7 @@ type BaseSuiteUnpatched struct {
 	StartInstArgs environs.StartInstanceParams
 	//InstanceType  instances.InstanceType
 
-	Ports          []network.PortRange
+	Rules          []network.IngressRule
 	EndpointAddrs  []string
 	InterfaceAddr  string
 	InterfaceAddrs []net.Addr
@@ -240,11 +240,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
-	s.Ports = []network.PortRange{{
-		FromPort: 80,
-		ToPort:   80,
-		Protocol: "tcp",
-	}}
+	s.Rules = []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)}
 }
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
@@ -352,6 +348,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
+		lxdStorage:   s.Client,
 		Firewaller:   s.Firewaller,
 		remote: lxdclient.Remote{
 			Cert: &lxdclient.Cert{
@@ -487,9 +484,11 @@ func (sc *stubCommon) DestroyEnv() error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts  []lxdclient.Instance
-	Inst   *lxdclient.Instance
-	Server *api.Server
+	Insts              []lxdclient.Instance
+	Inst               *lxdclient.Instance
+	Server             *api.Server
+	StorageIsSupported bool
+	Volumes            map[string][]api.StorageVolume
 }
 
 func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
@@ -601,15 +600,48 @@ func (conn *StubClient) HasProfile(name string) (bool, error) {
 	return false, conn.NextErr()
 }
 
+func (conn *StubClient) AttachDisk(container, device string, disk lxdclient.DiskDevice) error {
+	conn.AddCall("AttachDisk", container, device, disk)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) RemoveDevice(container, device string) error {
+	conn.AddCall("RemoveDevice", container, device)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) StorageSupported() bool {
+	conn.AddCall("StorageSupported")
+	return conn.StorageIsSupported
+}
+
+func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
+	conn.AddCall("VolumeCreate", pool, volume, config)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) VolumeDelete(pool, volume string) error {
+	conn.AddCall("VolumeDelete", pool, volume)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
+	conn.AddCall("VolumeList", pool)
+	if err := conn.NextErr(); err != nil {
+		return nil, err
+	}
+	return conn.Volumes[pool], nil
+}
+
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.
 
 type stubFirewaller struct {
 	stub *gitjujutesting.Stub
 
-	PortRanges []network.PortRange
+	PortRanges []network.IngressRule
 }
 
-func (fw *stubFirewaller) Ports(fwname string) ([]network.PortRange, error) {
+func (fw *stubFirewaller) IngressRules(fwname string) ([]network.IngressRule, error) {
 	fw.stub.AddCall("Ports", fwname)
 	if err := fw.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -618,8 +650,8 @@ func (fw *stubFirewaller) Ports(fwname string) ([]network.PortRange, error) {
 	return fw.PortRanges, nil
 }
 
-func (fw *stubFirewaller) OpenPorts(fwname string, ports ...network.PortRange) error {
-	fw.stub.AddCall("OpenPorts", fwname, ports)
+func (fw *stubFirewaller) OpenPorts(fwname string, rules ...network.IngressRule) error {
+	fw.stub.AddCall("OpenPorts", fwname, rules)
 	if err := fw.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -627,8 +659,8 @@ func (fw *stubFirewaller) OpenPorts(fwname string, ports ...network.PortRange) e
 	return nil
 }
 
-func (fw *stubFirewaller) ClosePorts(fwname string, ports ...network.PortRange) error {
-	fw.stub.AddCall("ClosePorts", fwname, ports)
+func (fw *stubFirewaller) ClosePorts(fwname string, rules ...network.IngressRule) error {
+	fw.stub.AddCall("ClosePorts", fwname, rules)
 	if err := fw.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

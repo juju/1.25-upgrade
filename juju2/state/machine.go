@@ -18,15 +18,15 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/actions"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/presence"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 // Machine represents the state of a machine.
@@ -208,7 +208,6 @@ type instanceData struct {
 	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
 	ModelUUID  string      `bson:"model-uuid"`
-	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
@@ -240,7 +239,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
-	instanceDataCollection, closer := st.getCollection(instanceDataC)
+	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
 	defer closer()
 
 	var instData instanceData
@@ -515,7 +514,7 @@ func IsHasAssignedUnitsError(err error) bool {
 // Containers returns the container ids belonging to a parent machine.
 // TODO(wallyworld): move this method to a service
 func (m *Machine) Containers() ([]string, error) {
-	containerRefs, closer := m.st.getCollection(containerRefsC)
+	containerRefs, closer := m.st.db().GetCollection(containerRefsC)
 	defer closer()
 
 	var mc machineContainers
@@ -729,7 +728,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 
 		if life == Dead {
 			// A machine may not become Dead until it has no more
-			// attachments to inherently machine-bound storage.
+			// attachments to detachable storage.
 			storageAsserts, err := m.assertNoPersistentStorage()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -754,21 +753,21 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	attachments := make(set.Tags)
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
-		machineBound, err := isVolumeInherentlyMachineBound(m.st, tag)
+		detachable, err := isDetachableVolumeTag(m.st, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !machineBound {
+		if detachable {
 			attachments.Add(tag)
 		}
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		machineBound, err := isFilesystemInherentlyMachineBound(m.st, tag)
+		detachable, err := isDetachableFilesystemTag(m.st, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !machineBound {
+		if detachable {
 			attachments.Add(tag)
 		}
 	}
@@ -861,11 +860,11 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
+	filesystemOps, err := m.st.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
+	volumeOps, err := m.st.removeMachineVolumesOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -923,17 +922,22 @@ func (m *Machine) Refresh() error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (m *Machine) AgentPresence() (bool, error) {
-	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher := m.st.workers.presenceWatcher()
 	return pwatcher.Alive(m.globalKey())
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// These should really only be used in the test suite.
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
-	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher := m.st.workers.presenceWatcher()
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
+	pingBatcher := m.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -954,11 +958,15 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey())
+	recorder := m.st.getPingBatcher()
+	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey(),
+		func() presence.PingRecorder { return m.st.getPingBatcher() })
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	// We preform a manual sync here so that the
 	// presence pinger has the most up-to-date information when it
 	// starts. This ensures that commands run immediately after bootstrap
@@ -967,7 +975,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	//
 	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
 	if m.IsManager() {
-		m.st.workers.PresenceWatcher().Sync()
+		m.st.workers.presenceWatcher().Sync()
 	}
 	return p, nil
 }
@@ -988,7 +996,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
+	machineStatus, err := getStatus(m.st.db(), m.globalInstanceKey(), "instance")
 	if err != nil {
 		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
 		return status.StatusInfo{}, err
@@ -998,13 +1006,13 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   sInfo.Since,
+		updated:   timeOrNow(sInfo.Since, m.st.clock),
 	})
 
 }
@@ -1016,7 +1024,7 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 // this juju machine is deployed.
 func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalInstanceKey(),
 		filter:    filter,
 	}
@@ -1043,7 +1051,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
-	unitsCollection, closer := m.st.getCollection(unitsC)
+	unitsCollection, closer := m.st.db().GetCollection(unitsC)
 	defer closer()
 
 	pudocs := []unitDoc{}
@@ -1210,12 +1218,30 @@ func (m *Machine) SetInstanceInfo(
 	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Record volumes and volume attachments, and set the initial
+	// status: attached or attaching.
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
 	}
 	if err := setMachineVolumeAttachmentInfo(m.st, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
+	volumeStatus := make(map[names.VolumeTag]status.Status)
+	for tag := range volumes {
+		volumeStatus[tag] = status.Attaching
+	}
+	for tag := range volumeAttachments {
+		volumeStatus[tag] = status.Attached
+	}
+	for tag, status := range volumeStatus {
+		if err := m.st.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
+			return errors.Annotatef(
+				err, "setting status of %s", names.ReadableString(tag),
+			)
+		}
+	}
+
 	return m.SetProvisioned(id, nonce, characteristics)
 }
 
@@ -1588,7 +1614,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (status.StatusInfo, error) {
-	mStatus, err := getStatus(m.st, m.globalKey(), "machine")
+	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
 		return mStatus, err
 	}
@@ -1617,13 +1643,13 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	default:
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, m.st.clock),
 	})
 }
 
@@ -1632,7 +1658,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this machine.
 func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
 	}

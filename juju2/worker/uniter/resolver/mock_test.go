@@ -7,10 +7,10 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type mockRemoteStateWatcher struct {

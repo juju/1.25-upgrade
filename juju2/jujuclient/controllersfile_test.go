@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type ControllersFileSuite struct {
@@ -23,16 +23,15 @@ var _ = gc.Suite(&ControllersFileSuite{})
 const testControllersYAML = `
 controllers:
   aws-test:
-    unresolved-api-endpoints: [instance-1-2-4.useast.aws.com]
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    dns-cache: {example.com: [0.1.1.1, 0.2.2.2]}
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
     controller-machine-count: 0
     active-controller-machine-count: 0
   mallards:
-    unresolved-api-endpoints: [maas-1-05.cluster.mallards]
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
@@ -40,7 +39,6 @@ controllers:
     controller-machine-count: 0
     active-controller-machine-count: 0
   mark-test-prodstack:
-    unresolved-api-endpoints: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
@@ -80,7 +78,6 @@ func parseControllers(c *gc.C) *jujuclient.Controllers {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
-	c.Assert(controllers.Controllers["mark-test-prodstack"].UnresolvedAPIEndpoints, gc.HasLen, 2)
 	c.Assert(controllers.Controllers["mallards"].APIEndpoints, gc.HasLen, 2)
 	return controllers
 }

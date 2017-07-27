@@ -18,17 +18,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
-	runnertesting "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
+	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
 var apiAddrs = []string{"a1:123", "a2:123"}
@@ -98,15 +98,15 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
 
-	s.contextFactory, err = context.NewContextFactory(
-		s.uniter,
-		s.unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		jujutesting.NewClock(time.Time{}),
-	)
+	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
+		State:            s.uniter,
+		UnitTag:          s.unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            jujutesting.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := runner.NewFactory(

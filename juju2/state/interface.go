@@ -9,12 +9,12 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity
@@ -38,21 +38,6 @@ type EntityWithApplication interface {
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Life() Life
-}
-
-// LifeBinder represents an entity whose lifespan is bindable
-// to that of another entity.
-type LifeBinder interface {
-	Lifer
-
-	// LifeBinding either returns the tag of an entity to which this
-	// entity's lifespan is bound; the result may be nil, indicating
-	// that the entity's lifespan is not bound to anything.
-	//
-	// The types of tags that may be returned are depdendent on the
-	// entity type. For example, a Volume may be bound to a Filesystem,
-	// but a Filesystem may not be bound to a Filesystem.
-	LifeBinding() names.Tag
 }
 
 // AgentTooler is implemented by entities

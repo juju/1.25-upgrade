@@ -15,10 +15,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -28,41 +30,44 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
-	apimachiner "github.com/juju/1.25-upgrade/juju2/api/machiner"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/model"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/authenticationworker"
-	"github.com/juju/1.25-upgrade/juju2/worker/certupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/diskmanager"
-	"github.com/juju/1.25-upgrade/juju2/worker/instancepoller"
-	"github.com/juju/1.25-upgrade/juju2/worker/machiner"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationmaster"
-	"github.com/juju/1.25-upgrade/juju2/worker/mongoupgrader"
-	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/imagemetadata"
+	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/instancepoller"
+	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/mongoupgrader"
+	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type MachineSuite struct {
@@ -120,6 +125,29 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
+}
+
+func (s *MachineSuite) TestLoggingOverride(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	agentConf := FakeAgentConfig{
+		values: map[string]string{agent.LoggingOverride: "test=trace"},
+	}
+	logger := s.newBufferedLogWriter()
+
+	a := NewMachineAgentCmd(
+		ctx,
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
+		agentConf,
+		agentConf,
+	)
+	// little hack to set the data that Init expects to already be set
+	a.(*machineAgentCmd).machineId = "42"
+
+	err := a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	test := loggo.GetLogger("test")
+	c.Assert(test.LogLevel(), gc.Equals, loggo.TRACE)
 }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
@@ -420,7 +448,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ bool) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ clock.Clock, _ bool, _ peergrouper.Hub) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		started.trigger()
 		return newDummyWorker(), nil
@@ -434,7 +462,7 @@ func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started.assertTriggered(c, "peergrouperworker to start")
 }
 
-func (s *MachineSuite) TestManageModelRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsDbLogPruner(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -765,7 +793,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 
 	// Update the keys in the environment.
 	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": sshKey}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": sshKey}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for ssh keys file to be updated.
@@ -796,7 +824,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	_, done := s.waitForOpenState(c, a)
 
 	// Symlinks should have been created
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range jujudSymlinks {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
 	}
@@ -816,9 +844,8 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	defer a.Stop()
 
 	// Pre-create the symlinks, but pointing to the incorrect location.
-	links := []string{jujuRun, jujuDumpLogs}
 	a.rootDir = c.MkDir()
-	for _, link := range links {
+	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
 		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
@@ -828,7 +855,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	_, done := s.waitForOpenState(c, a)
 
 	// juju-run symlink should have been recreated.
-	for _, link := range links {
+	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
 		c.Assert(err, jc.ErrorIsNil)
@@ -846,9 +873,8 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// juju-run and juju-dumplogs symlinks should have been removed on
-	// termination.
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	// juju-* symlinks should have been removed on termination.
+	for _, link := range []string{jujuRun, jujuDumpLogs, jujuIntrospect} {
 		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
@@ -892,7 +918,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
@@ -909,7 +935,7 @@ func (s *MachineSuite) TestMongoUpgradeWorker(c *gc.C) {
 	started := make(chan struct{})
 	newWorker := func(*state.State, string, mongoupgrader.StopMongo) (worker.Worker, error) {
 		close(started)
-		return worker.NewNoOpWorker(), nil
+		return jworker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newUpgradeMongoWorker, newWorker)
 
@@ -967,7 +993,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 	started := newSignal()
 	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
 
@@ -987,7 +1013,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		c.Check(config.Scope, gc.Equals, m.Tag())
 		c.Check(config.Validate(), jc.ErrorIsNil)
 		started.trigger()
-		return worker.NewNoOpWorker(), nil
+		return jworker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
@@ -1004,7 +1030,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
@@ -1022,7 +1048,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonC
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
@@ -1095,7 +1121,7 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
@@ -1141,7 +1167,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.BackingState.UpdateModelConfig(attrs, nil, nil)
+	err := s.BackingState.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return ignoreAddressCh
 }
@@ -1409,7 +1435,12 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeModel(c, nil)
+	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
+		ConfigAttrs: coretesting.Attrs{
+			"max-status-history-age":  "2h",
+			"max-status-history-size": "4M",
+		},
+	})
 	return newSt, func() {
 		err := newSt.Close()
 		c.Check(err, jc.ErrorIsNil)

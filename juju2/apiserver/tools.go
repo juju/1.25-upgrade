@@ -17,20 +17,20 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/tools"
 )
 
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
 	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
 }
 
 // toolsHandler handles tool download through HTTPS in the API server.

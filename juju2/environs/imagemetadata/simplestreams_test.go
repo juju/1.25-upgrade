@@ -16,10 +16,10 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/keys"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

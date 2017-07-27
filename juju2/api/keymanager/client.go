@@ -6,8 +6,8 @@ package keymanager
 import (
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Client provides access to the keymanager, used to add/delete/list authorised ssh keys.

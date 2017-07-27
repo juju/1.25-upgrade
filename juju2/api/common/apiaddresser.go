@@ -4,11 +4,11 @@
 package common
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 // APIAddresser provides common client-side API

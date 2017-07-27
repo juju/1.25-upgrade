@@ -6,15 +6,16 @@ package upgradesteps
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	apimachiner "github.com/juju/1.25-upgrade/juju2/api/machiner"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/gate"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -25,6 +26,7 @@ type ManifoldConfig struct {
 	UpgradeStepsGateName string
 	OpenStateForUpgrade  func() (*state.State, error)
 	PreUpgradeSteps      func(*state.State, agent.Config, bool, bool) error
+	NewEnvironFunc       environs.NewEnvironFunc
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -97,6 +99,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
 				machine,
+				config.NewEnvironFunc,
 			)
 		},
 	}

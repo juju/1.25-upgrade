@@ -174,6 +174,13 @@ const (
 
 	// Available indicates that the model is available for use.
 	Available Status = "available"
+
+	// Busy indicates that the model is not available for use because it is
+	// running a process that must take the model offline, such as a migration,
+	// upgrade, or backup.  This is a spinning state, it is not an error state,
+	// and it should be expected that the model will eventually go back to
+	// available.
+	Busy Status = "busy"
 )
 
 const (
@@ -275,7 +282,9 @@ func ValidModelStatus(status Status) bool {
 	switch status {
 	case
 		Available,
-		Destroying:
+		Busy,
+		Destroying,
+		Error:
 		return true
 	default:
 		return false

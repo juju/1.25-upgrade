@@ -4,13 +4,14 @@
 package enginetest
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	worker "gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/worker/dependency"
+	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 // AgentAPIManifoldTestConfig returns a AgentAPIManifoldConfig

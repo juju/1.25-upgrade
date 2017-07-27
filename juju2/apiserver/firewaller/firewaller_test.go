@@ -10,13 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/firewaller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/firewaller"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type firewallerSuite struct {

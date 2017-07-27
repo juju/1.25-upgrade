@@ -10,11 +10,12 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
+	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 )
 
 // BackingSubnet defines the methods supported by a Subnet entity
@@ -26,6 +27,7 @@ type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
 	ProviderId() network.Id
+	ProviderNetworkId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -41,8 +43,6 @@ type BackingSubnet interface {
 // * subnetDoc.AvailabilityZone becomes subnetDoc.AvailabilityZones,
 //   adding an upgrade step to migrate existing non empty zones on
 //   subnet docs. Also change state.Subnet.AvailabilityZone to
-// * add subnetDoc.SpaceName - no upgrade step needed, as it will only
-//   be used for new space-aware subnets.
 // * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
@@ -50,6 +50,11 @@ type BackingSubnet interface {
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
 	ProviderId network.Id
+
+	// ProviderNetworkId is the id of the network containing this
+	// subnet from the provider's perspective. It can be empty if the
+	// provider doesn't support distinct networks.
+	ProviderNetworkId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -86,17 +91,9 @@ type BackingSpace interface {
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() network.Id
-
-	// Zones returns a list of availability zone(s) that this
-	// space is in. It can be empty if the provider does not support
-	// availability zones.
-	Zones() []string
-
-	// Life returns the lifecycle state of the space
-	Life() params.Life
 }
 
-// Backing defines the methods needed by the API facade to store and
+// NetworkBacking defines the methods needed by the API facade to store and
 // retrieve information from the underlying persistency layer (state
 // DB).
 type NetworkBacking interface {
@@ -124,6 +121,9 @@ type NetworkBacking interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
+
+	// ReloadSpaces loads spaces from backing environ
+	ReloadSpaces(environ environs.Environ) error
 }
 
 func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
@@ -436,4 +436,32 @@ func mergeObservedAndProviderAddressConfig(observedConfig, providerConfig params
 	}
 
 	return finalConfig
+}
+
+func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
+	addresses := make([]params.InterfaceAddress, len(info.Addresses))
+	for i, addr := range info.Addresses {
+		addresses[i] = params.InterfaceAddress{
+			Address: addr.Address,
+			CIDR:    addr.CIDR,
+		}
+	}
+	return params.NetworkInfo{
+		MACAddress:    info.MACAddress,
+		InterfaceName: info.InterfaceName,
+		Addresses:     addresses,
+	}
+}
+
+func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
+	if inResult.Error != nil {
+		return params.NetworkInfoResult{Error: common.ServerError(*inResult.Error)}
+	}
+	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
+	for i, info := range inResult.NetworkInfos {
+		infos[i] = networkToParamsNetworkInfo(info)
+	}
+	return params.NetworkInfoResult{
+		Info: infos,
+	}
 }

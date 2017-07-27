@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 var logger = loggo.GetLogger("juju.worker.leadership")

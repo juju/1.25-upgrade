@@ -4,18 +4,16 @@
 package proxyupdater
 
 import (
-	"strings"
-
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // Backend defines the state methods this facade needs, so they can be
@@ -85,7 +83,7 @@ func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.Prox
 		HTTP:    settings.Http,
 		HTTPS:   settings.Https,
 		FTP:     settings.Ftp,
-		NoProxy: settings.NoProxy,
+		NoProxy: settings.FullNoProxy(),
 	}
 }
 
@@ -126,22 +124,10 @@ func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(env.ProxySettings())
+	proxySettings := env.ProxySettings()
+	proxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
+	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(proxySettings)
 	result.APTProxySettings = proxyUtilsSettingsToProxySettingsParam(env.AptProxySettings())
-
-	var noProxy []string
-	if result.ProxySettings.NoProxy != "" {
-		noProxy = strings.Split(result.ProxySettings.NoProxy, ",")
-	}
-
-	noProxySet := set.NewStrings(noProxy...)
-	for _, host := range apiHostPorts {
-		for _, hp := range host {
-			noProxySet.Add(hp.Address.Value)
-		}
-	}
-	result.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
-
 	return result
 }
 

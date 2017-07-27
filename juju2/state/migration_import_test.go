@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time" // only uses time.Time values
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -14,19 +15,19 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/payload"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type MigrationImportSuite struct {
@@ -56,9 +57,26 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *MigrationImportSuite) importModel(c *gc.C) (*state.Model, *state.State) {
+func (s *MigrationImportSuite) importModel(c *gc.C, transform ...func(map[string]interface{})) (*state.Model, *state.State) {
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
+
+	if len(transform) > 0 {
+		var outM map[string]interface{}
+		outYaml, err := description.Serialize(out)
+		c.Assert(err, jc.ErrorIsNil)
+		err = yaml.Unmarshal(outYaml, &outM)
+		c.Assert(err, jc.ErrorIsNil)
+
+		for _, transform := range transform {
+			transform(outM)
+		}
+
+		outYaml, err = yaml.Marshal(outM)
+		c.Assert(err, jc.ErrorIsNil)
+		out, err = description.Deserialize(outYaml)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
@@ -90,6 +108,10 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	environVersion := 123
+	err = original.SetEnvironVersion(environVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.State.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -106,7 +128,19 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+	c.Assert(newModel.EnvironVersion(), gc.Equals, environVersion)
 	s.assertAnnotations(c, newSt, newModel)
+
+	statusInfo, err := newModel.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, status.Busy)
+	c.Check(statusInfo.Message, gc.Equals, "importing")
+	// One for original "available", one for "busy (importing)"
+	history, err := newModel.StatusHistory(status.StatusHistoryFilter{Size: 5})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(history, gc.HasLen, 2)
+	c.Check(history[0].Status, gc.Equals, status.Busy)
+	c.Check(history[1].Status, gc.Equals, status.Available)
 
 	originalConfig, err := original.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,6 +244,50 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(allUsers, gc.HasLen, 3)
 }
 
+func (s *MigrationImportSuite) TestSLA(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	c.Assert(newModel.SLALevel(), gc.Equals, "essential")
+	c.Assert(newModel.SLACredential(), jc.DeepEquals, []byte("creds"))
+	level, err := newSt.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "essential")
+	creds, err := newSt.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds, jc.DeepEquals, []byte("creds"))
+}
+
+func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "info message")
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+	ms, err = newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+}
+
+func (s *MigrationImportSuite) TestMeterStatusNotAvailable(c *gc.C) {
+	newModel, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		c.Log(desc["meter-status"])
+		desc["meter-status"].(map[interface{}]interface{})["code"] = ""
+	})
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(ms.Info, gc.Equals, "")
+	ms, err := newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "NOT AVAILABLE")
+	c.Assert(ms.Info, gc.Equals, "")
+}
+
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
@@ -227,6 +305,24 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	oldTools, err := oldMachine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newTools, jc.DeepEquals, oldTools)
+
+	oldStatus, err := oldMachine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	newStatus, err := newMachine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newStatus, jc.DeepEquals, oldStatus)
+
+	oldInstID, err := oldMachine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	newInstID, err := newMachine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newInstID, gc.Equals, oldInstID)
+
+	oldStatus, err = oldMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	newStatus, err = newMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newStatus, jc.DeepEquals, oldStatus)
 }
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
@@ -290,6 +386,7 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 		Label:          "sda-label",
 		UUID:           "some-uuid",
 		HardwareId:     "magic",
+		WWN:            "drbr",
 		BusAddress:     "bus stop",
 		Size:           16 * 1024 * 1024 * 1024,
 		FilesystemType: "ext4",
@@ -314,7 +411,12 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	// Add a application with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "starsay", // it has resources
+	})
+	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: charm,
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -369,6 +471,12 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
+
+	rSt, err := newSt.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	resources, err := rSt.ListResources(imported.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resources.Resources, gc.HasLen, 3)
 }
 
 func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
@@ -746,11 +854,12 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	original, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:             "10.0.0.0/24",
-		ProviderId:       network.Id("foo"),
-		VLANTag:          64,
-		AvailabilityZone: "bar",
-		SpaceName:        "bam",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -763,6 +872,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
@@ -901,6 +1011,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	volTag := names.NewVolumeTag("0/0")
 	volInfo := state.VolumeInfo{
 		HardwareId: "magic",
+		WWN:        "drbr",
 		Size:       1500,
 		Pool:       "loop",
 		VolumeId:   "volume id",
@@ -1045,12 +1156,89 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Check(instance.Kind(), gc.Equals, original.Kind())
 	c.Check(instance.Life(), gc.Equals, original.Life())
 	c.Check(instance.StorageName(), gc.Equals, original.StorageName())
+	c.Check(instance.Pool(), gc.Equals, original.Pool())
 	c.Check(state.StorageAttachmentCount(instance), gc.Equals, originalCount)
 
 	attachments, err := newSt.StorageAttachments(storageTag)
-
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
+func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
+	_, _, storageTag := s.makeUnitWithStorage(c)
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		storages := desc["storages"].(map[interface{}]interface{})
+		for _, item := range storages["storages"].([]interface{}) {
+			storage := item.(map[interface{}]interface{})
+			cons := storage["constraints"].(map[interface{}]interface{})
+			cons["pool"] = "static"
+		}
+	})
+	instance, err := newSt.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance.Pool(), gc.Equals, "static")
+}
+
+func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
+	_, u, storageTag0 := s.makeUnitWithStorage(c)
+
+	err := s.State.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
+		Count: 3,
+		Size:  1234,
+		Pool:  "modelscoped",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag1 := names.NewStorageTag("allecto/1")
+	storageTag2 := names.NewStorageTag("allecto/2")
+
+	// We delete the storage instance constraints for each storage
+	// instance. For data/0 and allecto/1 we also delete the volume,
+	// and we delete the application storage constraints for "data".
+	//
+	// We expect:
+	//  - for data/0, to get the defaults (loop, 1G)
+	//  - for allecto/1, to get the application storage constraints
+	//  - for allecto/2, to get the volume pool/size
+
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		applications := desc["applications"].(map[interface{}]interface{})
+		volumes := desc["volumes"].(map[interface{}]interface{})
+		storages := desc["storages"].(map[interface{}]interface{})
+		storages["version"] = 2
+
+		app := applications["applications"].([]interface{})[0].(map[interface{}]interface{})
+		sc := app["storage-constraints"].(map[interface{}]interface{})
+		delete(sc, "data")
+		sc["allecto"].(map[interface{}]interface{})["pool"] = "modelscoped-block"
+
+		var keepVolumes []interface{}
+		for _, item := range volumes["volumes"].([]interface{}) {
+			volume := item.(map[interface{}]interface{})
+			switch volume["storage-id"] {
+			case storageTag0.Id(), storageTag1.Id():
+			default:
+				keepVolumes = append(keepVolumes, volume)
+			}
+		}
+		volumes["volumes"] = keepVolumes
+
+		for _, item := range storages["storages"].([]interface{}) {
+			storage := item.(map[interface{}]interface{})
+			delete(storage, "constraints")
+		}
+	})
+
+	instance0, err := newSt.StorageInstance(storageTag0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance0.Pool(), gc.Equals, "loop")
+
+	instance1, err := newSt.StorageInstance(storageTag1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance1.Pool(), gc.Equals, "modelscoped-block")
+
+	instance2, err := newSt.StorageInstance(storageTag2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instance2.Pool(), gc.Equals, "modelscoped")
 }
 
 func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
@@ -1116,6 +1304,80 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.Labels, jc.DeepEquals, original.Labels)
 	c.Check(payload.Unit, gc.Equals, unitID)
 	c.Check(payload.Machine, gc.Equals, machineID)
+}
+
+func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
+	// For now we want to prevent importing models that have remote
+	// applications - cross-model relations don't support relations
+	// with the models in different controllers.
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.State.ModelTag(),
+		Token:       "charisma",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
+}
+
+func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Settings: map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+	s.primeStatusHistory(c, application, status.Active, 5)
+	// Since above factory method calls newly updated state.AddApplication(...)
+	// which removes config settings with nil value before writing
+	// application into database,
+	// strip config setting values to nil directly to simulate
+	// what could happen to some applications in 2.0 and 2.1.
+	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
+	settings := state.GetApplicationSettings(s.State, application)
+	settings.Set("foo", nil)
+	_, err := settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+	importedApplication := importedApplications[0]
+
+	// Ensure that during import application settings with nil config values
+	// were stripped and not written into database.
+	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	_, importedFound := importedSettings.Get("foo")
+	c.Assert(importedFound, jc.IsFalse)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

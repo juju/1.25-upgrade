@@ -5,10 +5,10 @@ package machine
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // APIWorkersConfig provides the dependencies for the

@@ -45,29 +45,29 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/pubsub/centralhub"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/pubsub/centralhub"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -131,8 +131,9 @@ func stateInfo() *mongo.MongoInfo {
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  addrs,
-			CACert: testing.CACert,
+			Addrs:      addrs,
+			CACert:     testing.CACert,
+			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }
@@ -198,14 +199,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.PortRange
+	Rules      []network.IngressRule
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.PortRange
+	Rules      []network.IngressRule
 }
 
 type OpPutFile struct {
@@ -242,7 +243,7 @@ type environState struct {
 	maxId          int // maximum instance id allocated so far.
 	maxAddr        int // maximum allocated address last byte
 	insts          map[instance.Id]*dummyInstance
-	globalPorts    map[network.PortRange]bool
+	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
 	apiListener    net.Listener
 	apiServer      *apiserver.Server
@@ -419,7 +420,6 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
 		insts:          make(map[instance.Id]*dummyInstance),
-		globalPorts:    make(map[network.PortRange]bool),
 		creator:        string(buf),
 	}
 	return s
@@ -537,17 +537,17 @@ var _ config.ConfigSchemaSource = (*environProvider)(nil)
 
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
-func (p environProvider) ConfigSchema() schema.Fields {
+func (p *environProvider) ConfigSchema() schema.Fields {
 	return configFields
 }
 
 // ConfigDefaults returns the default values for the
 // provider specific config attributes.
-func (p environProvider) ConfigDefaults() schema.Defaults {
+func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.EmptyAuthType: {},
 		cloud.UserPassAuthType: {
@@ -598,6 +598,11 @@ func (e *environ) state() (*environState, error) {
 	return state, nil
 }
 
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
+}
+
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -620,8 +625,13 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does not support custom clouds, this always returns nil.
-func (p environProvider) CloudSchema() *jsonschema.Schema {
+func (p *environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p *environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
@@ -710,7 +720,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
-	logger.Infof("would pick tools from %s", availableTools)
+	logger.Infof("would pick agent binaries from %s", availableTools)
 
 	estate, err := e.state()
 	if err != nil {
@@ -727,7 +737,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewAddresses("localhost"),
-		ports:        make(map[network.PortRange]bool),
 		machineId:    agent.BootstrapMachineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -788,20 +797,25 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				return err
 			}
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
+				st.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
+				st.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -810,17 +824,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
-			estate.apiStatePool = state.NewStatePool(st)
-
+			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
-			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
 				Clock:       clock.WallClock,
 				Cert:        testing.ServerCert,
 				Key:         testing.ServerKey,
 				Tag:         machineTag,
 				DataDir:     DataDir,
 				LogDir:      LogDir,
-				StatePool:   estate.apiStatePool,
 				Hub:         centralhub.New(machineTag),
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
@@ -830,11 +842,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 						io.WriteString(w, "gazing")
 					}))
 				},
+				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 			})
 			if err != nil {
+				statePool.Close()
+				st.Close()
 				panic(err)
 			}
 			estate.apiState = st
+			estate.apiStatePool = statePool
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
@@ -846,11 +862,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		Finalize: finalize,
 	}
 	return bsResult, nil
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (e *environ) BootstrapMessage() string {
-	return ""
 }
 
 func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
@@ -993,7 +1004,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
-	logger.Infof("would pick tools from %s", args.Tools)
+	logger.Infof("would pick agent binaries from %s", args.Tools)
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
@@ -1004,7 +1015,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	i := &dummyInstance{
 		id:           instance.Id(idString),
 		addresses:    addrs,
-		ports:        make(map[network.PortRange]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1400,7 +1410,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []network.PortRange) error {
+func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
@@ -1410,13 +1420,25 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for _, p := range ports {
-		estate.globalPorts[p] = true
+	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs = []string{"0.0.0.0/0"}
+		}
+		found := false
+		for _, rule := range estate.globalRules {
+			if r.String() == rule.String() {
+				found = true
+			}
+		}
+		if !found {
+			estate.globalRules = append(estate.globalRules, r)
+		}
 	}
+
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.PortRange) error {
+func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
@@ -1426,15 +1448,19 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for _, p := range ports {
-		delete(estate.globalPorts, p)
+	for _, r := range rules {
+		for i, rule := range estate.globalRules {
+			if r.String() == rule.String() {
+				estate.globalRules = estate.globalRules[:i+copy(estate.globalRules[i:], estate.globalRules[i+1:])]
+			}
+		}
 	}
 	return nil
 }
 
-func (e *environ) Ports() (ports []network.PortRange, err error) {
+func (e *environ) IngressRules() (rules []network.IngressRule, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model", mode)
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1442,10 +1468,10 @@ func (e *environ) Ports() (ports []network.PortRange, err error) {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for p := range estate.globalPorts {
-		ports = append(ports, p)
+	for _, r := range estate.globalRules {
+		rules = append(rules, r)
 	}
-	network.SortPortRanges(ports)
+	network.SortIngressRules(rules)
 	return
 }
 
@@ -1455,7 +1481,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state        *environState
-	ports        map[network.PortRange]bool
+	rules        network.IngressRuleSlice
 	id           instance.Id
 	status       string
 	machineId    string
@@ -1537,9 +1563,9 @@ func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (inst *dummyInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	defer delay()
-	logger.Infof("openPorts %s, %#v", machineId, ports)
+	logger.Infof("openPorts %s, %#v", machineId, rules)
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.firewallMode)
@@ -1556,15 +1582,33 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange
 		Env:        inst.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
-		Ports:      ports,
+		Rules:      rules,
 	}
-	for _, p := range ports {
-		inst.ports[p] = true
+	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs = []string{"0.0.0.0/0"}
+		}
+		found := false
+		for i, rule := range inst.rules {
+			if r.PortRange == rule.PortRange {
+				ruleCopy := r
+				inst.rules[i] = ruleCopy
+				found = true
+				break
+			}
+			if r.String() == rule.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			inst.rules = append(inst.rules, r)
+		}
 	}
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (inst *dummyInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1582,32 +1626,36 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRang
 		Env:        inst.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
-		Ports:      ports,
+		Rules:      rules,
 	}
-	for _, p := range ports {
-		delete(inst.ports, p)
+	for _, r := range rules {
+		for i, rule := range inst.rules {
+			if r.String() == rule.String() {
+				inst.rules = inst.rules[:i+copy(inst.rules[i:], inst.rules[i+1:])]
+			}
+		}
 	}
 	return nil
 }
 
-func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, err error) {
+func (inst *dummyInstance) IngressRules(machineId string) (rules []network.IngressRule, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("Ports with mismatched machine id, expected %q got %q", inst.machineId, machineId))
+		panic(fmt.Errorf("Rules with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	if err := inst.checkBroken("Ports"); err != nil {
+	if err := inst.checkBroken("IngressRules"); err != nil {
 		return nil, err
 	}
-	for p := range inst.ports {
-		ports = append(ports, p)
+	for _, r := range inst.rules {
+		rules = append(rules, r)
 	}
-	network.SortPortRanges(ports)
+	network.SortIngressRules(rules)
 	return
 }
 
@@ -1630,4 +1678,26 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 
 func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
+}
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements NetworkingEnviron.
+func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+// For testing we cut "100.100.100.100" out of this list.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	var rv []network.Address
+	for _, addr := range addresses {
+		if addr.Value != "100.100.100.100" {
+			rv = append(rv, addr)
+		}
+	}
+	return rv, nil
 }

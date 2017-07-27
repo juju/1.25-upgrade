@@ -6,11 +6,11 @@ package rackspace
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/openstack"
 )
 
 type firewallerFactory struct {
@@ -28,19 +28,19 @@ type rackspaceFirewaller struct{}
 var _ openstack.Firewaller = (*rackspaceFirewaller)(nil)
 
 // OpenPorts is not supported.
-func (c *rackspaceFirewaller) OpenPorts(ports []network.PortRange) error {
+func (c *rackspaceFirewaller) OpenPorts(rules []network.IngressRule) error {
 	return errors.NotSupportedf("OpenPorts")
 }
 
 // ClosePorts is not supported.
-func (c *rackspaceFirewaller) ClosePorts(ports []network.PortRange) error {
+func (c *rackspaceFirewaller) ClosePorts(rules []network.IngressRule) error {
 	return errors.NotSupportedf("ClosePorts")
 }
 
-// Ports returns the port ranges opened for the whole environment.
+// IngressRules returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (c *rackspaceFirewaller) Ports() ([]network.PortRange, error) {
+func (c *rackspaceFirewaller) IngressRules() ([]network.IngressRule, error) {
 	return nil, errors.NotSupportedf("Ports")
 }
 
@@ -74,25 +74,25 @@ func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiP
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
-	return c.changePorts(inst, true, ports)
+func (c *rackspaceFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
+	return c.changeIngressRules(inst, true, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
-	return c.changePorts(inst, false, ports)
+func (c *rackspaceFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
+	return c.changeIngressRules(inst, false, rules)
 }
 
-// InstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) InstancePorts(inst instance.Instance, machineId string) ([]network.PortRange, error) {
+// InstanceIngressRules implements Firewaller interface.
+func (c *rackspaceFirewaller) InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error) {
 	_, configurator, err := c.getInstanceConfigurator(inst)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return configurator.FindOpenPorts()
+	return configurator.FindIngressRules()
 }
 
-func (c *rackspaceFirewaller) changePorts(inst instance.Instance, insert bool, ports []network.PortRange) error {
+func (c *rackspaceFirewaller) changeIngressRules(inst instance.Instance, insert bool, rules []network.IngressRule) error {
 	addresses, sshClient, err := c.getInstanceConfigurator(inst)
 	if err != nil {
 		return errors.Trace(err)
@@ -100,7 +100,7 @@ func (c *rackspaceFirewaller) changePorts(inst instance.Instance, insert bool, p
 
 	for _, addr := range addresses {
 		if addr.Scope == network.ScopePublic {
-			err = sshClient.ChangePorts(addr.Value, insert, ports)
+			err = sshClient.ChangeIngressRules(addr.Value, insert, rules)
 			if err != nil {
 				return errors.Trace(err)
 			}

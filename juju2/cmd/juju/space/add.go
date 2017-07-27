@@ -11,18 +11,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewAddCommand returns a command used to add a network space.
-func NewAddCommand() cmd.Command {
-	return modelcmd.Wrap(&addCommand{})
+func NewAddCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&AddCommand{})
 }
 
-// addCommand calls the API to add a new network space.
-type addCommand struct {
+// AddCommand calls the API to add a new network space.
+type AddCommand struct {
 	SpaceCommandBase
 	Name  string
 	CIDRs set.Strings
@@ -33,25 +33,25 @@ Adds a new space with the given name and associates the given
 (optional) list of existing subnet CIDRs with it.`
 
 // Info is defined on the cmd.Command interface.
-func (c *addCommand) Info() *cmd.Info {
+func (c *AddCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-space",
 		Args:    "<name> [<CIDR1> <CIDR2> ...]",
-		Purpose: "Add a new network space",
+		Purpose: "Add a new network space.",
 		Doc:     strings.TrimSpace(addCommandDoc),
 	}
 }
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *addCommand) Init(args []string) error {
+func (c *AddCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, true)
 	return err
 }
 
 // Run implements Command.Run.
-func (c *addCommand) Run(ctx *cmd.Context) error {
+func (c *AddCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Prepare a nicer message and proper arguments to use in case
 		// there are not CIDRs given.

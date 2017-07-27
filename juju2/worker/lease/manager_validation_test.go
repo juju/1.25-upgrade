@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/worker/lease"
+	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/worker/lease"
 )
 
 type ValidationSuite struct {

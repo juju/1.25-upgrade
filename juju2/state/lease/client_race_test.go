@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/clock/monotonic"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/state/lease"
+	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state/lease"
 )
 
 // ClientSimpleRaceSuite tests what happens when two clients interfere with

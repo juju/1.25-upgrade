@@ -14,9 +14,9 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	"github.com/juju/1.25-upgrade/juju2/resource/workers"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/resource/workers"
 )
 
 type LatestCharmHandlerSuite struct {

@@ -6,12 +6,12 @@ package machine
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	coreagent "github.com/juju/1.25-upgrade/juju2/agent"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	coreagent "github.com/juju/juju/agent"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // ServingInfoSetterConfig provides the dependencies for the

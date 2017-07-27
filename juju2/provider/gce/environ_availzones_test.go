@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 type environAZSuite struct {

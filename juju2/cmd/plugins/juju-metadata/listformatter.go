@@ -8,8 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/cmd/output"
 )
 
 func formatMetadataListTabular(writer io.Writer, value interface{}) error {

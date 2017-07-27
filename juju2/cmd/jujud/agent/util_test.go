@@ -14,35 +14,38 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apideployer "github.com/juju/1.25-upgrade/juju2/api/deployer"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/service/upstart"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/authenticationworker"
-	"github.com/juju/1.25-upgrade/juju2/worker/deployer"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/singular"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/worker/singular"
 )
 
 const (
@@ -89,7 +92,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = newSingularRunnerRecord()
 	s.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.PatchValue(&peergrouperNew, func(*state.State, bool) (worker.Worker, error) {
+	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
@@ -196,14 +199,22 @@ func NewTestMachineAgentFactory(
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
 ) func(string) (*MachineAgent, error) {
+	preUpgradeSteps := func(_ *state.State, _ agent.Config, isController, isMaster bool) error {
+		return nil
+	}
 	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			bufferedLogger,
-			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
+			worker.NewRunner(worker.RunnerParams{
+				IsFatal:       cmdutil.IsFatal,
+				MoreImportant: cmdutil.MoreImportant,
+				RestartDelay:  jworker.RestartDelay,
+			}),
 			&mockLoopDeviceManager{},
 			DefaultIntrospectionSocketName,
+			preUpgradeSteps,
 			rootDir,
 		)
 	}
@@ -303,7 +314,7 @@ func newSingularRunnerRecord() *singularRunnerRecord {
 	}
 }
 
-func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+func (r *singularRunnerRecord) newSingularRunner(runner jworker.Runner, conn singular.Conn) (jworker.Runner, error) {
 	sr, err := singular.New(runner, conn)
 	if err != nil {
 		return nil, err
@@ -330,7 +341,7 @@ func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
 }
 
 type fakeSingularRunner struct {
-	worker.Runner
+	jworker.Runner
 	startC chan string
 }
 
@@ -512,7 +523,7 @@ func runWithTimeout(r runner) error {
 }
 
 func newDummyWorker() worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		<-stop
 		return nil
 	})
@@ -520,6 +531,7 @@ func newDummyWorker() worker.Worker {
 
 type FakeConfig struct {
 	agent.ConfigSetter
+	values map[string]string
 }
 
 func (FakeConfig) LogDir() string {
@@ -530,14 +542,22 @@ func (FakeConfig) Tag() names.Tag {
 	return names.NewMachineTag("42")
 }
 
+func (f FakeConfig) Value(key string) string {
+	if f.values == nil {
+		return ""
+	}
+	return f.values[key]
+}
+
 type FakeAgentConfig struct {
 	AgentConf
+	values map[string]string
 }
 
 func (FakeAgentConfig) ReadConfig(string) error { return nil }
 
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
+func (a FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{values: a.values}
 }
 
 func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
@@ -554,7 +574,7 @@ type minModelWorkersEnviron struct {
 
 func (e *minModelWorkersEnviron) Config() *config.Config {
 	attrs := coretesting.FakeConfig()
-	cfg, err := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}

@@ -4,16 +4,16 @@
 package rackspace_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/provider/rackspace"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/rackspace"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
@@ -61,6 +61,11 @@ type fakeProvider struct {
 	testing.Stub
 }
 
+func (p *fakeProvider) Version() int {
+	p.MethodCall(p, "Version")
+	return 0
+}
+
 func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
 	return nil, nil
@@ -89,6 +94,11 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 func (p *fakeProvider) CloudSchema() *jsonschema.Schema {
 	p.MethodCall(p, "CloudSchema")
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p fakeProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {

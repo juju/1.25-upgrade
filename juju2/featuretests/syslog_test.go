@@ -10,6 +10,7 @@ import (
 	"net"
 	"regexp"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/juju/loggo"
@@ -21,15 +22,15 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
+	"github.com/juju/juju/agent"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 type syslogSuite struct {
@@ -106,6 +107,23 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	if osFromSeries != os.Ubuntu {
 		c.Skip(fmt.Sprintf("this test requires a controller, therefore does not support OS %q only Ubuntu", osFromSeries.String()))
 	}
+
+	// The default mongo port in controller config is 1234 - override
+	// it with the real one from the running instance.  Without this
+	// the model manifolds (including the log forwarder) never get
+	// started since they depend on the state connection being up.
+	mongod := gitjujutesting.MgoServer
+	host, portStr, err := net.SplitHostPort(mongod.Addr())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host, gc.Equals, "localhost")
+	port, err := strconv.Atoi(portStr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs["state-port"] = port
+
 	s.AgentSuite.SetUpTest(c)
 	// TODO(perrito666) 200160701:
 	// This needs to be done to stop the test from trying to install mongo
@@ -124,7 +142,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 		"syslog-ca-cert":     coretesting.CACert,
 		"syslog-client-cert": coretesting.ServerCert,
 		"syslog-client-key":  coretesting.ServerKey,
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.logger, err = logsender.InstallBufferedLogWriter(1000)
@@ -205,6 +223,7 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 		agentConf,
 		s.logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())
@@ -213,11 +232,13 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer a.Stop()
+	defer func() {
+		c.Assert(a.Stop(), jc.ErrorIsNil)
+	}()
 
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertLogRecordForwarded(c, s.received)
@@ -238,6 +259,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 		agentConf,
 		s.logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())
@@ -246,7 +268,9 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer a.Stop()
+	defer func() {
+		c.Assert(a.Stop(), jc.ErrorIsNil)
+	}()
 
 	done := make(chan struct{})
 	received := make(chan rfc5424test.Message)
@@ -258,7 +282,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 		"syslog-ca-cert":     coretesting.CACert,
 		"syslog-client-cert": coretesting.ServerCert,
 		"syslog-client-key":  coretesting.ServerKey,
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLogRecordForwarded(c, received)
 }

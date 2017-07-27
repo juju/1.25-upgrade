@@ -9,16 +9,15 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("LogForwarding", 1, func(st *state.State, _ facade.Resources, auth facade.Authorizer) (*LogForwardingAPI, error) {
-		return NewLogForwardingAPI(&stateAdapter{st}, auth)
-	})
+// NewFacade creates a new LogForwardingAPI. It is used for API registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*LogForwardingAPI, error) {
+	return NewLogForwardingAPI(&stateAdapter{st}, auth)
 }
 
 // LastSentTracker exposes the functionality of state.LastSentTracker.
@@ -47,7 +46,7 @@ type LogForwardingAPI struct {
 
 // NewLogForwardingAPI creates a new server-side logger API end point.
 func NewLogForwardingAPI(st LogForwardingState, auth facade.Authorizer) (*LogForwardingAPI, error) {
-	if !auth.AuthMachineAgent() { // the controller's machine agent
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	api := &LogForwardingAPI{

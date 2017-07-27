@@ -17,12 +17,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/watcher"
 )
 
 // NewWatcherFunc exists to let us unit test Facade without patching.
@@ -100,7 +100,6 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
-		ExternalControl:  status.Spec.ExternalControl,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
@@ -344,9 +343,11 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	fp, err := charmresource.ParseFingerprint(rev.FingerprintHex)
-	if err != nil {
-		return empty, errors.Annotate(err, "invalid fingerprint")
+	var fp charmresource.Fingerprint
+	if rev.FingerprintHex != "" {
+		if fp, err = charmresource.ParseFingerprint(rev.FingerprintHex); err != nil {
+			return empty, errors.Annotate(err, "invalid fingerprint")
+		}
 	}
 	return resource.Resource{
 		Resource: charmresource.Resource{

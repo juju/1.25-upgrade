@@ -4,17 +4,19 @@
 package state_test
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type StatusHistorySuite struct {
@@ -28,8 +30,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	clock := testing.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
 
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
@@ -50,6 +52,34 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	c.Assert(historyLen, jc.LessThan, 10000)
 }
 
+func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
+	clock := testing.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{})
+	defer st.Close()
+
+	localFactory := factory.NewFactory(st)
+	application := localFactory.MakeApplication(c, nil)
+	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application})
+	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
+
+	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%d\n", len(history))
+	c.Assert(history, gc.HasLen, 20001)
+
+	err = state.PruneStatusHistory(st, 0, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
+	c.Assert(err, jc.ErrorIsNil)
+	historyLen := len(history)
+
+	// Pruning by size should only be done for the controller state.
+	c.Assert(historyLen, gc.Equals, 20001)
+}
+
 func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 
 	// NOTE: the behaviour is bad, and the test is ugly. I'm just verifying
@@ -64,9 +94,9 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	const count = 3
 	units := make([]*state.Unit, count)
 	agents := make([]*state.UnitAgent, count)
-	service := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	for i := 0; i < count; i++ {
-		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 		agents[i] = units[i].Agent()
 	}
 
@@ -76,12 +106,12 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	primeUnitStatusHistory(c, units[1], 50, 24*time.Hour)
 	primeUnitStatusHistory(c, units[2], 100, 0)
 	primeUnitStatusHistory(c, units[2], 100, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[0], 100, 0)
-	primeUnitAgentStatusHistory(c, agents[0], 100, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[1], 50, 0)
-	primeUnitAgentStatusHistory(c, agents[1], 50, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[2], 10, 0)
-	primeUnitAgentStatusHistory(c, agents[2], 10, 24*time.Hour)
+	primeUnitAgentStatusHistory(c, agents[0], 100, 0, "")
+	primeUnitAgentStatusHistory(c, agents[0], 100, 24*time.Hour, "")
+	primeUnitAgentStatusHistory(c, agents[1], 50, 0, "")
+	primeUnitAgentStatusHistory(c, agents[1], 50, 24*time.Hour, "")
+	primeUnitAgentStatusHistory(c, agents[2], 10, 0, "")
+	primeUnitAgentStatusHistory(c, agents[2], 10, 24*time.Hour, "")
 
 	history, err := units[0].StatusHistory(status.StatusHistoryFilter{Size: 50})
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,11 +172,47 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	}
 }
 
+func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *gc.C) {
+
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+	agent := unit.Agent()
+
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "doing something else")
+	history, err := agent.StatusHistory(status.StatusHistoryFilter{Size: 200})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 200)
+	stateNumber := 0
+	message, err := regexp.Compile("doing something else|running update-status hook")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, h := range history {
+		checkPrimedUnitAgentStatusWithRegexMessage(c, h, message)
+		stateNumber++
+	}
+}
+
+func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFiltered(c *gc.C) {
+
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+	agent := unit.Agent()
+
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "doing something else")
+	history, err := agent.StatusHistory(status.StatusHistoryFilter{Size: 200, Exclude: set.NewStrings("running update-status hook")})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 101)
+	for i, statusInfo := range history[:100] {
+		checkPrimedUnitAgentStatusWithCustomMessage(c, statusInfo, 99-i, 0, "doing something else")
+	}
+}
+
 func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	// TODO(perrito666) setup should be extracted into a fixture and the
 	// 6 or 7 test cases each get their own method.
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	twoDaysBack := time.Hour * 48
 	threeDaysBack := time.Hour * 72
@@ -191,7 +257,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 
 	// logs up to one day back, using date.
 	yesterday := now.Add(-(time.Hour * 24))
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Date: &yesterday})
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{FromDate: &yesterday})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
@@ -206,7 +272,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 
 	// Logs up to two days ago, using date.
 
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Date: &twoDaysAgo})
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{FromDate: &twoDaysAgo})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
@@ -221,7 +287,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
 
 	// Logs up to three days ago, using date.
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Date: &threeDaysAgo})
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{FromDate: &threeDaysAgo})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 3)
 	c.Assert(history[0].Message, gc.Equals, "current status")

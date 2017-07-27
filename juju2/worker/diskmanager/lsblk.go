@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/storage"
 )
 
 var pairsRE = regexp.MustCompile(`([A-Z]+)=(?:"(.*?)")`)
@@ -195,6 +195,8 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 			idBus = value
 		case "ID_SERIAL":
 			idSerial = value
+		case "ID_WWN":
+			dev.WWN = value
 		default:
 			logger.Tracef("ignoring line: %q", line)
 		}

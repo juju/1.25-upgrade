@@ -4,24 +4,27 @@
 package modelcmd
 
 import (
+	"net/http"
+	"net/url"
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
-	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/cmd"
+	"github.com/juju/juju/jujuclient"
 )
 
-// APIContext holds the context required for making connections to
+// apiContext holds the context required for making connections to
 // APIs used by juju.
-type APIContext struct {
-	Jar            *cookiejar.Jar
-	WebPageVisitor httpbakery.Visitor
+type apiContext struct {
+	// jar holds the internal version of the cookie jar - it has
+	// methods that clients should not use, such as Save.
+	jar            *domainCookieJar
+	webPageVisitor httpbakery.Visitor
 }
 
 // AuthOpts holds flags relating to authentication.
@@ -36,7 +39,7 @@ func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&o.NoBrowser, "no-browser-login", false, "")
 }
 
-// NewAPIContext returns an API context that will use the given
+// newAPIContext returns an API context that will use the given
 // context for user interactions when authorizing.
 // The returned API context must be closed after use.
 //
@@ -44,13 +47,19 @@ func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
 // will be supported.
 //
 // This function is provided for use by commands that cannot use
-// JujuCommandBase. Most clients should use that instead.
-func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: cookieFile(),
-	})
+// CommandBase. Most clients should use that instead.
+func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieStore, controllerName string) (*apiContext, error) {
+	jar0, err := store.CookieJar(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	// The JUJU_USER_DOMAIN environment variable specifies
+	// the preferred user domain when discharging third party caveats.
+	// We set up a cookie jar that will send it to all sites because
+	// we don't know where the third party might be.
+	jar := &domainCookieJar{
+		CookieJar: jar0,
+		domain:    os.Getenv("JUJU_USER_DOMAIN"),
 	}
 	var visitors []httpbakery.Visitor
 	if ctxt != nil && opts != nil && opts.NoBrowser {
@@ -62,37 +71,61 @@ func NewAPIContext(ctxt *cmd.Context, opts *AuthOpts) (*APIContext, error) {
 	} else {
 		visitors = append(visitors, httpbakery.WebBrowserVisitor)
 	}
-	webPageVisitor := httpbakery.NewMultiVisitor(visitors...)
-	return &APIContext{
-		Jar:            jar,
-		WebPageVisitor: webPageVisitor,
+	return &apiContext{
+		jar:            jar,
+		webPageVisitor: httpbakery.NewMultiVisitor(visitors...),
 	}, nil
+}
+
+// CookieJar returns the cookie jar used to make
+// HTTP requests.
+func (ctx *apiContext) CookieJar() http.CookieJar {
+	return ctx.jar
 }
 
 // NewBakeryClient returns a new httpbakery.Client, using the API context's
 // persistent cookie jar and web page visitor.
-func (ctx *APIContext) NewBakeryClient() *httpbakery.Client {
+func (ctx *apiContext) NewBakeryClient() *httpbakery.Client {
 	client := httpbakery.NewClient()
-	client.Jar = ctx.Jar
-	client.WebPageVisitor = ctx.WebPageVisitor
+	client.Jar = ctx.jar
+	client.WebPageVisitor = ctx.webPageVisitor
 	return client
-}
-
-// cookieFile returns the path to the cookie used to store authorization
-// macaroons. The returned value can be overridden by setting the
-// JUJU_COOKIEFILE or GO_COOKIEFILE environment variables.
-func cookieFile() string {
-	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
-		return file
-	}
-	return cookiejar.DefaultCookieFile()
 }
 
 // Close closes the API context, saving any cookies to the
 // persistent cookie jar.
-func (ctxt *APIContext) Close() error {
-	if err := ctxt.Jar.Save(); err != nil {
+func (ctxt *apiContext) Close() error {
+	if err := ctxt.jar.Save(); err != nil {
 		return errors.Annotatef(err, "cannot save cookie jar")
 	}
 	return nil
+}
+
+const domainCookieName = "domain"
+
+// domainCookieJar implements a variant of CookieJar that
+// always includes a domain cookie regardless of the site.
+type domainCookieJar struct {
+	jujuclient.CookieJar
+	// domain holds the value of the domain cookie.
+	domain string
+}
+
+// Cookies implements http.CookieJar.Cookies by
+// adding the domain cookie when the domain is non-empty.
+func (j *domainCookieJar) Cookies(u *url.URL) []*http.Cookie {
+	cookies := j.CookieJar.Cookies(u)
+	if j.domain == "" {
+		return cookies
+	}
+	// Allow the site to override if it wants to.
+	for _, c := range cookies {
+		if c.Name == domainCookieName {
+			return cookies
+		}
+	}
+	return append(cookies, &http.Cookie{
+		Name:  domainCookieName,
+		Value: j.domain,
+	})
 }

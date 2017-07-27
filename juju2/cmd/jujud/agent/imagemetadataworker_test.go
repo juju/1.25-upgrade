@@ -6,12 +6,15 @@ package agent
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/api/imagemetadata"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
+	jworker "github.com/juju/juju/worker"
 )
 
 // MachineMockProviderSuite runs worker tests that depend
@@ -24,14 +27,15 @@ var _ = gc.Suite(&MachineMockProviderSuite{})
 
 func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
+	cfg := testing.CustomModelConfig(c, testing.Attrs{"firewall-mode": "none"})
 	started := make(chan struct{})
 	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		close(started)
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
 	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
-		return &dummyEnviron{}, nil
+		return &dummyEnviron{config: cfg}, nil
 	})
 
 	// Start the machine agent.
@@ -46,6 +50,12 @@ func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 // dummyEnviron is an environment with region support.
 type dummyEnviron struct {
 	environs.Environ
+	config *config.Config
+}
+
+// Config is specified in the Environ interface.
+func (e *dummyEnviron) Config() *config.Config {
+	return e.config
 }
 
 // Region is specified in the HasRegion interface.

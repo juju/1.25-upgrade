@@ -13,10 +13,10 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/set"
 
-	apicontroller "github.com/juju/1.25-upgrade/juju2/api/controller"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
-	"github.com/juju/1.25-upgrade/juju2/controller"
+	apicontroller "github.com/juju/juju/api/controller"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/controller"
 )
 
 func NewGetConfigCommand() cmd.Command {
@@ -86,6 +86,10 @@ func (c *getConfigCommand) getAPI() (controllerAPI, error) {
 }
 
 func (c *getConfigCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -107,7 +111,7 @@ func (c *getConfigCommand) Run(ctx *cmd.Context) error {
 			}
 			return c.out.Write(ctx, value)
 		}
-		return errors.Errorf("key %q not found in %q controller.", c.key, c.ControllerName())
+		return errors.Errorf("key %q not found in %q controller.", c.key, controllerName)
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)

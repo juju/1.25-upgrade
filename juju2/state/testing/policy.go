@@ -8,11 +8,11 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 type MockPolicy struct {

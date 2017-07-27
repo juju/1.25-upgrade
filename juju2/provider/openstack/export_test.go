@@ -10,23 +10,23 @@ import (
 	"strings"
 	"text/template"
 
-	"gopkg.in/goose.v1/errors"
-	"gopkg.in/goose.v1/identity"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
-	"gopkg.in/goose.v1/swift"
+	"gopkg.in/goose.v2/errors"
+	"gopkg.in/goose.v2/identity"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
+	"gopkg.in/goose.v2/swift"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	envstorage "github.com/juju/1.25-upgrade/juju2/environs/storage"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
+	envstorage "github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 var (
@@ -474,6 +474,24 @@ func EnsureGroup(e environs.Environ, name string, rules []neutron.RuleInfoV2) (n
 	return switching.fw.(*neutronFirewaller).ensureGroup(name, rules)
 }
 
+func MachineGroupRegexp(e environs.Environ, machineId string) string {
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	return switching.fw.(*neutronFirewaller).machineGroupRegexp(machineId)
+}
+
+func MachineGroupName(e environs.Environ, controllerUUID, machineId string) string {
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	return switching.fw.(*neutronFirewaller).machineGroupName(controllerUUID, machineId)
+}
+
+func MatchingGroup(e environs.Environ, nameRegExp string) (neutron.SecurityGroupV2, error) {
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	if err := switching.initFirewaller(); err != nil {
+		return neutron.SecurityGroupV2{}, err
+	}
+	return switching.fw.(*neutronFirewaller).matchingGroup(nameRegExp)
+}
+
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
 func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
@@ -514,12 +532,12 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 }
 
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
-func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
-	return e.(*Environ).networking.ResolveNetwork(networkName)
+func ResolveNetwork(e environs.Environ, networkName string, external bool) (string, error) {
+	return e.(*Environ).networking.ResolveNetwork(networkName, external)
 }
 
-var PortsToRuleInfo = portsToRuleInfo
-var RuleMatchesPortRange = ruleMatchesPortRange
+var PortsToRuleInfo = rulesToRuleInfo
+var SecGroupMatchesIngressRule = secGroupMatchesIngressRule
 
 var MakeServiceURL = &makeServiceURL
 

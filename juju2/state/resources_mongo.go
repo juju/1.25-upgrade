@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/juju/resource"
 )
 
 const (
@@ -213,7 +213,9 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 		Resource:      newRes.Resource.Resource,
 		id:            newRes.ID,
 		applicationID: newRes.ApplicationID,
-		lastPolled:    time.Now().UTC(),
+		// Truncate the time to remove monotonic time for Go 1.9+
+		// to make it easier for tests to compare the time.
+		lastPolled: time.Now().Truncate(1).UTC(),
 	}
 
 	if exists {

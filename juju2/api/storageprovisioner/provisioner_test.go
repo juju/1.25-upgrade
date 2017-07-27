@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/storageprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/storageprovisioner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&provisionerSuite{})

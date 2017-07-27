@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/state"
 )
 
 func charmMetadata(st CharmState, applicationID string) (*charm.Meta, error) {

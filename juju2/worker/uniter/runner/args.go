@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 	jujuos "github.com/juju/utils/os"
+
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 var windowsSuffixOrder = []string{

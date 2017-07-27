@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/controller/authentication"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // InstanceConfig returns information from the environment config that

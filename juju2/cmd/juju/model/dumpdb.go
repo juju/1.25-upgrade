@@ -9,8 +9,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewDumpDBCommand returns a fully constructed dump-db command.
@@ -19,6 +19,7 @@ func NewDumpDBCommand() cmd.Command {
 }
 
 type dumpDBCommand struct {
+	// TODO(rog) change to use ModelCommandBase.
 	modelcmd.ControllerCommandBase
 	out cmd.Output
 	api DumpDBAPI
@@ -78,24 +79,27 @@ func (c *dumpDBCommand) getAPI() (DumpDBAPI, error) {
 
 // Run implements Command.
 func (c *dumpDBCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	client, err := c.getAPI()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
+	// TODO(rog) this could be taken care of by ModelCommandBase.
 	store := c.ClientStore()
 	if c.model == "" {
-		c.model, err = store.CurrentModel(c.ControllerName())
+		c.model, err = store.CurrentModel(controllerName)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
-	modelDetails, err := store.ModelByName(
-		c.ControllerName(),
-		c.model,
-	)
+	modelDetails, err := store.ModelByName(controllerName, c.model)
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}

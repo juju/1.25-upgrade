@@ -17,7 +17,7 @@ import (
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/1.25-upgrade/juju2/utils/stringforwarder"
+	"github.com/juju/juju/utils/stringforwarder"
 )
 
 type rawImageClient interface {
@@ -202,6 +202,10 @@ func seriesRemoteAliases(series, arch string) ([]string, error) {
 	case os.CentOS:
 		if series == "centos7" && arch == jujuarch.AMD64 {
 			return []string{"centos/7/amd64"}, nil
+		}
+	case os.OpenSUSE:
+		if series == "opensuseleap" && arch == jujuarch.AMD64 {
+			return []string{"opensuse/42.2/amd64"}, nil
 		}
 	}
 	return nil, errors.NotSupportedf("series %q", series)

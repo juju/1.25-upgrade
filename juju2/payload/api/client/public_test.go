@@ -10,9 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
-	"github.com/juju/1.25-upgrade/juju2/payload/api"
-	"github.com/juju/1.25-upgrade/juju2/payload/api/client"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/payload/api"
+	"github.com/juju/juju/payload/api/client"
 )
 
 type publicSuite struct {
@@ -20,7 +21,7 @@ type publicSuite struct {
 
 	stub    *testing.Stub
 	facade  *stubFacade
-	payload api.Payload
+	payload params.Payload
 }
 
 var _ = gc.Suite(&publicSuite{})
@@ -30,7 +31,7 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
-	s.payload = api.Payload{
+	s.payload = params.Payload{
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
@@ -43,7 +44,7 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 
 func (s *publicSuite) TestListOkay(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*api.EnvListResults)
+		typedResponse, ok := response.(*params.PayloadListResults)
 		c.Assert(ok, gc.Equals, true)
 		typedResponse.Results = append(typedResponse.Results, s.payload)
 		return nil
@@ -70,10 +71,10 @@ func (s *publicSuite) TestListAPI(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"List",
-			&api.EnvListArgs{
+			&params.PayloadListArgs{
 				Patterns: []string{"a-tag"},
 			},
-			&api.EnvListResults{
+			&params.PayloadListResults{
 				Results: nil,
 			},
 		},

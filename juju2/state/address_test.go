@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type AddressSuite struct{}

@@ -10,19 +10,18 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type OpenSuite struct {
@@ -50,7 +49,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	cache := jujuclienttesting.NewMemStore()
+	cache := jujuclient.NewMemStore()
 	controllerCfg := testing.FakeControllerConfig()
 	env, err := bootstrap.Prepare(ctx, cache, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
@@ -80,7 +79,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 }
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	uuid := utils.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -145,7 +144,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	controllerCfg := testing.FakeControllerConfig()
@@ -174,7 +173,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	err := environs.Destroy("fnord", &env, store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call

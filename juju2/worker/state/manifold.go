@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	coreagent "github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/dependency"
 )
 
 var logger = loggo.GetLogger("juju.worker.state")

@@ -11,12 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/spaces"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/spaces"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/network"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type SpacesSuite struct {
@@ -356,4 +356,27 @@ func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
 
 	_, err := s.facade.ListSpaces()
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
+}
+
+func (s *SpacesSuite) TestReloadSpacesNotSupportedError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		nil, // Backing.ModelConfig()
+		nil, // Backing.CloudSpec()
+		nil, // Provider.Open()
+		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
+	)
+	err := s.facade.ReloadSpaces()
+	c.Assert(err, gc.ErrorMatches, "spaces not supported")
+}
+
+func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
+	agentAuthorizer := s.authorizer
+	agentAuthorizer.Tag = names.NewUserTag("regular")
+	facade, err := spaces.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = facade.ReloadSpaces()
+	c.Check(err, gc.ErrorMatches, "permission denied")
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 }

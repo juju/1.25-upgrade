@@ -12,8 +12,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
 )
 
 type listRegionsCommand struct {
@@ -73,9 +73,9 @@ func (c *listRegionsCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
-	cloud, err := cloud.CloudByName(c.cloudName)
+	cloud, err := common.CloudByName(c.cloudName)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if len(cloud.Regions) == 0 {

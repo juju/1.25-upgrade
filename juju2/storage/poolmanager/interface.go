@@ -6,8 +6,9 @@ package poolmanager
 import (
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/storage"
 )
 
 // A PoolManager provides access to storage pools.

@@ -17,8 +17,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/status"
 )
 
 // This file contains functionality for managing the state documents
@@ -32,10 +33,6 @@ type ModelMigration interface {
 
 	// ModelUUID returns the UUID for the model being migrated.
 	ModelUUID() string
-
-	// ExternalControl returns true if the model migration should be
-	// managed by an external process.
-	ExternalControl() bool
 
 	// Attempt returns the migration attempt identifier. This
 	// increments for each migration attempt for the model.
@@ -133,10 +130,6 @@ type modelMigDoc struct {
 	// migration. It should be in "user@domain" format.
 	InitiatedBy string `bson:"initiated-by"`
 
-	// ExternalControl is true if the migration will be controlled by
-	// an external process, instead of the migrationmaster worker.
-	ExternalControl bool `bson:"external-control"`
-
 	// TargetController holds the UUID of the target controller.
 	TargetController string `bson:"target-controller"`
 
@@ -216,11 +209,6 @@ func (mig *modelMigration) Id() string {
 // ModelUUID implements ModelMigration.
 func (mig *modelMigration) ModelUUID() string {
 	return mig.doc.ModelUUID
-}
-
-// ExternalControl implements ModelMigration.
-func (mig *modelMigration) ExternalControl() bool {
-	return mig.doc.ExternalControl
 }
 
 // Attempt implements ModelMigration.
@@ -314,7 +302,11 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		nextDoc.SuccessTime = now
 		update["success-time"] = now
 	}
-	var ops []txn.Op
+
+	ops, err := migStatusHistoryAndOps(mig.st, nextPhase, now, mig.StatusMessage())
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// If the migration aborted, make the model active again.
 	if nextPhase == migration.ABORTDONE {
@@ -359,14 +351,59 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 	return nil
 }
 
+// migStatusHistoryAndOps sets the model's status history and returns ops for
+// setting model status according to the phase and message.
+func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg string) ([]txn.Op, error) {
+	switch phase {
+	case migration.REAP, migration.DONE:
+		// if we're reaping/have reaped the model, setting status on it is both
+		// pointless and potentially problematic.
+		return nil, nil
+	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	globalKey := model.globalKey()
+	modelStatus := status.Busy
+	if phase.IsTerminal() {
+		modelStatus = status.Available
+	}
+	if msg != "" {
+		msg = "migrating: " + msg
+	}
+	doc := statusDoc{
+		Status:     modelStatus,
+		StatusInfo: msg,
+		Updated:    now,
+	}
+
+	ops, err := statusSetOps(st.db(), doc, globalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	probablyUpdateStatusHistory(st.db(), globalKey, doc)
+	return ops, nil
+}
+
 // SetStatusMessage implements ModelMigration.
 func (mig *modelMigration) SetStatusMessage(text string) error {
-	ops := []txn.Op{{
+	phase, err := mig.Phase()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops, err := migStatusHistoryAndOps(mig.st, phase, mig.st.clock.Now().UnixNano(), text)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops = append(ops, txn.Op{
 		C:      migrationsStatusC,
 		Id:     mig.statusDoc.Id,
 		Update: bson.M{"$set": bson.M{"status-message": text}},
 		Assert: txn.DocExists,
-	}}
+	})
 	if err := mig.st.runTransaction(ops); err != nil {
 		return errors.Annotate(err, "failed to set migration status")
 	}
@@ -397,7 +434,7 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 	}}
 	err = mig.st.runTransaction(ops)
 	if errors.Cause(err) == txn.ErrAborted {
-		coll, closer := mig.st.getCollection(migrationsMinionSyncC)
+		coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
 		defer closer()
 		var existingDoc modelMigMinionSyncDoc
 		err := coll.FindId(docID).Select(bson.M{"success": 1}).One(&existingDoc)
@@ -427,7 +464,7 @@ func (mig *modelMigration) MinionReports() (*MinionReports, error) {
 		return nil, errors.Annotate(err, "retrieving phase")
 	}
 
-	coll, closer := mig.st.getCollection(migrationsMinionSyncC)
+	coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
 	defer closer()
 	query := coll.Find(bson.M{"_id": bson.M{
 		"$regex": "^" + mig.minionReportId(phase, ".+"),
@@ -517,7 +554,7 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 	// During migrations we know that nothing there are no machines or
 	// units being provisioned or destroyed so a simple query of the
 	// collections will do.
-	coll, closer := mig.st.getCollection(collName)
+	coll, closer := mig.st.db().GetCollection(collName)
 	defer closer()
 	var docs []bson.M
 	err := coll.Find(nil).Select(bson.M{fieldName: 1}).All(&docs)
@@ -540,7 +577,7 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 func (mig *modelMigration) Refresh() error {
 	// Only the status document is updated. The modelMigDoc is static
 	// after creation.
-	statusColl, closer := mig.st.getCollection(migrationsStatusC)
+	statusColl, closer := mig.st.db().GetCollection(migrationsStatusC)
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err := statusColl.FindId(mig.doc.Id).One(&statusDoc)
@@ -557,9 +594,8 @@ func (mig *modelMigration) Refresh() error {
 // MigrationSpec holds the information required to create a
 // ModelMigration instance.
 type MigrationSpec struct {
-	InitiatedBy     names.UserTag
-	TargetInfo      migration.TargetInfo
-	ExternalControl bool
+	InitiatedBy names.UserTag
+	TargetInfo  migration.TargetInfo
 }
 
 // Validate returns an error if the MigrationSpec contains bad
@@ -589,6 +625,13 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	modelUUID := st.ModelUUID()
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
+
+	msg := "starting"
+	ops, err := migStatusHistoryAndOps(st, migration.QUIESCE, now, msg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	buildTxn := func(int) ([]txn.Op, error) {
 		model, err := st.Model()
 		if err != nil {
@@ -620,7 +663,6 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			ModelUUID:        modelUUID,
 			Attempt:          attempt,
 			InitiatedBy:      spec.InitiatedBy.Id(),
-			ExternalControl:  spec.ExternalControl,
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
 			TargetAddrs:      spec.TargetInfo.Addrs,
 			TargetCACert:     spec.TargetInfo.CACert,
@@ -628,14 +670,16 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetPassword:   spec.TargetInfo.Password,
 			TargetMacaroons:  macsJSON,
 		}
+
 		statusDoc = modelMigStatusDoc{
 			Id:               id,
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,
-			StatusMessage:    "starting",
+			StatusMessage:    msg,
 		}
-		return []txn.Op{{
+
+		ops := append(ops, []txn.Op{{
 			C:      migrationsC,
 			Id:     doc.Id,
 			Assert: txn.DocMissing,
@@ -658,7 +702,8 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 				"migration-mode": MigrationModeExporting,
 			}},
 		}, model.assertActiveOp(),
-		}, nil
+		}...)
+		return ops, nil
 	}
 	if err := st.run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")
@@ -707,7 +752,7 @@ func checkTargetController(st *State, targetControllerTag names.ControllerTag) e
 // LatestMigration returns the most recent ModelMigration for a model
 // (if any).
 func (st *State) LatestMigration() (ModelMigration, error) {
-	migColl, closer := st.getCollection(migrationsC)
+	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-attempt").Limit(1)
@@ -738,7 +783,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 // Migration retrieves a specific ModelMigration by its id. See also
 // LatestMigration.
 func (st *State) Migration(id string) (ModelMigration, error) {
-	migColl, closer := st.getCollection(migrationsC)
+	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()
 	mig, err := st.migrationFromQuery(migColl.FindId(id))
 	if err != nil {
@@ -756,7 +801,7 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 		return nil, errors.Annotate(err, "migration lookup failed")
 	}
 
-	statusColl, closer := st.getCollection(migrationsStatusC)
+	statusColl, closer := st.db().GetCollection(migrationsStatusC)
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err = statusColl.FindId(doc.Id).One(&statusDoc)
@@ -783,7 +828,7 @@ func (st *State) IsMigrationActive() (bool, error) {
 // the model with the given UUID. The State provided need not be for
 // the model in question.
 func IsMigrationActive(st *State, modelUUID string) (bool, error) {
-	active, closer := st.getCollection(migrationsActiveC)
+	active, closer := st.db().GetCollection(migrationsActiveC)
 	defer closer()
 	n, err := active.FindId(modelUUID).Count()
 	if err != nil {

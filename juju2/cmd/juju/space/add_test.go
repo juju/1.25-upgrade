@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/space"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/space"
 )
 
 type AddSuite struct {
@@ -20,8 +20,7 @@ var _ = gc.Suite(&AddSuite{})
 
 func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command = space.NewAddCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = space.NewAddCommand
 }
 
 func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *gc.C) {

@@ -19,8 +19,8 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/juju/keys"
 )
 
 type updateCloudsCommand struct {

@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	cloudapi "github.com/juju/1.25-upgrade/juju2/api/cloud"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
+	basetesting "github.com/juju/juju/api/base/testing"
+	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 )
 
 type cloudSuite struct {

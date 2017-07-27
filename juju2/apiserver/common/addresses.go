@@ -4,18 +4,17 @@
 package common
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // AddressAndCertGetter can be used to find out
 // controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
-	APIAddressesFromMachines() ([]string, error)
 	CACert() string
 	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)

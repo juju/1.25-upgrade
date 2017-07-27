@@ -8,11 +8,11 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type RelationIdsSuite struct {
@@ -43,7 +43,7 @@ var relationIdsTests = []struct {
 		summary: "no default, no name",
 		relid:   -1,
 		code:    2,
-		out:     "(.|\n)*error: no relation name specified\n",
+		out:     "(.|\n)*ERROR no relation name specified\n",
 	}, {
 		summary: "default name",
 		relid:   1,
@@ -106,7 +106,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 		hctx, _ := s.newHookContext(t.relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
@@ -148,7 +148,7 @@ Options:
 		hctx, _ := s.newHookContext(relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		expect := fmt.Sprintf(template, t.usage, t.doc)

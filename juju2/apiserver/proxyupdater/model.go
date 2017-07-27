@@ -4,8 +4,8 @@
 package proxyupdater
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
 
 // NewAPI creates a new API server-side facade with a state.State backing.

@@ -1,15 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 const (

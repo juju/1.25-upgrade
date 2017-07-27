@@ -13,7 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/network"
 )
 
 // linkLayerDeviceDoc describes the persistent state of a link-layer network
@@ -102,7 +102,7 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 
 // AllLinkLayerDevices returns all link layer devices in the model.
 func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	devicesCollection, closer := st.getCollection(linkLayerDevicesC)
+	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	sdocs := []linkLayerDeviceDoc{}
@@ -150,6 +150,11 @@ func (dev *LinkLayerDevice) Machine() (*Machine, error) {
 // Type returns this device's underlying type.
 func (dev *LinkLayerDevice) Type() LinkLayerDeviceType {
 	return dev.doc.Type
+}
+
+// IsLoopbackDevice returns whether this is a loopback device.
+func (dev *LinkLayerDevice) IsLoopbackDevice() bool {
+	return dev.doc.Type == LoopbackDevice
 }
 
 // MACAddress returns the media access control (MAC) address of the device.
@@ -352,7 +357,7 @@ func insertLinkLayerDeviceDocOp(newDoc *linkLayerDeviceDoc) txn.Op {
 // ModelUUID, MachineID, and Name cannot be changed. ProviderID cannot be
 // changed once set. In all other cases newDoc values overwrites existingDoc
 // values.
-func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) txn.Op {
+func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) (txn.Op, bool) {
 	changes := make(bson.M)
 	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
 		// Only allow changing the ProviderID if it was empty.
@@ -387,7 +392,7 @@ func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) txn.Op 
 		Id:     existingDoc.DocID,
 		Assert: txn.DocExists,
 		Update: updates,
-	}
+	}, len(updates) > 0
 }
 
 // assertLinkLayerDeviceExistsOp returns an operation asserting the document

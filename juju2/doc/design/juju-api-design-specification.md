@@ -178,15 +178,15 @@ parts of the request.
 
 ### RPC
 
-Core package for the API is [rpc](https://github.com/juju/1.25-upgrade/juju2/tree/master/rpc).
+Core package for the API is [rpc](https://github.com/juju/juju/tree/master/rpc).
 It defines the `Codec` interface for the reading and writing of messages in an RPC
 session and the `MethodFinder` interface to retrieve the method to call for a request.
 The endpoint type `Conn` uses implementations of `Codec` and `MethodFinder`. This way
 diferent implementations can be used. 
 
-The standard `Codec` is implemented in [jsoncodec](https://github.com/juju/1.25-upgrade/juju2/tree/master/rpc/jsoncodec).
+The standard `Codec` is implemented in [jsoncodec](https://github.com/juju/juju/tree/master/rpc/jsoncodec).
 It uses WebSockets for communication and JSON for encoding. The standard `MethodFinder`
-is implemented in [apiserver](https://github.com/juju/1.25-upgrade/juju2/tree/master/state/apiserver) (see
+is implemented in [apiserver](https://github.com/juju/juju/tree/master/state/apiserver) (see
 below).
 
 The `MethodFinder` has to implement a method with the signature
@@ -248,7 +248,7 @@ the method called with it.
 
 ### API Server
 
-The API server is implemented in the package [apiserver](https://github.com/juju/1.25-upgrade/juju2/tree/master/state/apiserver)
+The API server is implemented in the package [apiserver](https://github.com/juju/juju/tree/master/state/apiserver)
 and its sub-packages. It is started inside the *machine agent* by calling `apiserver.NewServer()`.
 The returned `Server` instance holds the server side of the API. After starting
 the server several handlers are registered. One of them is the API server
@@ -266,7 +266,7 @@ by the RPC to dispatch request to the according methods like described above.
 #### Facade Registration
 
 The registry for facades is implemented in the package
-[apiserver/common](https://github.com/juju/1.25-upgrade/juju2/tree/master/state/apiserver/common). It provides
+[apiserver/common](https://github.com/juju/juju/tree/master/state/apiserver/common). It provides
 a function for the registration of facade constructor functions together with
 their name and a version number. They are called in an `init()` function in
 their respective packages.
@@ -281,7 +281,7 @@ func init() {
 ### API Client
 
 The according client logic used by the Juju CLI and the Juju daemon, which are also
-developed in Go, is located in [api](https://github.com/juju/1.25-upgrade/juju2/tree/master/state/api).
+developed in Go, is located in [api](https://github.com/juju/juju/tree/master/state/api).
 
 Clients connect with `api.Open()` which returns a `api.State` instance as entry point.
 This instance can perform low level RPC calls with the method `Call()`. It also provide

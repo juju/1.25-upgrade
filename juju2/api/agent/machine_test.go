@@ -14,17 +14,17 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	apiserveragent "github.com/juju/1.25-upgrade/juju2/apiserver/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	apiserveragent "github.com/juju/juju/apiserver/agent"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {

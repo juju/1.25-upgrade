@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type InitialiserSuite struct {

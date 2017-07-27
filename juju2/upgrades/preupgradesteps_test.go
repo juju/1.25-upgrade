@@ -11,8 +11,8 @@ import (
 	pkgmgr "github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/upgrades"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 type preupgradechecksSuite struct {

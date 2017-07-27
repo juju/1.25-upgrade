@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Unit represents a juju unit as seen by a firewaller worker.

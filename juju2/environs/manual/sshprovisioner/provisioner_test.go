@@ -14,17 +14,17 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/client"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 )
 
 type provisionerSuite struct {
@@ -164,7 +164,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	err = s.State.UpdateModelConfig(
 		map[string]interface{}{
 			"enable-os-upgrade": false,
-		}, nil, nil)
+		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")

@@ -8,12 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/storagecommon"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/testing"
 )
 
 type volumesSuite struct{}

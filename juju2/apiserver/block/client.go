@@ -6,16 +6,12 @@ package block
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("Block", 2, NewAPI)
-}
 
 // Block defines the methods on the block API end point.
 type Block interface {

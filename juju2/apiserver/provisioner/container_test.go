@@ -5,14 +5,13 @@ package provisioner_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/provisioner"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/provisioner"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
 )
 
 type containerProvisionerSuite struct {

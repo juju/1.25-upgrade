@@ -4,17 +4,16 @@
 package model_test
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/model"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/jujud/agent/model"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type WrapAgentSuite struct {

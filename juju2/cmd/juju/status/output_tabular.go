@@ -16,10 +16,10 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
-	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 type statusRelation struct {
@@ -106,6 +106,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
 
+	metering := fs.Model.MeterStatus != nil
+
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	message := getModelMessage(fs.Model)
@@ -113,38 +115,39 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		header = append(header, "Notes")
 		values = append(values, message)
 	}
+	if fs.Model.SLA != "" {
+		header = append(header, "SLA")
+		values = append(values, fs.Model.SLA)
+	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	p(header...)
 	p(values...)
 
 	if len(fs.RemoteApplications) > 0 {
-		outputHeaders("SAAS name", "Status", "Store", "URL", "Interfaces")
-		for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
-			svc := fs.RemoteApplications[svcName]
+		outputHeaders("SAAS name", "Status", "Store", "URL")
+		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+			app := fs.RemoteApplications[appName]
 			var store, urlPath string
-			url, err := crossmodel.ParseApplicationURL(svc.ApplicationURL)
+			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
-				store = url.Directory
+				store = url.Source
 				urlPath = url.Path()
+				if store == "" {
+					store = "local"
+				}
 			} else {
 				// This is not expected.
-				logger.Errorf("invalid application URL %q: %v", svc.ApplicationURL, err)
+				logger.Errorf("invalid application URL %q: %v", app.ApplicationURL, err)
 				store = "unknown"
-				urlPath = svc.ApplicationURL
+				urlPath = app.ApplicationURL
 			}
-			interfaces := make([]string, len(svc.Endpoints))
-			for i, name := range utils.SortStringsNaturally(stringKeysFromMap(svc.Endpoints)) {
-				ep := svc.Endpoints[name]
-				interfaces[i] = fmt.Sprintf("%s:%s", ep.Interface, name)
-			}
-			p(svcName, svc.StatusInfo.Current, store, urlPath, strings.Join(interfaces, ", "))
+			p(appName, app.StatusInfo.Current, store, urlPath)
 		}
 		tw.Flush()
 	}
 
 	units := make(map[string]unitStatus)
-	metering := false
 	relations := newRelationFormatter()
 	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
@@ -226,7 +229,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if metering {
-		outputHeaders("Meter", "Status", "Message")
+		outputHeaders("Entity", "Meter status", "Message")
+		if fs.Model.MeterStatus != nil {
+			w.Print("model")
+			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+			w.Println()
+		}
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
@@ -271,8 +281,8 @@ func fromMeterStatusColor(msColor string) *ansiterm.Context {
 func getModelMessage(model modelStatus) string {
 	// Select the most important message about the model (if any).
 	switch {
-	case model.Migration != "":
-		return "migrating: " + model.Migration
+	case model.Status.Message != "":
+		return model.Status.Message
 	case model.AvailableVersion != "":
 		return "upgrade available: " + model.AvailableVersion
 	default:
@@ -282,7 +292,7 @@ func getModelMessage(model modelStatus) string {
 
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
 	w := output.Wrapper{tw}
-	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ")
+	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
@@ -300,7 +310,7 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	}
 	w.Print(m.Id)
 	w.PrintStatus(m.JujuStatus.Current)
-	w.Println(m.DNSName, m.InstanceId, m.Series, az)
+	w.Println(m.DNSName, m.InstanceId, m.Series, az, m.MachineStatus.Message)
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}

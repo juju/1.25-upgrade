@@ -12,11 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/provider/lxd"
 )
 
-func updateLXDCloudCredentials(st *state.State) error {
+func updateLXDCloudCredentials(st StateBackend) error {
 	creds, err := lxd.ReadLegacyCloudCredentials(ioutil.ReadFile)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -29,7 +28,7 @@ func updateLXDCloudCredentials(st *state.State) error {
 	if err != nil {
 		return errors.Annotate(err, "reading gateway address")
 	}
-	return state.UpdateLegacyLXDCloudCredentials(st, gatewayAddress, creds)
+	return st.UpdateLegacyLXDCloudCredentials(gatewayAddress, creds)
 }
 
 func getDefaultGateway() (string, error) {

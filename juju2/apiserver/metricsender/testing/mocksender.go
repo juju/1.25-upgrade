@@ -6,16 +6,17 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/state"
 )
 
 // MockSender implements the metric sender interface.
 type MockSender struct {
-	UnackedBatches map[string]struct{}
-	Data           [][]*wireformat.MetricBatch
+	UnackedBatches      map[string]struct{}
+	Data                [][]*wireformat.MetricBatch
+	MeterStatusResponse string
 }
 
 // Send implements the Send interface.
@@ -35,6 +36,7 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 			}
 		}
 		envResponses.Ack(batch.ModelUUID, batch.UUID)
+		envResponses.SetModelStatus(batch.ModelUUID, m.MeterStatusResponse, "mocked response")
 	}
 	return &wireformat.Response{
 		UUID:         respUUID.String(),

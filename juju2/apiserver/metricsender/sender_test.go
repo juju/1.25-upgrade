@@ -18,11 +18,11 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
-	jujucert "github.com/juju/1.25-upgrade/juju2/cert"
-	jujujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/apiserver/metricsender"
+	jujucert "github.com/juju/juju/cert"
+	jujujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type SenderSuite struct {
@@ -125,7 +125,7 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 
 			if statusMap != nil {
 				unitName, status, info := statusMap(batch.UnitName)
-				resp.SetStatus(batch.ModelUUID, unitName, status, info)
+				resp.SetUnitStatus(batch.ModelUUID, unitName, status, info)
 			}
 
 			select {
@@ -153,7 +153,6 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 	}{
 		{http.StatusBadRequest, "failed to send metrics http 400"},
 		{http.StatusServiceUnavailable, "failed to send metrics http 503"},
-		{http.StatusMovedPermanently, "failed to send metrics http 301"},
 	}
 
 	for _, test := range tests {

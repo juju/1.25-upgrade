@@ -4,16 +4,19 @@
 package environs
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/tools"
 )
+
+// StatusCallbackFunc represents a function that can be called to report a status.
+type StatusCallbackFunc func(settableStatus status.Status, info string, data map[string]interface{}) error
 
 // StartInstanceParams holds parameters for the
 // InstanceBroker.StartInstance method.
@@ -70,14 +73,14 @@ type StartInstanceParams struct {
 	// that may be used to start this instance.
 	ImageMetadata []*imagemetadata.ImageMetadata
 
-	// StatusCallback is a callback to be used by the instance to report
-	// changes in status. Its signature is consistent with other
-	// status-related functions to allow them to be used as callbacks.
-	StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
-
 	// CleanupCallback is a callback to be used to clean up any residual
 	// status-reporting output from StatusCallback.
 	CleanupCallback func(info string) error
+
+	// StatusCallback is a callback to be used by the instance to report
+	// changes in status. Its signature is consistent with other
+	// status-related functions to allow them to be used as callbacks.
+	StatusCallback StatusCallbackFunc
 }
 
 // StartInstanceResult holds the result of an

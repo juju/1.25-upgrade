@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/testing"
 )
 
 // We test rpcreflect in this package, so that the
@@ -135,7 +135,7 @@ func (*reflectSuite) TestFindMethod(c *gc.C) {
 	c.Assert(ret.Interface(), gc.Equals, stringVal{"Call1r1e ret"})
 }
 
-func (*reflectSuite) TestFindMethodRefusesVersionsNot0(c *gc.C) {
+func (*reflectSuite) TestFindMethodAcceptsAnyVersion(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -148,6 +148,7 @@ func (*reflectSuite) TestFindMethodRefusesVersionsNot0(c *gc.C) {
 	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
 	m, err = v.FindMethod("SimpleMethods", 1, "Call1r1e")
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown version \(1\) of interface "SimpleMethods"`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 }

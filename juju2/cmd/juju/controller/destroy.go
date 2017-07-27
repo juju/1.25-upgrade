@@ -17,14 +17,14 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/controller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewDestroyCommand returns a command to destroy a controller.
@@ -110,10 +110,13 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	if !c.assumeYes {
-		if err := confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err := confirmDestruction(ctx, controllerName); err != nil {
 			return err
 		}
 	}
@@ -175,7 +178,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 }
 
@@ -196,6 +199,10 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 		buf.WriteString(fmtModelStatus(model))
 		buf.WriteRune('\n')
 	}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return errors.Errorf(`cannot destroy controller %q
 
 The controller has live hosted models. If you want
@@ -204,7 +211,7 @@ run this command again with the --destroy-all-models
 flag.
 
 Models:
-%s`, c.ControllerName(), buf.String())
+%s`, controllerName, buf.String())
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
@@ -237,7 +244,11 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	if params.IsCodeHasHostedModels(destroyErr) {
 		return destroyErr
 	}
-	logger.Errorf(stdFailureMsg, c.ControllerName())
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Errorf(stdFailureMsg, controllerName)
 	return destroyErr
 }
 
@@ -277,8 +288,13 @@ type destroyCommandBase struct {
 }
 
 func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
+	// Note that some tests set c.api to a non-nil value
+	// even when c.apierr is non-nil, hence the separate test.
+	if c.apierr != nil {
+		return nil, c.apierr
+	}
 	if c.api != nil {
-		return c.api, c.apierr
+		return c.api, nil
 	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
@@ -300,7 +316,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		return c.SetControllerName(args[0])
+		return c.SetControllerName(args[0], false)
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}

@@ -13,9 +13,9 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cert"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -133,4 +133,43 @@ func (s *ConfigSuite) TestValidate(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
+}
+
+func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxLogsAge(), gc.Equals, 72*time.Hour)
+	c.Assert(cfg.MaxLogSizeMB(), gc.Equals, 4096)
+}
+
+func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-logs-size": "8G",
+			"max-logs-age":  "96h",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxLogsAge(), gc.Equals, 96*time.Hour)
+	c.Assert(cfg.MaxLogSizeMB(), gc.Equals, 8192)
+}
+
+func (s *ConfigSuite) TestTxnLogConfigDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 10)
+}
+
+func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-txn-log-size": "8G",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 8192)
 }

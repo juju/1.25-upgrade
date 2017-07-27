@@ -17,10 +17,10 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/juju/names"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ToolsSuite struct {

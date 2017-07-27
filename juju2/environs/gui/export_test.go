@@ -4,7 +4,7 @@
 package gui
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var (

@@ -20,11 +20,11 @@ import (
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/sshclient"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	jujussh "github.com/juju/1.25-upgrade/juju2/network/ssh"
+	"github.com/juju/juju/api/sshclient"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 // SSHCommon implements functionality shared by sshCommand, SCPCommand
@@ -172,7 +172,7 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 
 	if c.noHostKeyChecks {
 		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
-		options.SetKnownHostsFile("/dev/null")
+		options.SetKnownHostsFile(os.DevNull)
 	} else {
 		knownHostsPath, err := c.generateKnownHosts(targets)
 		if err != nil {
@@ -189,10 +189,6 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 			// strict host key checking.
 			options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
 			options.SetKnownHostsFile(knownHostsPath)
-		} else {
-			// If the user's personal known_hosts is used, also use
-			// the user's personal StrictHostKeyChecking preferences.
-			options.SetStrictHostKeyChecking(ssh.StrictHostChecksUnset)
 		}
 	}
 
@@ -277,6 +273,10 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the
 	// host key of the controller machine being used for proxying
 	// here. This isn't too serious as all traffic passing through the
@@ -285,7 +285,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	// this extra level of checking.
 	options.SetProxyCommand(
 		juju, "ssh",
-		"--model="+c.ModelName(),
+		"--model="+modelName,
 		"--proxy=false",
 		"--no-host-key-checks",
 		"--pty=false",
@@ -326,7 +326,19 @@ func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
 		logger.Debugf("using legacy SSHClient API v1: no support for AllAddresses()")
 		getAddress = c.legacyAddressGetter
 	} else if c.proxy {
-		logger.Infof("proxy-ssh enabled but ignored: trying all addresses of target %q", out.entity)
+		// Ideally a reachability scan would be done from the
+		// controller's perspective but that isn't possible yet, so
+		// fall back to the legacy mode (i.e. use the instance's
+		// "private" address).
+		//
+		// This is in some ways better anyway as a both the external
+		// and internal addresses of an instance (if it has both) are
+		// likely to be accessible from the controller. With a
+		// reachability scan juju ssh could inadvertently end up using
+		// the public address when it really should be using the
+		// internal/private address.
+		logger.Debugf("proxy-ssh enabled so not doing reachability scan")
+		getAddress = c.legacyAddressGetter
 	}
 
 	return c.resolveWithRetry(*out, getAddress)
@@ -376,7 +388,7 @@ func (c *SSHCommon) resolveWithRetry(target resolvedTarget, getAddress addressGe
 
 // legacyAddressGetter returns the preferred public or private address of the
 // given entity (private when c.proxy is true), using the apiClient. Only used
-// when the SSHClient API facade v2 is not available.
+// when the SSHClient API facade v2 is not available or when proxy-ssh is set.
 func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
 	if c.proxy {
 		return c.apiClient.PrivateAddress(entity)
@@ -387,13 +399,16 @@ func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
 
 // reachableAddressGetter dials all addresses of the given entity, returning the
 // first one that succeeds. Only used with SSHClient API facade v2 or later is
-// available.
+// available. It does not try to dial if only one address is available.
 func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	addresses, err := c.apiClient.AllAddresses(entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
+	} else if len(addresses) == 1 {
+		logger.Debugf("Only one SSH address provided (%s), using it without probing", addresses[0])
+		return addresses[0], nil
 	}
 	publicKeys := []string{}
 	if !c.noHostKeyChecks {

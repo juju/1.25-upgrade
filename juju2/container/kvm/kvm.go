@@ -13,33 +13,44 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/containerinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/containerinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
+	// KvmObjectFactory imlements the container factory interface for kvm
+	// containers.
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 
 	// In order for Juju to be able to create the hardware characteristics of
 	// the kvm machines it creates, we need to be explicit in our definition
 	// of memory, cores and root-disk.  The defaults here have been
 	// extracted from the uvt-kvm executable.
+
+	// DefaultMemory is the default RAM to use in a container.
 	DefaultMemory uint64 = 512 // MB
-	DefaultCpu    uint64 = 1
-	DefaultDisk   uint64 = 8 // GB
+	// DefaultCpu is the default number of CPUs to use in a container.
+	DefaultCpu uint64 = 1
+	// DefaultDisk is the default root disk size.
+	DefaultDisk uint64 = 8 // GB
 
 	// There are some values where it doesn't make sense to go below.
+
+	// MinMemory is the minimum RAM we will launch with.
 	MinMemory uint64 = 512 // MB
-	MinCpu    uint64 = 1
-	MinDisk   uint64 = 2 // GB
+	// MinCpu is the minimum number of CPUs to launch with.
+	MinCpu uint64 = 1
+	// MinDisk is the minimum root disk size we will launch with.
+	MinDisk uint64 = 2 // GB
 )
 
 // Utilized to provide a hard-coded path to kvm-ok
@@ -114,7 +125,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-	callback container.StatusCallback,
+	callback environs.StatusCallbackFunc,
 ) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
@@ -155,6 +166,8 @@ func (manager *containerManager) CreateContainer(
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
+	startParams.NetworkConfigData = containerinit.CloudInitNetworkConfigDisabled
+	startParams.StatusCallback = callback
 
 	// If the Simplestream requested is anything but released, update
 	// our StartParams to request it.
@@ -170,21 +183,21 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
 
-	callback(status.Allocating, "Creating container; it might take some time", nil)
+	callback(status.Provisioning, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")
-		logger.Infof(err.Error())
 		return nil, nil, err
 	}
 	logger.Tracef("kvm container created")
+	callback(status.Running, "Container started", nil)
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
 func (manager *containerManager) IsInitialized() bool {
 	requiredBinaries := []string{
 		"virsh",
-		"uvt-kvm",
+		"qemu-utils",
 	}
 	for _, bin := range requiredBinaries {
 		if _, err := exec.LookPath(bin); err != nil {

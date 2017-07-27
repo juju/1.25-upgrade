@@ -10,7 +10,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/juju/resource"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -28,10 +28,6 @@ type MigrationStatus struct {
 	// PhaseChangedTime indicates the time the phase was changed to
 	// its current value.
 	PhaseChangedTime time.Time
-
-	// ExternalControl indicates the current migration should be
-	// controlled by an external process.
-	ExternalControl bool
 
 	// TargetInfo contains the details of how to connect to the target
 	// controller.

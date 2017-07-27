@@ -11,9 +11,9 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/keys"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (

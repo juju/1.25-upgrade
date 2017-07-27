@@ -9,21 +9,21 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/watcher/watchertest"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite
 // and relationUnitSuite. We're not just embeddnig relationUnitSuite
 // into relationSuite to avoid running the former's tests twice.
 type commonRelationSuiteMixin struct {
-	mysqlMachine *state.Machine
-	mysqlService *state.Application
-	mysqlCharm   *state.Charm
-	mysqlUnit    *state.Unit
+	mysqlMachine     *state.Machine
+	mysqlApplication *state.Application
+	mysqlCharm       *state.Charm
+	mysqlUnit        *state.Unit
 
 	stateRelation *state.Relation
 }
@@ -36,9 +36,9 @@ type relationUnitSuite struct {
 var _ = gc.Suite(&relationUnitSuite{})
 
 func (m *commonRelationSuiteMixin) SetUpTest(c *gc.C, s uniterSuite) {
-	// Create another machine, service and unit, so we can
+	// Create another machine, application and unit, so we can
 	// test relations and relation units.
-	m.mysqlMachine, m.mysqlService, m.mysqlCharm, m.mysqlUnit = s.addMachineServiceCharmAndUnit(c, "mysql")
+	m.mysqlMachine, m.mysqlApplication, m.mysqlCharm, m.mysqlUnit = s.addMachineAppCharmAndUnit(c, "mysql")
 
 	// Add a relation, used by both this suite and relationSuite.
 	m.stateRelation = s.addRelation(c, "wordpress", "mysql")
@@ -128,9 +128,9 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
-	// Now we destroy mysqlService, so the relation is be set to
+	// Now we destroy mysqlApplication, so the relation is be set to
 	// dying.
-	err = s.mysqlService.Destroy()
+	err = s.mysqlApplication.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.stateRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now we create a subordinate of wordpressUnit and enter scope.
-	subRel, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	subRel, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	wpRelUnit, err := subRel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)

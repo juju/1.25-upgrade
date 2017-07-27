@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type restrictedContext struct {

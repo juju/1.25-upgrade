@@ -7,14 +7,14 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/undertaker"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/undertaker"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type mockFacade struct {

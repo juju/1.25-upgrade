@@ -8,8 +8,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/upgrades"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 var v210 = version.MustParse("2.1.0")
@@ -19,12 +19,6 @@ type steps21Suite struct {
 }
 
 var _ = gc.Suite(&steps21Suite{})
-
-func (s *steps21Suite) TestDropOldLogIndex(c *gc.C) {
-	step := findStateStep(c, v210, "drop old log index")
-	// Logic for step itself is tested in state package.
-	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
-}
 
 func (s *steps21Suite) TestAddMigrationAttempt(c *gc.C) {
 	step := findStateStep(c, v210, "add attempt to migration docs")

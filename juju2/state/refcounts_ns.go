@@ -4,11 +4,12 @@
 package state
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/mongo"
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 // refcountDoc holds a reference count. Refcounts are important to juju

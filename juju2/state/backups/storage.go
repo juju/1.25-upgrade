@@ -8,9 +8,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
@@ -20,6 +17,10 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 )
 
 // backupIDTimstamp is used to format the timestamp from a backup

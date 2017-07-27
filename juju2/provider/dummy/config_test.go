@@ -7,12 +7,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -69,7 +69,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		}
 		ctx := envtesting.BootstrapContext(c)
 		env, err := bootstrap.Prepare(
-			ctx, jujuclienttesting.NewMemStore(),
+			ctx, jujuclient.NewMemStore(),
 			bootstrap.PrepareParams{
 				ControllerConfig: testing.FakeControllerConfig(),
 				ControllerName:   cfg.Name(),

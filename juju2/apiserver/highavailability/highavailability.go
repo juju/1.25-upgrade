@@ -11,20 +11,16 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.highavailability")
-
-func init() {
-	common.RegisterStandardFacade("HighAvailability", 2, NewHighAvailabilityAPI)
-}
 
 // HighAvailability defines the methods on the highavailability API end point.
 type HighAvailability interface {
@@ -43,8 +39,8 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 
 // NewHighAvailabilityAPI creates a new server-side highavailability API end point.
 func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*HighAvailabilityAPI, error) {
-	// Only clients and model managers can access the high availability facade.
-	if !authorizer.AuthClient() && !authorizer.AuthController() {
+	// Only clients can access the high availability facade.
+	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &HighAvailabilityAPI{

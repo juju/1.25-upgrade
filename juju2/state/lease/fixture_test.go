@@ -5,7 +5,7 @@ package lease_test
 
 import (
 	"fmt"
-	"time" // Only used for time types and Parse().
+	"time"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/state/lease"
+	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state/lease"
 )
 
 var (

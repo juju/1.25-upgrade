@@ -5,6 +5,7 @@ package containerizer
 
 import (
 	"fmt"
+	"hash/crc32"
 	"sort"
 	"strings"
 
@@ -12,10 +13,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	// Used for some constants and things like LinkLayerDevice[Args]
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.network.containerizer")
@@ -60,10 +61,15 @@ var _ Container = (*state.Machine)(nil)
 // inferContainerSpaces tries to find a valid space for the container to be
 // on. This should only be used when the container itself doesn't have any
 // valid constraints on what spaces it should be in.
+// If UseLocalBridges is set we fall back to "" and use lxdbr0 as we probably
+// won't be able to get an IP on hosts space.
 // If this machine is in a single space, then that space is used. Else, if
 // the machine has the default space, then that space is used.
 // If neither of those conditions is true, then we return an error.
 func (p *BridgePolicy) inferContainerSpaces(m Machine, containerId, defaultSpaceName string) (set.Strings, error) {
+	if p.UseLocalBridges {
+		return set.NewStrings(""), nil
+	}
 	hostSpaces, err := m.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -188,6 +194,25 @@ var skippedDeviceNames = set.NewStrings(
 	network.DefaultKVMBridge,
 )
 
+// The general policy is to:
+// 1. Add br- to device name (to keep current behaviour), if it doesn fit in 15 characters then:
+// 2. Add b- to device name, if it doesn't fit in 15 characters then:
+// 3a. For devices starting in 'en' remove 'en' and add 'b-'
+// 3b. For all other devices 'b-' + 6-char hash of name + '-' + last 6 chars of name
+func BridgeNameForDevice(device string) string {
+	switch {
+	case len(device) < 13:
+		return fmt.Sprintf("br-%s", device)
+	case len(device) == 13:
+		return fmt.Sprintf("b-%s", device)
+	case device[:2] == "en":
+		return fmt.Sprintf("b-%s", device[2:])
+	default:
+		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
+		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
+	}
+}
+
 // FindMissingBridgesForContainer looks at the spaces that the container
 // wants to be in, and sees if there are any host devices that should be
 // bridged.
@@ -279,8 +304,7 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
 		hostToBridge = append(hostToBridge, network.DeviceToBridge{
 			DeviceName: hostName,
-			// Should be an indirection/policy being passed in here
-			BridgeName: fmt.Sprintf("br-%s", hostName),
+			BridgeName: BridgeNameForDevice(hostName),
 		})
 	}
 	return hostToBridge, reconfigureDelay, nil

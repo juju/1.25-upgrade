@@ -7,13 +7,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type environSuite struct {
@@ -102,12 +102,8 @@ func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
 	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-	expectPorts := []network.PortRange{{
-		FromPort: apiPort,
-		ToPort:   apiPort,
-		Protocol: "tcp",
-	}}
-	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
+	expectRules := []network.IngressRule{network.MustNewIngressRule("tcp", apiPort, apiPort)}
+	c.Check(calls[0].Rules, jc.DeepEquals, expectRules)
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {

@@ -17,9 +17,9 @@ import (
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/juju/paths"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/tools"
 )
 
 //go:generate go run ../generate/filetoconst/filetoconst.go UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig

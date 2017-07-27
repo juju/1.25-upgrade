@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type ReportSuite struct {

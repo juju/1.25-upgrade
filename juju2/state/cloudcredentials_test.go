@@ -9,9 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type CloudCredentialsSuite struct {

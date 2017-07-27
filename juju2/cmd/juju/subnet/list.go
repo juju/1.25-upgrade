@@ -7,25 +7,24 @@ import (
 	"net"
 	"strings"
 
-	"github.com/juju/gnuflag"
-
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewListCommand returns a cammin used to list all subnets
 // known to Juju.
-func NewListCommand() cmd.Command {
-	return modelcmd.Wrap(&listCommand{})
+func NewListCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&ListCommand{})
 }
 
-// listCommand displays a list of all subnets known to Juju
-type listCommand struct {
+// ListCommand displays a list of all subnets known to Juju
+type ListCommand struct {
 	SubnetCommandBase
 
 	SpaceName string
@@ -48,7 +47,7 @@ output to a file, use --output.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *listCommand) Info() *cmd.Info {
+func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
@@ -59,7 +58,7 @@ func (c *listCommand) Info() *cmd.Info {
 }
 
 // SetFlags is defined on the cmd.Command interface.
-func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
 	c.Out.AddFlags(f, "yaml", output.DefaultFormatters)
 
@@ -69,7 +68,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *listCommand) Init(args []string) error {
+func (c *ListCommand) Init(args []string) error {
 	// No arguments are accepted, just flags.
 	err := cmd.CheckEmpty(args)
 	if err != nil {
@@ -90,8 +89,8 @@ func (c *listCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *listCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
+func (c *ListCommand) Run(ctx *cmd.Context) error {
+	return errors.Trace(c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		// Validate space and/or zone, if given to display a nicer error
 		// message.
 		// Get the list of subnets, filtering them as requested.
@@ -117,8 +116,9 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		for _, sub := range subnets {
 			subResult := formattedSubnet{
-				ProviderId: sub.ProviderId,
-				Zones:      sub.Zones,
+				ProviderId:        sub.ProviderId,
+				ProviderNetworkId: sub.ProviderNetworkId,
+				Zones:             sub.Zones,
 			}
 
 			// Use the CIDR to determine the subnet type.
@@ -129,12 +129,14 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 			} else if ip.To16() != nil {
 				subResult.Type = typeIPv6
 			}
-			// Space must be valid, but verify anyway.
-			spaceTag, err := names.ParseSpaceTag(sub.SpaceTag)
-			if err != nil {
-				return errors.Annotatef(err, "subnet %q has invalid space", sub.CIDR)
+			if sub.SpaceTag != "" {
+				// Space must be valid, but verify anyway.
+				spaceTag, err := names.ParseSpaceTag(sub.SpaceTag)
+				if err != nil {
+					return errors.Annotatef(err, "subnet %q has invalid space", sub.CIDR)
+				}
+				subResult.Space = spaceTag.Id()
 			}
-			subResult.Space = spaceTag.Id()
 
 			// Display correct status according to the life cycle value.
 			switch sub.Life {
@@ -148,7 +150,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 
 		return c.Out.Write(ctx, result)
-	})
+	}))
 }
 
 const (
@@ -164,9 +166,10 @@ type formattedList struct {
 }
 
 type formattedSubnet struct {
-	Type       string   `json:"type" yaml:"type"`
-	ProviderId string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
-	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
-	Space      string   `json:"space" yaml:"space"`
-	Zones      []string `json:"zones" yaml:"zones"`
+	Type              string   `json:"type" yaml:"type"`
+	ProviderId        string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	ProviderNetworkId string   `json:"provider-network-id,omitempty" yaml:"provider-network-id,omitempty"`
+	Status            string   `json:"status,omitempty" yaml:"status,omitempty"`
+	Space             string   `json:"space" yaml:"space"`
+	Zones             []string `json:"zones" yaml:"zones"`
 }

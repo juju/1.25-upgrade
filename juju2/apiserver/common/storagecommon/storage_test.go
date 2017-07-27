@@ -4,18 +4,16 @@
 package storagecommon_test
 
 import (
-	"path/filepath"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/storagecommon"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 )
 
 type storageAttachmentInfoSuite struct {
@@ -59,6 +57,7 @@ func (s *storageAttachmentInfoSuite) SetUpTest(c *gc.C) {
 		DeviceName:  "sda",
 		DeviceLinks: []string{"/dev/disk/by-id/verbatim"},
 		HardwareId:  "whatever",
+		WWN:         "drbr",
 	}}
 	s.st = &fakeStorage{
 		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
@@ -83,7 +82,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceNa
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/sda"),
+		Location: "/dev/sda",
 	})
 }
 
@@ -115,7 +114,18 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardware
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/disk/by-id/whatever"),
+		Location: "/dev/disk/by-id/whatever",
+	})
+}
+
+func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentWWN(c *gc.C) {
+	s.volume.info.WWN = "drbr"
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
+	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+		Kind:     storage.StorageKindBlock,
+		Location: "/dev/disk/by-id/wwn-drbr",
 	})
 }
 
@@ -135,7 +145,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBlockDevic
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/sdb"),
+		Location: "/dev/sdb",
 	})
 }
 
@@ -147,6 +157,15 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoNoBlockDevice(c *g
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
+}
+
+func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoVolumeNotFound(c *gc.C) {
+	s.st.storageInstanceVolume = func(tag names.StorageTag) (state.Volume, error) {
+		return nil, errors.NotFoundf("volume for storage %s", tag.Id())
+	}
+	_, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume")
 }
 
 type watchStorageAttachmentSuite struct {

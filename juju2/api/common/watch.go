@@ -8,19 +8,19 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.
-func Watch(facade base.FacadeCaller, tag names.Tag) (watcher.NotifyWatcher, error) {
+func Watch(facade base.FacadeCaller, method string, tag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := facade.FacadeCall("Watch", args, &results)
+	err := facade.FacadeCall(method, args, &results)
 	if err != nil {
 		return nil, err
 	}

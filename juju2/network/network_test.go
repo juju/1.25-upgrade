@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
 )
 
 type InterfaceInfoSuite struct {

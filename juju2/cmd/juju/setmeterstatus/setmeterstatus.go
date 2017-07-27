@@ -11,8 +11,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/metricsdebug"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/api/metricsdebug"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const setMeterStatusDoc = `

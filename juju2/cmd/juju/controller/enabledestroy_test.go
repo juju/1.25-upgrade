@@ -5,20 +5,19 @@ package controller_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/controller"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/jujuclient"
 )
 
 type enableDestroyControllerSuite struct {
 	baseControllerSuite
 	api   *fakeRemoveBlocksAPI
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&enableDestroyControllerSuite{})
@@ -27,7 +26,7 @@ func (s *enableDestroyControllerSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 
 	s.api = &fakeRemoveBlocksAPI{}
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "fake"
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 }
@@ -37,20 +36,20 @@ func (s *enableDestroyControllerSuite) newCommand() cmd.Command {
 }
 
 func (s *enableDestroyControllerSuite) TestRemove(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newCommand())
+	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.called, jc.IsTrue)
 }
 
 func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newCommand(), "whoops")
+	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 	c.Assert(s.api.called, jc.IsFalse)
 }
 
 func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
-	_, err := testing.RunCommand(c, s.newCommand())
+	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

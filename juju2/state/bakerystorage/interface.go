@@ -15,7 +15,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/mongo"
 )
 
 // Config contains configuration for creating bakery storage with New.

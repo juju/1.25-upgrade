@@ -49,10 +49,12 @@ type CloudConfig interface {
 	DeviceMountConfig
 	OutputConfig
 	SSHAuthorizedKeysConfig
+	SSHKeysConfig
 	RootUserConfig
 	WrittenFilesConfig
 	RenderConfig
 	AdvancedPackagingConfig
+	HostnameConfig
 }
 
 // SystemUpdateConfig is the interface for managing all system update options.
@@ -270,6 +272,12 @@ type SSHAuthorizedKeysConfig interface {
 	SetSSHAuthorizedKeys(string)
 }
 
+// SSHKeysConfig is the interface for setting ssh host keys.
+type SSHKeysConfig interface {
+	// SetSSHKeys sets the SSH host keys for the machine.
+	SetSSHKeys(SSHKeys)
+}
+
 // RootUserConfig is the interface for all root user-related settings.
 type RootUserConfig interface {
 	// SetDisableRoot sets whether ssh login to the root account of the new server
@@ -382,6 +390,12 @@ type UsersConfig interface {
 	UnsetUsers()
 }
 
+// HostnameConfig is the interface for managing the hostname.
+type HostnameConfig interface {
+	// ManageEtcHosts enables or disables management of /etc/hosts.
+	ManageEtcHosts(manage bool)
+}
+
 // New returns a new Config with no options set.
 func New(ser string) (CloudConfig, error) {
 	seriesos, err := series.GetOSFromSeries(ser)
@@ -412,17 +426,46 @@ func New(ser string) (CloudConfig, error) {
 	case os.CentOS:
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
-			&cloudConfig{
+			cloudConfig: &cloudConfig{
 				series:    ser,
 				paccmder:  commands.NewYumPackageCommander(),
 				pacconfer: config.NewYumPackagingConfigurer(ser),
 				renderer:  renderer,
 				attrs:     make(map[string]interface{}),
 			},
+			helper: centOSHelper{},
+		}, nil
+	case os.OpenSUSE:
+		renderer, _ := shell.NewRenderer("bash")
+		return &centOSCloudConfig{
+			cloudConfig: &cloudConfig{
+				series:    ser,
+				paccmder:  commands.NewZypperPackageCommander(),
+				pacconfer: config.NewZypperPackagingConfigurer(ser),
+				renderer:  renderer,
+				attrs:     make(map[string]interface{}),
+			},
+			helper: openSUSEHelper{
+				paccmder: commands.NewZypperPackageCommander(),
+			},
 		}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for series %q", ser)
 	}
+}
+
+// SSHKeys contains SSH host keys to configure on a machine.
+type SSHKeys struct {
+	RSA *SSHKey
+}
+
+// SSHKey is an SSH key pair.
+type SSHKey struct {
+	// Private is the SSH private key.
+	Private string
+
+	// Public is the SSH public key.
+	Public string
 }
 
 // SSHKeyType is the type of the four used key types passed to cloudinit

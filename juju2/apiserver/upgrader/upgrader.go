@@ -9,28 +9,26 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
-func init() {
-	common.RegisterStandardFacade("Upgrader", 1, upgraderFacade)
-}
+// The upgrader facade is a bit unique vs the other API Facades, as it
+// has two implementations that actually expose the same API and which
+// one gets returned depends on who is calling.  Both of them conform
+// to the exact Upgrader API, so the actual calls that are available
+// do not depend on who is currently connected.
 
-// upgraderFacade is a bit unique vs the other API Facades, as it has two
-// implementations that actually expose the same API and which one gets
-// returned depends on who is calling.
-// Both of them conform to the exact Upgrader API, so the actual calls that are
-// available do not depend on who is currently connected.
-func upgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
+// NewUpgraderFacade provides the signature required for facade registration.
+func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
 	// The type of upgrader we return depends on who is asking.
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the api/upgrader package since there

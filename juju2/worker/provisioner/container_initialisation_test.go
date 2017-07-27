@@ -20,21 +20,22 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	apiprovisioner "github.com/juju/1.25-upgrade/juju2/api/provisioner"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/provisioner"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/provisioner"
 )
 
 type ContainerSetupSuite struct {
@@ -88,8 +89,12 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
-	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, *worker.Runner) {
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       allFatal,
+		MoreImportant: noImportance,
+		RestartDelay:  jworker.RestartDelay,
+	})
 	pr := apiprovisioner.NewState(s.st)
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +152,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	})
 	// A stub worker callback to record what happens.
 	var provisionerStarted uint32
-	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
@@ -158,17 +163,15 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
 	s.createContainer(c, host, ctype)
-	// Consume the apt command used to initialise the container.
-	select {
-	case <-s.aptCmdChan:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("took too long to get command from channel")
-	}
+
 	// the container worker should have created the provisioner
 	c.Assert(atomic.LoadUint32(&provisionerStarted) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return fakeContainerInitialiser{}
+	})
 	// Specifically ignore LXD here, if present in instance.ContainerTypes.
 	containerTypes := []instance.ContainerType{instance.KVM}
 	for _, ctype := range containerTypes {
@@ -196,7 +199,16 @@ func (s *ContainerSetupSuite) TestKvmContainerUsesTargetArch(c *gc.C) {
 	// KVM should do what it's told, and use the architecture in
 	// constraints.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return fakeContainerInitialiser{}
+	})
 	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
+}
+
+type fakeContainerInitialiser struct{}
+
+func (_ fakeContainerInitialiser) Initialise() error {
+	return nil
 }
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
@@ -217,7 +229,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 		})
 	})
 
-	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
+	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
@@ -242,11 +254,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createContainer(c, m, containerType)
-	select {
-	case <-s.aptCmdChan:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("took too long to get command from channel")
-	}
+
 	c.Assert(atomic.LoadUint32(&called) > 0, jc.IsTrue)
 }
 
@@ -264,7 +272,7 @@ type ContainerInstance struct {
 
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont ContainerInstance) {
 	// A noop worker callback.
-	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		return nil
@@ -281,6 +289,10 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 		ser = "centos7"
 		expected_initial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
+	case jujuos.OpenSUSE:
+		ser = "opensuseleap"
+		expected_initial = []string{
+			"zypper", " --quiet", "--non-interactive-include-reboot-patches", "install"}
 	default:
 		ser = "precise"
 		expected_initial = []string{
@@ -373,11 +385,17 @@ func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string)
 }
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
+	pkgs := [][]string{
+		{"qemu-kvm"},
+		{"qemu-utils"},
+		{"genisoimage"},
+		{"libvirt-bin"},
+	}
+	if arch.HostArch() == arch.ARM64 {
+		pkgs = append([][]string{{"qemu-efi"}}, pkgs...)
+	}
 	cont = []ContainerInstance{
-		{instance.KVM, [][]string{
-			{"uvtool-libvirt"},
-			{"uvtool"},
-		}},
+		{instance.KVM, pkgs},
 	}
 	return cont, nil
 }

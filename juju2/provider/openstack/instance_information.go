@@ -6,9 +6,9 @@ package openstack
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
 )
 
 var _ environs.InstanceTypesFetcher = (*Environ)(nil)

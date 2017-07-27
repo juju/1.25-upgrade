@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/testing"
 )
 
 type initialisationSuite struct {
@@ -104,7 +104,18 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 			"cpu cores: 1",
 		},
 		"arch=armhf cores=2 mem=4M",
+	}, {
+		"4 CPU sockets, each single-core, no hyper-threading, no physical id field",
+		[]string{
+			"edgy", "arm64", "MemTotal: 16384 kB",
+			"processor: 0",
+			"processor: 1",
+			"processor: 2",
+			"processor: 3",
+		},
+		"arch=arm64 cores=4 mem=16M",
 	}}
+
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.summary)
 		scriptResponse := strings.Join(test.scriptResponse, "\n")

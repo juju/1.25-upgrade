@@ -4,9 +4,8 @@
 package apiserver_test
 
 import (
-	"bufio"
-	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,18 +13,21 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type logsinkSuite struct {
@@ -61,31 +63,31 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
-	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
-	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
-	assertWebsocketClosed(c, reader)
+	ws := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
+	websockettest.AssertJSONError(c, ws, `initialising agent logsink session: unknown model: "does-not-exist"`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "no credentials provided")
+	s.checkAuthFails(c, nil, "initialising agent logsink session: no credentials provided")
 }
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFailsWithEntityError(c, header, "tag kind user not valid")
+	s.checkAuthFailsWithEntityError(c, header, "initialising agent logsink session: tag kind user not valid")
 }
 
 func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add(params.MachineNonceHeader, s.nonce)
-	s.checkAuthFailsWithEntityError(c, header, "invalid entity name or password")
+	s.checkAuthFailsWithEntityError(c, header, "initialising agent logsink session: invalid entity name or password")
 }
 
 func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, "wrong")
-	s.checkAuthFails(c, header, "machine 0 not provisioned")
+	s.checkAuthFails(c, header, "initialising agent logsink session: machine 0 not provisioned")
 }
 
 func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header, msg string) {
@@ -95,22 +97,19 @@ func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header
 func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
-	assertJSONError(c, reader, message)
-	assertWebsocketClosed(c, reader)
+	websockettest.AssertJSONError(c, conn, message)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
 	conn := s.dialWebsocket(c)
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
 
 	// Read back the nil error, indicating that all is well.
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.IsNil)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
-	err := websocket.JSON.Send(conn, &params.LogRecord{
+	err := conn.WriteJSON(&params.LogRecord{
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
@@ -120,7 +119,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t1 := time.Date(2015, time.June, 1, 23, 2, 2, 0, time.UTC)
-	err = websocket.JSON.Send(conn, &params.LogRecord{
+	err = conn.WriteJSON(&params.LogRecord{
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
@@ -130,7 +129,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the log documents to be written to the DB.
-	logsColl := s.State.MongoSession().DB("logs").C("logs")
+	logsColl := s.State.MongoSession().DB("logs").C("logs." + s.State.ModelUUID())
 	var docs []bson.M
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		err := logsColl.Find(nil).Sort("t").All(&docs)
@@ -149,7 +148,6 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	// Check the recorded logs are correct.
 	modelUUID := s.State.ModelUUID()
 	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
-	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:42")
@@ -157,7 +155,6 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
-	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:99")
@@ -203,17 +200,48 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
-	reader := bufio.NewReader(conn)
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.IsNil)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	// The logsink handler expects JSON messages. Send some
 	// junk to verify that the server closes the connection.
-	err := websocket.Message.Send(conn, "junk!")
+	err := conn.WriteMessage(websocket.TextMessage, []byte("junk!"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = conn.Read(make([]byte, 1024))
-	c.Assert(err, gc.Equals, io.EOF)
+	websockettest.AssertWebsocketClosed(c, conn)
+}
+
+func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
+	type dummyListener struct {
+		net.Listener
+	}
+	pool := state.NewStatePool(s.State)
+	defer pool.Close()
+
+	cfg := defaultServerConfig(c)
+	cfg.LogSinkConfig = &apiserver.LogSinkConfig{}
+
+	_, err := apiserver.NewServer(pool, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 0 <= 0 or > 1000 not valid")
+
+	cfg.LogSinkConfig.DBLoggerBufferSize = 1001
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 1001 <= 0 or > 1000 not valid")
+
+	cfg.LogSinkConfig.DBLoggerBufferSize = 1
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 0s <= 0 or > 10 seconds not valid")
+
+	cfg.LogSinkConfig.DBLoggerFlushInterval = 30 * time.Second
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 30s <= 0 or > 10 seconds not valid")
+
+	cfg.LogSinkConfig.DBLoggerFlushInterval = 10 * time.Second
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: RateLimitBurst 0 <= 0 not valid")
+
+	cfg.LogSinkConfig.RateLimitBurst = 1000
+	_, err = apiserver.NewServer(pool, dummyListener{}, cfg)
+	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: RateLimitRefill 0s <= 0 not valid")
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
@@ -225,12 +253,12 @@ func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *webso
 	return dialWebsocketFromURL(c, server, header)
 }
 
-func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
+func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *websocket.Conn {
 	server := s.logsinkURL(c, "wss")
 	server.Path = path
 	conn := dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return bufio.NewReader(conn)
+	return conn
 }
 
 func (s *logsinkSuite) makeAuthHeader() http.Header {

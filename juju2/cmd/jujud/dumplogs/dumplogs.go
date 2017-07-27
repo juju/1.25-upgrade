@@ -22,11 +22,11 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	jujudagent "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
-	corenames "github.com/juju/1.25-upgrade/juju2/juju/names"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/agent"
+	jujudagent "github.com/juju/juju/cmd/jujud/agent"
+	corenames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 )
 
 // NewCommand returns a new Command instance which implements the
@@ -170,7 +170,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer, err := state.NewLogTailer(st, &state.LogTailerParams{NoTail: true})
+	tailer, err := state.NewLogTailer(st, state.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}

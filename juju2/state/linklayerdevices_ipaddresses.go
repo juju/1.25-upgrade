@@ -10,7 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/network"
 )
 
 // ipAddressDoc describes the persistent state of an IP address assigned to a
@@ -157,6 +157,12 @@ func (addr *Address) ConfigMethod() AddressConfigMethod {
 	return addr.doc.ConfigMethod
 }
 
+// LoopbackConfigMethod returns whether AddressConfigMethod used for this IP
+// address was loopback.
+func (addr *Address) LoopbackConfigMethod() bool {
+	return addr.doc.ConfigMethod == LoopbackAddress
+}
+
 // Value returns the value of this IP address.
 func (addr *Address) Value() string {
 	return addr.doc.Value
@@ -234,12 +240,24 @@ func insertIPAddressDocOp(newDoc *ipAddressDoc) txn.Op {
 	}
 }
 
+func strsDiffer(a, b []string) bool {
+	if len(a) != len(b) {
+		return true
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return true
+		}
+	}
+	return false
+}
+
 // updateIPAddressDocOp returns an operation updating the fields of existingDoc
 // with the respective values of those fields in newDoc. DocID, ModelUUID,
 // Value, MachineID, and DeviceName cannot be changed. ProviderID cannot be
 // changed once set. DNSServers and DNSSearchDomains are deleted when nil. In
 // all other cases newDoc values overwrites existingDoc values.
-func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
+func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) (txn.Op, bool) {
 	changes := make(bson.M)
 	deletes := make(bson.M)
 	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
@@ -254,16 +272,19 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 		changes["subnet-cidr"] = newDoc.SubnetCIDR
 	}
 
-	if newDoc.DNSServers == nil {
-		deletes["dns-servers"] = 1
-	} else {
-		changes["dns-servers"] = newDoc.DNSServers
+	if strsDiffer(newDoc.DNSServers, existingDoc.DNSServers) {
+		if len(newDoc.DNSServers) == 0 {
+			deletes["dns-servers"] = 1
+		} else {
+			changes["dns-servers"] = newDoc.DNSServers
+		}
 	}
-
-	if newDoc.DNSSearchDomains == nil {
-		deletes["dns-search-domains"] = 1
-	} else {
-		changes["dns-search-domains"] = newDoc.DNSSearchDomains
+	if strsDiffer(newDoc.DNSSearchDomains, existingDoc.DNSSearchDomains) {
+		if len(newDoc.DNSSearchDomains) == 0 {
+			deletes["dns-search-domains"] = 1
+		} else {
+			changes["dns-search-domains"] = newDoc.DNSSearchDomains
+		}
 	}
 
 	if existingDoc.GatewayAddress != newDoc.GatewayAddress {
@@ -283,7 +304,7 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 		Id:     existingDoc.DocID,
 		Assert: txn.DocExists,
 		Update: updates,
-	}
+	}, len(updates) > 0
 }
 
 func findAddressesQuery(machineID, deviceName string) bson.D {
@@ -317,7 +338,7 @@ func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, er
 }
 
 func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
-	addresses, closer := st.getCollection(ipAddressesC)
+	addresses, closer := st.db().GetCollection(ipAddressesC)
 	defer closer()
 
 	query := addresses.Find(findQuery)
@@ -333,7 +354,7 @@ func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultD
 
 // AllIPAddresses returns all ip addresses in the model.
 func (st *State) AllIPAddresses() (addresses []*Address, err error) {
-	addressesCollection, closer := st.getCollection(ipAddressesC)
+	addressesCollection, closer := st.db().GetCollection(ipAddressesC)
 	defer closer()
 
 	sdocs := []ipAddressDoc{}

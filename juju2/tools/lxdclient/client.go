@@ -23,8 +23,8 @@ import (
 	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/utils/proxy"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/utils/proxy"
 )
 
 var logger = loggo.GetLogger("juju.tools.lxdclient")
@@ -105,6 +105,7 @@ type Client struct {
 	*instanceClient
 	*imageClient
 	*networkClient
+	*storageClient
 	baseURL                  string
 	defaultProfileBridgeName string
 }
@@ -180,6 +181,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		instanceClient:           &instanceClient{raw, remoteID},
 		imageClient:              &imageClient{raw, connectToRaw},
 		networkClient:            &networkClient{raw, networkAPISupported},
+		storageClient:            &storageClient{raw, storageAPISupported},
 		baseURL:                  raw.BaseURL,
 		defaultProfileBridgeName: bridgeName,
 	}

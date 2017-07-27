@@ -8,10 +8,10 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/storagecommon"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 type fakeStorage struct {
@@ -76,8 +76,8 @@ func (i *fakeStorageInstance) Tag() names.Tag {
 	return i.tag
 }
 
-func (i *fakeStorageInstance) Owner() names.Tag {
-	return i.owner
+func (i *fakeStorageInstance) Owner() (names.Tag, bool) {
+	return i.owner, i.owner != nil
 }
 
 func (i *fakeStorageInstance) Kind() state.StorageKind {

@@ -5,14 +5,17 @@ package state
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/mongo"
 )
 
 type SessionCloser func()
@@ -47,6 +50,16 @@ type Database interface {
 	// see modelStateCollection.
 	GetCollection(name string) (mongo.Collection, SessionCloser)
 
+	// GetCollecitonFor returns the named Collection, scoped for the
+	// model specified. As for GetCollection, a closer is also returned.
+	GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser)
+
+	// GetRawCollection returns the named mgo Collection. As no
+	// automatic model filtering is performed by the returned
+	// collection it should be rarely used. GetCollection() should be
+	// used in almost all cases.
+	GetRawCollection(name string) (*mgo.Collection, SessionCloser)
+
 	// TransactionRunner() returns a runner responsible for making changes to
 	// the database, and a func that must be called when the runner is no longer
 	// needed. The returned Runner might or might not have its own session,
@@ -57,6 +70,26 @@ type Database interface {
 	// non-global collections; and it will ensure that non-global documents can
 	// only be inserted while the corresponding model is still Alive.
 	TransactionRunner() (jujutxn.Runner, SessionCloser)
+
+	// RunTransaction is a convenience method for running a single
+	// transaction.
+	RunTransaction(ops []txn.Op) error
+
+	// RunTransaction is a convenience method for running a single
+	// transaction for the model specified.
+	RunTransactionFor(modelUUID string, ops []txn.Op) error
+
+	// RunRawTransaction is a convenience method that will run a
+	// single transaction using a "raw" transaction runner that won't
+	// perform model filtering.
+	RunRawTransaction(ops []txn.Op) error
+
+	// Run is a convenience method running a transaction using a
+	// transaction building function.
+	Run(transactions jujutxn.TransactionSource) error
+
+	// RunFor is like Run but runs the transaction for the model specified.
+	RunFor(modelUUID string, transactions jujutxn.TransactionSource) error
 
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
@@ -140,37 +173,34 @@ type collectionInfo struct {
 // collectionSchema defines the set of collections used in juju.
 type collectionSchema map[string]collectionInfo
 
-// Load causes all recorded collections to be created and indexed as specified;
-// the returned Database will filter queries and transactions according to the
-// suppplied model UUID.
-func (schema collectionSchema) Load(
+// Create causes all recorded collections to be created and indexed as specified
+func (schema collectionSchema) Create(
 	db *mgo.Database,
-	modelUUID string,
-	runTransactionObserver RunTransactionObserverFunc,
-) (Database, error) {
-	if !names.IsValidModel(modelUUID) {
-		return nil, errors.New("invalid model UUID")
-	}
+	settings *controller.Config,
+) error {
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
+			// We allow the max txn log collection size to be overridden by the user.
+			if name == txnLogC && settings != nil {
+				maxSize := settings.MaxTxnLogSizeMB()
+				if maxSize > 0 {
+					logger.Infof("overriding max txn log collection size: %dM", maxSize)
+					spec.MaxBytes = maxSize * 1024 * 1024
+				}
+			}
 			if err := createCollection(rawCollection, spec); err != nil {
 				message := fmt.Sprintf("cannot create collection %q", name)
-				return nil, maybeUnauthorized(err, message)
+				return maybeUnauthorized(err, message)
 			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
-				return nil, maybeUnauthorized(err, "cannot create index")
+				return maybeUnauthorized(err, "cannot create index")
 			}
 		}
 	}
-	return &database{
-		raw:                    db,
-		schema:                 schema,
-		modelUUID:              modelUUID,
-		runTransactionObserver: runTransactionObserver,
-	}, nil
+	return nil
 }
 
 // createCollection swallows collection-already-exists errors.
@@ -241,6 +271,9 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	info, found := db.schema[name]
 	if !found {
 		logger.Errorf("using unknown collection %q", name)
+		if featureflag.Enabled(feature.DeveloperMode) {
+			logger.Errorf("from %s", string(debug.Stack()))
+		}
 	}
 
 	// Copy session if necessary.
@@ -266,6 +299,22 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 		// not convenient yet.
 	}
 	return collection, closer
+}
+
+// GetCollectionFor is part of the Database interface.
+func (db *database) GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser) {
+	newDb, dbcloser := db.CopyForModel(modelUUID)
+	collection, closer := newDb.GetCollection(name)
+	return collection, func() {
+		closer()
+		dbcloser()
+	}
+}
+
+// GetRawCollection is part of the Database interface.
+func (db *database) GetRawCollection(name string) (*mgo.Collection, SessionCloser) {
+	collection, closer := db.GetCollection(name)
+	return collection.Writeable().Underlying(), closer
 }
 
 // TransactionRunner is part of the Database interface.
@@ -299,6 +348,48 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		modelUUID: db.modelUUID,
 		schema:    db.schema,
 	}, closer
+}
+
+// RunTransaction is part of the Database interface.
+func (db *database) RunTransaction(ops []txn.Op) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
+}
+
+// RunTransactionFor is part of the Database interface.
+func (db *database) RunTransactionFor(modelUUID string, ops []txn.Op) error {
+	newDB, dbcloser := db.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := newDB.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
+}
+
+// RunRawTransaction is part of the Database interface.
+func (db *database) RunRawTransaction(ops []txn.Op) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	if multiRunner, ok := runner.(*multiModelRunner); ok {
+		runner = multiRunner.rawRunner
+	}
+	return runner.RunTransaction(ops)
+}
+
+// Run is part of the Database interface.
+func (db *database) Run(transactions jujutxn.TransactionSource) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
+}
+
+// RunFor is part of the Database interface.
+func (db *database) RunFor(modelUUID string, transactions jujutxn.TransactionSource) error {
+	newDB, dbcloser := db.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := newDB.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
 }
 
 // Schema is part of the Database interface.

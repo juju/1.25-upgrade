@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit/cloudinittest"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit/renderers"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
+	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type UserdataSuite struct {

@@ -11,11 +11,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/charm"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // operationCallbacks implements operation.Callbacks, and exists entirely to

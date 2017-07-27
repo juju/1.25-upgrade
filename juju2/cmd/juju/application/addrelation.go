@@ -12,30 +12,35 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 )
 
 const addRelationDocCrossModel = `
 Add a relation between 2 local application endpoints or a local endpoint and a remote application endpoint.
 Adding a relation between two remote application endpoints is not supported.
 
-Service endpoints can be identified either by:
+Application endpoints can be identified either by:
     <application name>[:<relation name>]
         where application name supplied without relation will be internally expanded to be well-formed
 or
-    <remote endpoint url>
+    <model name>.<application name>[:<relation name>]
+        where the application is hosted in another model in the same controller
+or
+    <user name>/<model name>.<application name>[:<relation name>]
+        where model name is another model in the same controller and in this case has been disambiguated
+        by prefixing with the model owner
 
 Examples:
     $ juju add-relation wordpress mysql
         where "wordpress" and "mysql" will be internally expanded to "wordpress:mysql" and "mysql:server" respectively
 
-    $ juju add-relation wordpress local:/u/fred/prod/db2
+    $ juju add-relation wordpress prod.db2
         where "wordpress" will be internally expanded to "wordpress:db2"
 
 `
@@ -59,9 +64,9 @@ func NewAddRelationCommand() cmd.Command {
 // addRelationCommand adds a relation between two application endpoints.
 type addRelationCommand struct {
 	modelcmd.ModelCommandBase
-	Endpoints          []string
-	hasRemoteEndpoints bool
-	newAPIFunc         func() (ApplicationAddRelationAPI, error)
+	Endpoints      []string
+	remoteEndpoint string
+	newAPIFunc     func() (ApplicationAddRelationAPI, error)
 }
 
 func (c *addRelationCommand) Info() *cmd.Info {
@@ -103,7 +108,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if c.hasRemoteEndpoints && client.BestAPIVersion() < 3 {
+	if c.remoteEndpoint != "" && client.BestAPIVersion() < 3 {
 		// old client does not have cross-model capability.
 		return errors.NotSupportedf("cannot add relation between %s: remote endpoints", c.Endpoints)
 	}
@@ -111,6 +116,12 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	_, err = client.AddRelation(c.Endpoints...)
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
+	}
+	if params.IsCodeAlreadyExists(err) {
+		// It's not a real error, mention about it, log it and move along
+		logger.Infof("%s", err)
+		ctx.Infof("%s", err)
+		err = nil
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
@@ -125,10 +136,10 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 			// If we cannot parse it, it may still be a valid local endpoint...
 			// so ignoring parsing error,
 			if _, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
-				if c.hasRemoteEndpoints {
+				if c.remoteEndpoint != "" {
 					return errors.NotSupportedf("providing more than one remote endpoints")
 				}
-				c.hasRemoteEndpoints = true
+				c.remoteEndpoint = endpoint
 				continue
 			}
 		}

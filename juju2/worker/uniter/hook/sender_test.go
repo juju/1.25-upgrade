@@ -10,10 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook/hooktesting"
+	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/hook/hooktesting"
 )
 
 type HookSenderSuite struct{}

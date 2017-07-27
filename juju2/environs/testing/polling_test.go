@@ -10,8 +10,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/common"
 )
 
 func TestPackage(t *stdtesting.T) {

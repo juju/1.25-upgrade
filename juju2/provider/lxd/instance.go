@@ -8,10 +8,10 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstance struct {
@@ -63,13 +63,13 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
+func (inst *environInstance) OpenPorts(machineID string, rules []network.IngressRule) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.raw.OpenPorts(name, ports...)
+	err = inst.env.raw.OpenPorts(name, rules...)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil
@@ -79,12 +79,12 @@ func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRan
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
+func (inst *environInstance) ClosePorts(machineID string, rules []network.IngressRule) error {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.raw.ClosePorts(name, ports...)
+	err = inst.env.raw.ClosePorts(name, rules...)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil
@@ -92,15 +92,15 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 	return errors.Trace(err)
 }
 
-// Ports returns the set of ports open on the instance, which
+// IngressRules returns the set of rules applied to the instance, which
 // should have been started with the given machine id.
-// The ports are returned as sorted by SortPorts.
-func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
+// The rules are returned as sorted by SortIngressRules.
+func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ports, err := inst.env.raw.Ports(name)
+	ports, err := inst.env.raw.IngressRules(name)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil, nil

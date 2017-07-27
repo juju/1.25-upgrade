@@ -8,20 +8,16 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade(
-		"Singular", 1,
-		func(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
-			return NewFacade(st, auth)
-		},
-	)
+// NewExternalFacade is for API registration.
+func NewExternalFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
+	return NewFacade(st, auth)
 }
 
 // Backend supplies capabilities required by a Facade.

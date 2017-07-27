@@ -1,5 +1,5 @@
 name: juju
-version: 2.1.1
+version: 2.2.2
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -15,9 +15,9 @@ parts:
     source: snap/
   juju:
     plugin: godeps
-    go-importpath: github.com/juju/1.25-upgrade/juju2
+    go-importpath: github.com/juju/juju
     #The source can be your local tree or github
-    #source: https://github.com/juju/1.25-upgrade/juju2.git
+    #source: https://github.com/juju/juju.git
     #If you pull a remote, set source-depth to 1 to make the fetch shorter
     #source-depth: 1
     #source: file:///full/file/path
@@ -31,9 +31,10 @@ parts:
     #source-commit: a83896d913d7e43c960e441c1e41612116d92d46
     #source-branch: develop
     go-packages:
-      - github.com/juju/1.25-upgrade/juju2/cmd/juju
+      - github.com/juju/juju/cmd/juju
       #If you are releasing a build with public streams, you don't need to build the agent
-      - github.com/juju/1.25-upgrade/juju2/cmd/jujud
+      - github.com/juju/juju/cmd/jujud
+      - github.com/juju/juju/cmd/plugins/juju-metadata
     install: |
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.

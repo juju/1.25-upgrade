@@ -4,13 +4,15 @@
 package undertaker
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
@@ -154,6 +156,7 @@ func (u *Undertaker) processDyingModel() error {
 	}
 	defer watcher.Kill() // The watcher is not needed once this func returns.
 
+	attempt := 1
 	for {
 		select {
 		case <-u.catacomb.Dying():
@@ -172,7 +175,10 @@ func (u *Undertaker) processDyingModel() error {
 				// destroy any remaining environ resources.
 				return nil
 			}
-			// Yes, we ignore the error. See comment above.
+			// Yes, we ignore the error. See comment above. But let's at least
+			// surface it in status.
+			u.setStatus(status.Destroying, fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err))
 		}
+		attempt++
 	}
 }

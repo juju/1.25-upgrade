@@ -7,8 +7,8 @@ import (
 	"github.com/juju/replicaset"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
 
 // This file holds code that translates from State

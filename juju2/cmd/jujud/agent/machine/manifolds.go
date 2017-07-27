@@ -8,51 +8,52 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
-	"github.com/prometheus/client_golang/prometheus"
-
-	coreagent "github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apideployer "github.com/juju/1.25-upgrade/juju2/api/deployer"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
-	"github.com/juju/1.25-upgrade/juju2/container/lxd"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	proxyconfig "github.com/juju/1.25-upgrade/juju2/utils/proxy"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/agent"
-	"github.com/juju/1.25-upgrade/juju2/worker/apiaddressupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker/apicaller"
-	"github.com/juju/1.25-upgrade/juju2/worker/apiconfigwatcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/authenticationworker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/deployer"
-	"github.com/juju/1.25-upgrade/juju2/worker/diskmanager"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/gate"
-	"github.com/juju/1.25-upgrade/juju2/worker/hostkeyreporter"
-	"github.com/juju/1.25-upgrade/juju2/worker/identityfilewriter"
-	"github.com/juju/1.25-upgrade/juju2/worker/logforwarder"
-	"github.com/juju/1.25-upgrade/juju2/worker/logforwarder/sinks"
-	"github.com/juju/1.25-upgrade/juju2/worker/logger"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/machineactions"
-	"github.com/juju/1.25-upgrade/juju2/worker/machiner"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationflag"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationminion"
-	"github.com/juju/1.25-upgrade/juju2/worker/proxyupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker/reboot"
-	"github.com/juju/1.25-upgrade/juju2/worker/resumer"
-	workerstate "github.com/juju/1.25-upgrade/juju2/worker/state"
-	"github.com/juju/1.25-upgrade/juju2/worker/stateconfigwatcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/worker/terminationworker"
-	"github.com/juju/1.25-upgrade/juju2/worker/toolsversionchecker"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgradesteps"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/worker.v1"
+
+	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/state"
+	proxyconfig "github.com/juju/juju/utils/proxy"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/centralhub"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/hostkeyreporter"
+	"github.com/juju/juju/worker/identityfilewriter"
+	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machineactions"
+	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/migrationflag"
+	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/resumer"
+	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/stateconfigwatcher"
+	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
+	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -133,6 +134,9 @@ type ManifoldsConfig struct {
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
 
+	// CentralHub is the primary hub that exists in the apiserver.
+	CentralHub *pubsub.StructuredHub
+
 	// DepEngineReporter is a dependency engine reporter.
 	DepEngineReporter dependency.Reporter
 }
@@ -156,7 +160,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			if err2 != nil {
 				return errors.Trace(err2)
 			}
-			return worker.ErrTerminateAgent
+			return jworker.ErrTerminateAgent
 		} else if cause == apicaller.ErrChangedPassword {
 			return dependency.ErrBounce
 		}
@@ -189,6 +193,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
+		// The centralhub manifold watches the state config to make sure it
+		// only starts for machines that are api servers. Currently the hub is
+		// passed in as config, but when the apiserver and peergrouper are
+		// updated to use the dependency engine, the centralhub manifold
+		// should also take the agentName so the worker can get the machine ID
+		// for the creation of the hub.
+		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
+			StateConfigWatcherName: stateConfigWatcherName,
+			Hub: config.CentralHub,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -453,14 +468,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
-		logForwarderName: ifFullyUpgraded(logforwarder.Manifold(logforwarder.ManifoldConfig{
-			StateName:     stateName,
-			APICallerName: apiCallerName,
-			Sinks: []logforwarder.LogSinkSpec{{
-				Name:   "juju-log-forward",
-				OpenFn: sinks.OpenSyslog,
-			}},
-		})),
 	}
 }
 
@@ -486,6 +493,7 @@ const (
 	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
+	centralHubName         = "central-hub"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
@@ -515,5 +523,4 @@ const (
 	toolsVersionCheckerName  = "tools-version-checker"
 	machineActionName        = "machine-action-runner"
 	hostKeyReporterName      = "host-key-reporter"
-	logForwarderName         = "log-forwarder"
 )

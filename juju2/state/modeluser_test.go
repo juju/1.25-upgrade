@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ModelUserSuite struct {

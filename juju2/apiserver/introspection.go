@@ -6,10 +6,11 @@ package apiserver
 import (
 	"net/http"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
 )
 
 // introspectionHandler is an http.Handler that wraps an http.Handler
@@ -42,7 +43,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	// access these endpoints.
 
 	ok, err := common.HasPermission(
-		st.UserAccess,
+		st.UserPermission,
 		entity.Tag(),
 		permission.SuperuserAccess,
 		st.ControllerTag(),
@@ -59,7 +60,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 		return errors.Trace(err)
 	}
 	ok, err = common.HasPermission(
-		st.UserAccess,
+		st.UserPermission,
 		entity.Tag(),
 		permission.ReadAccess,
 		controllerModel.ModelTag(),

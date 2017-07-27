@@ -12,13 +12,12 @@ import (
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/keymanager"
-	keymanagerserver "github.com/juju/1.25-upgrade/juju2/apiserver/keymanager"
-	keymanagertesting "github.com/juju/1.25-upgrade/juju2/apiserver/keymanager/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/api/keymanager"
+	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
+	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 )
 
 type keymanagerSuite struct {
@@ -37,7 +36,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -93,31 +92,12 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 	s.assertModelKeys(c, append([]string{key1}, newKeys[:2]...))
 }
 
-func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
+func (s *keymanagerSuite) TestAddSystemKeyForbidden(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorisedKeys(c, key1)
 
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	keyManager := keymanager.NewClient(apiState)
-	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
-	errResults, err := keyManager.AddKeys("juju-system-key", newKey)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
-		{Error: nil},
-	})
-	s.assertModelKeys(c, []string{key1, newKey})
-}
-
-func (s *keymanagerSuite) TestAddSystemKeyWrongUser(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
-
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	keyManager := keymanager.NewClient(apiState)
-	defer keyManager.Close()
-	newKey := sshtesting.ValidKeyTwo.Key
-	_, err := keyManager.AddKeys("some-user", newKey)
+	_, err := s.keymanager.AddKeys("juju-system-key", newKey)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",

@@ -4,8 +4,11 @@
 package rackspace
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
+	"gopkg.in/goose.v2/client"
+	"gopkg.in/goose.v2/identity"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/openstack"
 )
 
 const (
@@ -14,11 +17,14 @@ const (
 
 func init() {
 	osProvider := &openstack.EnvironProvider{
-		Credentials{},
-		&rackspaceConfigurator{},
-		&firewallerFactory{},
-		openstack.FlavorFilterFunc(acceptRackspaceFlavor),
-		rackspaceNetworkingDecorator{},
+		ProviderCredentials: Credentials{},
+		Configurator:        &rackspaceConfigurator{},
+		FirewallerFactory:   &firewallerFactory{},
+		FlavorFilter:        openstack.FlavorFilterFunc(acceptRackspaceFlavor),
+		NetworkingDecorator: rackspaceNetworkingDecorator{},
+		ClientFromEndpoint: func(endpoint string) client.AuthenticatingClient {
+			return client.NewClient(&identity.Credentials{URL: endpoint}, 0, nil)
+		},
 	}
 	providerInstance = &environProvider{
 		osProvider,

@@ -21,10 +21,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/status"
 )
 
 // Application represents the state of an application.
@@ -63,7 +63,7 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 }
 
 // IsRemote returns false for a local application.
-func (s *Application) IsRemote() bool {
+func (a *Application) IsRemote() bool {
 	return false
 }
 
@@ -197,7 +197,6 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
-	// TODO(ericsnow) Use a generic registry instead.
 	resOps, err := removeResourcesOps(a.st, a.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -272,24 +271,21 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 			Id:     a.doc.DocID,
 			Assert: asserts,
 			Remove: true,
-		}, {
-			C:      settingsC,
-			Id:     a.settingsKey(),
-			Remove: true,
 		},
 	}
 	// Note that appCharmDecRefOps might not catch the final decref
-	// when run in a transaction that decrefs more than once. In
-	// this case, luckily, we can be sure that we unconditionally
-	// need finalAppCharmRemoveOps; and we trust that it's written
-	// such that it's safe to run multiple times.
+	// when run in a transaction that decrefs more than once. So we
+	// avoid attempting to do the final cleanup in the ref dec ops and
+	// do it explicitly below.
 	name := a.doc.Name
 	curl := a.doc.CharmURL
-	charmOps, err := appCharmDecRefOps(a.st, name, curl)
+	charmOps, err := appCharmDecRefOps(a.st, name, curl, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, charmOps...)
+	// By the time we get to here, all units and charm refs have been removed,
+	// so it's safe to do this additonal cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	globalKey := a.globalKey()
@@ -442,12 +438,30 @@ func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.R
 
 func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
+
+	isPeerToItself := func(ep Endpoint) bool {
+		// We do not want to prevent charm upgrade when endpoint relation is
+		// peer-scoped and there is only one unit of this application.
+		// Essentially, this is the corner case when a unit relates to itself.
+		// For example, in this case, we want to allow charm upgrade, for e.g.
+		// interface name change does not affect anything.
+		units, err := a.AllUnits()
+		if err != nil {
+			// Whether we could get application units does not matter.
+			// We are only interested in thinking further if we can get units.
+			return false
+		}
+		return len(units) == 1 && isPeer(ep)
+	}
+
 	// All relations must still exist and their endpoints are implemented by the charm.
 	for _, rel := range relations {
 		if ep, err := rel.Endpoint(a.doc.Name); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			return nil, errors.Errorf("would break relation %q", rel)
+			if !isPeerToItself(ep) {
+				return nil, errors.Errorf("would break relation %q", rel)
+			}
 		}
 		asserts = append(asserts, txn.Op{
 			C:      relationsC,
@@ -560,7 +574,7 @@ func (a *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := readSettings(a.st, settingsC, a.settingsKey())
+	oldSettings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldSettings.Map())
@@ -577,14 +591,14 @@ func (a *Application) changeCharmOps(
 	// Create or replace application settings.
 	var settingsOp txn.Op
 	newSettingsKey := applicationSettingsKey(a.doc.Name, ch.URL())
-	if _, err := readSettings(a.st, settingsC, newSettingsKey); errors.IsNotFound(err) {
+	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else {
 		// Settings exist, just replace them with the new ones.
-		settingsOp, _, err = replaceSettingsOp(a.st, settingsC, newSettingsKey, newSettings)
+		settingsOp, _, err = replaceSettingsOp(a.st.db(), settingsC, newSettingsKey, newSettings)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -680,7 +694,7 @@ func (a *Application) changeCharmOps(
 	// Drop the references to the old settings, storage constraints,
 	// and charm docs (if the refs actually exist yet).
 	if oldSettings != nil {
-		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL) // current charm
+		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1000,7 +1014,7 @@ func (a *Application) String() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (a *Application) Refresh() error {
-	applications, closer := a.st.getCollection(applicationsC)
+	applications, closer := a.st.db().GetCollection(applicationsC)
 	defer closer()
 
 	err := applications.FindId(a.doc.DocID).One(&a.doc)
@@ -1179,9 +1193,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(a.st, globalKey, unitStatusDoc)
-	probablyUpdateStatusHistory(a.st, agentGlobalKey, agentStatusDoc)
-	probablyUpdateStatusHistory(a.st, globalWorkloadVersionKey(name), workloadVersionDoc)
+	probablyUpdateStatusHistory(a.st.db(), globalKey, unitStatusDoc)
+	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 
@@ -1234,7 +1248,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	resOps, err := removeUnitResourcesOps(a.st, u.doc.Application, u.doc.Name)
+	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1261,7 +1275,10 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
 	if u.doc.CharmURL != nil {
-		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL)
+		// If the unit has a different URL to the application, allow any final
+		// cleanup to happen; otherwise we just do it when the app itself is removed.
+		maybeDoFinal := u.doc.CharmURL != a.doc.CharmURL
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if err != nil {
@@ -1298,7 +1315,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	return ops, nil
 }
 
-func removeUnitResourcesOps(st *State, applicationID, unitID string) ([]txn.Op, error) {
+func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
 		// Nothing to see here, move along.
@@ -1320,7 +1337,7 @@ func (a *Application) AllUnits() (units []*Unit, err error) {
 }
 
 func allUnits(st *State, application string) (units []*Unit, err error) {
-	unitsCollection, closer := st.getCollection(unitsC)
+	unitsCollection, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1341,7 +1358,7 @@ func (a *Application) Relations() (relations []*Relation, err error) {
 
 func applicationRelations(st *State, name string) (relations []*Relation, err error) {
 	defer errors.DeferredAnnotatef(&err, "can't get relations for application %q", name)
-	relationsCollection, closer := st.getCollection(relationsC)
+	relationsCollection, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	docs := []relationDoc{}
@@ -1358,7 +1375,7 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 // ConfigSettings returns the raw user configuration for the application's charm.
 // Unset values are omitted.
 func (a *Application) ConfigSettings() (charm.Settings, error) {
-	settings, err := readSettings(a.st, settingsC, a.settingsKey())
+	settings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
 		return nil, err
 	}
@@ -1380,7 +1397,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st, settingsC, a.settingsKey())
+	node, err := readSettings(a.st.db(), settingsC, a.settingsKey())
 	if err != nil {
 		return err
 	}
@@ -1402,7 +1419,7 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
-	doc, err := readSettingsDoc(a.st, settingsC, leadershipSettingsKey(a.doc.Name))
+	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
 		return nil, errors.NotFoundf("application")
 	} else if err != nil {
@@ -1464,7 +1481,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// Read the current document state so we can abort if there's
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(a.st, settingsC, key)
+		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
 		if errors.IsNotFound(err) {
 			return nil, errors.NotFoundf("application")
 		} else if err != nil {
@@ -1604,7 +1621,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (a *Application) Status() (status.StatusInfo, error) {
-	statuses, closer := a.st.getCollection(statusesC)
+	statuses, closer := a.st.db().GetCollection(statusesC)
 	defer closer()
 	query := statuses.Find(bson.D{{"_id", a.globalKey()}, {"neverset", true}})
 	if count, err := query.Count(); err != nil {
@@ -1629,7 +1646,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 			return a.deriveStatus(units)
 		}
 	}
-	return getStatus(a.st, a.globalKey(), "application")
+	return getStatus(a.st.db(), a.globalKey(), "application")
 }
 
 // SetStatus sets the status for the application.
@@ -1637,13 +1654,13 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(a.st, setStatusParams{
+	return setStatus(a.st.db(), setStatusParams{
 		badge:     "application",
 		globalKey: a.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, a.st.clock),
 	})
 }
 
@@ -1652,7 +1669,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this application.
 func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        a.st,
+		db:        a.st.db(),
 		globalKey: a.globalKey(),
 		filter:    filter,
 	}
@@ -1727,9 +1744,7 @@ type addApplicationOpsArgs struct {
 // applications collection, along with all the associated expected other application
 // entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
-func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) {
-	app := newApplication(st, args.applicationDoc)
-
+func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
 	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)

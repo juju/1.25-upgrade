@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/1.25-upgrade/juju2/resource/context"
+	"github.com/juju/juju/resource/context"
 )
 
 var _ = gc.Suite(&UtilsSuite{})

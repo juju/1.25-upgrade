@@ -14,15 +14,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type ModelConfigSuite struct {
@@ -87,6 +87,9 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot remove some-attr")
 	err = s.State.UpdateModelConfig(updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
+	// First error is returned.
+	err = s.State.UpdateModelConfig(updateAttrs, nil, configValidator1, configValidator2)
+	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
 }
 
 func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
@@ -96,7 +99,7 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	}
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
+	err = s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +187,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 
 func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
 	updateAttrs := map[string]interface{}{"api-port": 1234}
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
 }
 
@@ -195,10 +198,10 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 		"providerAttr":  "beef", // provider
 		"whimsy-key":    "eggs", // region
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"}, nil)
+	err = s.State.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttr", "whimsy-key"})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +217,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	attrs := map[string]interface{}{
 		"resource-tags": map[string]string{"a": "b", "c": "d"},
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey)
@@ -240,13 +243,13 @@ func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 		"arbitrary-key": "shazam!",
 		"providerAttr":  "beef", // provider
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"apt-mirror":   "http://another-mirror",
 		"providerAttr": "pork",
-	}, []string{"apt-mirror", "arbitrary-key"}, nil)
+	}, []string{"apt-mirror", "arbitrary-key"})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -288,7 +291,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesControllerValue(
 		"authorized-keys": "different-keys",
 		"apt-mirror":      "http://anothermirror",
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.State.ModelConfig()
@@ -383,7 +386,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 		"http-proxy": "http://anotherproxy",
 		"apt-mirror": "http://mirror",
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	modelCfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -465,7 +468,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 			Value: "http://dummy-mirror",
 		}}}
 	expectedValues["no-proxy"] = config.AttributeDefaultValues{
-		Default: "",
+		Default: "127.0.0.1,localhost,::1",
 		Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-proxy",
@@ -520,7 +523,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 			Value: "http://dummy-mirror",
 		}}}
 	expectedValues["no-proxy"] = config.AttributeDefaultValues{
-		Default: "",
+		Default: "127.0.0.1,localhost,::1",
 		Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "changed-proxy",
@@ -573,13 +576,14 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 	cfg, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
-		Default:    "",
+		Default:    "127.0.0.1,localhost,::1",
 		Controller: nil,
 		Regions: []config.RegionDefaultValue{
-			config.RegionDefaultValue{
+			{
 				Name:  "dummy-region",
-				Value: "dummy-proxy"},
-			config.RegionDefaultValue{
+				Value: "dummy-proxy",
+			}, {
 				Name:  "unused-region",
-				Value: "changed-proxy"}}})
+				Value: "changed-proxy",
+			}}})
 }

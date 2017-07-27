@@ -6,7 +6,7 @@ package jujuclient
 import (
 	"github.com/juju/idmclient/ussologin"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/juju/juju/osenv"
 )
 
 // NewTokenStore returns a FileTokenStore for storing the USSO oauth token

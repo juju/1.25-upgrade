@@ -4,17 +4,18 @@
 package openstack
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	gooseerrors "gopkg.in/goose.v1/errors"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	gooseerrors "gopkg.in/goose.v2/errors"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type legacyNovaFirewaller struct {
@@ -201,33 +202,33 @@ func (c *legacyNovaFirewaller) updateGroupControllerUUID(group *nova.SecurityGro
 }
 
 // OpenPorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) OpenPorts(ports []network.PortRange) error {
-	return c.openPorts(c.openPortsInGroup, ports)
+func (c *legacyNovaFirewaller) OpenPorts(rules []network.IngressRule) error {
+	return c.openPorts(c.openPortsInGroup, rules)
 }
 
 // ClosePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) ClosePorts(ports []network.PortRange) error {
-	return c.closePorts(c.closePortsInGroup, ports)
+func (c *legacyNovaFirewaller) ClosePorts(rules []network.IngressRule) error {
+	return c.closePorts(c.closePortsInGroup, rules)
 }
 
-// Ports implements Firewaller interface.
-func (c *legacyNovaFirewaller) Ports() ([]network.PortRange, error) {
-	return c.ports(c.portsInGroup)
+// IngressRules implements Firewaller interface.
+func (c *legacyNovaFirewaller) IngressRules() ([]network.IngressRule, error) {
+	return c.ingressRules(c.ingressRulesInGroup)
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
-	return c.openInstancePorts(c.openPortsInGroup, machineId, ports)
+func (c *legacyNovaFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
+	return c.openInstancePorts(c.openPortsInGroup, machineId, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
-	return c.closeInstancePorts(c.closePortsInGroup, machineId, ports)
+func (c *legacyNovaFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
+	return c.closeInstancePorts(c.closePortsInGroup, machineId, rules)
 }
 
-// InstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) InstancePorts(inst instance.Instance, machineId string) ([]network.PortRange, error) {
-	return c.instancePorts(c.portsInGroup, machineId)
+// InstanceIngressRules implements Firewaller interface.
+func (c *legacyNovaFirewaller) InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+	return c.instanceIngressRules(c.ingressRulesInGroup, machineId)
 }
 
 func (c *legacyNovaFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGroup, error) {
@@ -246,20 +247,23 @@ func (c *legacyNovaFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGr
 			matchingGroups = append(matchingGroups, group)
 		}
 	}
-	if len(matchingGroups) != 1 {
+	numMatching := len(matchingGroups)
+	if numMatching == 0 {
 		return nova.SecurityGroup{}, errors.NotFoundf("security groups matching %q", nameRegExp)
+	} else if numMatching > 1 {
+		return nova.SecurityGroup{}, errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, nameRegExp))
 	}
 	return matchingGroups[0], nil
 }
 
-func (c *legacyNovaFirewaller) openPortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
+func (c *legacyNovaFirewaller) openPortsInGroup(nameRegExp string, rules []network.IngressRule) error {
 	group, err := c.matchingGroup(nameRegExp)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	novaclient := c.environ.nova()
-	rules := portsToRuleInfo(group.Id, portRanges)
-	for _, rule := range rules {
+	ruleInfo := rulesToRuleInfo(group.Id, rules)
+	for _, rule := range ruleInfo {
 		_, err := novaclient.CreateSecurityGroupRule(legacyRuleInfo(rule))
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
@@ -280,7 +284,7 @@ func legacyRuleInfo(in neutron.RuleInfoV2) nova.RuleInfo {
 }
 
 // ruleMatchesPortRange checks if supplied nova security group rule matches the port range
-func legacyRuleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRange) bool {
+func legacyRuleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.IngressRule) bool {
 	if rule.IPProtocol == nil || rule.FromPort == nil || rule.ToPort == nil {
 		return false
 	}
@@ -289,8 +293,8 @@ func legacyRuleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.P
 		*rule.ToPort == portRange.ToPort
 }
 
-func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
-	if len(portRanges) == 0 {
+func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	group, err := c.matchingGroup(nameRegExp)
@@ -298,7 +302,7 @@ func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, portRanges [
 		return errors.Trace(err)
 	}
 	novaclient := c.environ.nova()
-	for _, portRange := range portRanges {
+	for _, portRange := range rules {
 		for _, p := range group.Rules {
 			if !legacyRuleMatchesPortRange(p, portRange) {
 				continue
@@ -313,18 +317,39 @@ func (c *legacyNovaFirewaller) closePortsInGroup(nameRegExp string, portRanges [
 	return nil
 }
 
-func (c *legacyNovaFirewaller) portsInGroup(nameRegexp string) (portRanges []network.PortRange, err error) {
+func (c *legacyNovaFirewaller) ingressRulesInGroup(nameRegexp string) (rules []network.IngressRule, err error) {
 	group, err := c.matchingGroup(nameRegexp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Keep track of all the RemoteIPPrefixes for each port range.
+	portSourceCIDRs := make(map[network.PortRange]*[]string)
 	for _, p := range group.Rules {
-		portRanges = append(portRanges, network.PortRange{
-			Protocol: *p.IPProtocol,
-			FromPort: *p.FromPort,
-			ToPort:   *p.ToPort,
-		})
+		portRange := network.PortRange{*p.FromPort, *p.ToPort, *p.IPProtocol}
+		// Record the RemoteIPPrefix for the port range.
+		remotePrefix := p.IPRange["cidr"]
+		if remotePrefix == "" {
+			remotePrefix = "0.0.0.0/0"
+		}
+		sourceCIDRs, ok := portSourceCIDRs[portRange]
+		if !ok {
+			sourceCIDRs = &[]string{}
+			portSourceCIDRs[portRange] = sourceCIDRs
+		}
+		*sourceCIDRs = append(*sourceCIDRs, remotePrefix)
 	}
-	network.SortPortRanges(portRanges)
-	return portRanges, nil
+	// Combine all the port ranges and remote prefixes.
+	for portRange, sourceCIDRs := range portSourceCIDRs {
+		rule, err := network.NewIngressRule(
+			portRange.Protocol,
+			portRange.FromPort,
+			portRange.ToPort,
+			*sourceCIDRs...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, rule)
+	}
+	network.SortIngressRules(rules)
+	return rules, nil
 }

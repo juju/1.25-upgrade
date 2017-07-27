@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 )
 
 var (
@@ -89,8 +89,12 @@ func connectFallback(
 	// than the alternatives.
 	var tryConnect = func() {
 		conn, err = apiOpen(info, api.DialOpts{
-			Timeout:    time.Second,
-			RetryDelay: 200 * time.Millisecond,
+			// NOTE we set DialTimeout but not Timeout, because
+			// the server may apply server-side rate-limiting
+			// before responding to the Login request. The dial
+			// should be fast, but the login may not be.
+			DialTimeout: time.Second,
+			RetryDelay:  200 * time.Millisecond,
 		})
 	}
 

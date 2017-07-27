@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/juju/rpc"
 )
 
 var logger = loggo.GetLogger("juju.rpc.jsoncodec")

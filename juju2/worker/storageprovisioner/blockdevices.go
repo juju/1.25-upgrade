@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // machineBlockDevicesChanged is called when the block devices of the scoped

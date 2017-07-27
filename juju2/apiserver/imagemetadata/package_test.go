@@ -11,14 +11,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	imagetesting "github.com/juju/1.25-upgrade/juju2/environs/imagemetadata/testing"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/imagemetadata"
+	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {

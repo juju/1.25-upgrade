@@ -9,14 +9,14 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/api/common/cloudspec"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an agent's view of the state.

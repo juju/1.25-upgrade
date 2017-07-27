@@ -12,9 +12,9 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/metricobserver"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/metricobserver"
+	"github.com/juju/juju/rpc"
 )
 
 type observerSuite struct {

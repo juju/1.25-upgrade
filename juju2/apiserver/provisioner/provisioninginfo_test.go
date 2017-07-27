@@ -7,17 +7,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/provisioner"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/provisioner"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage/poolmanager"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
@@ -275,7 +275,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000, Pool: "environscoped"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}

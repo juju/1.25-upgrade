@@ -14,21 +14,21 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type MachineSuite struct {
@@ -220,7 +220,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
+	err = s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -993,6 +993,9 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo.Pool = "loop-pool" // taken from params
 	c.Assert(info, gc.Equals, volumeInfo)
+	volumeStatus, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeStatus.Status, gc.Equals, status.Attaching)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {

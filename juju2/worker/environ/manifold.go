@@ -5,12 +5,12 @@ package environ
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes the resources used by a Tracker.

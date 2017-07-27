@@ -16,25 +16,25 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/agent/agentbootstrap"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {
@@ -173,12 +173,13 @@ LXC_BRIDGE="ignored"`[1:])
 				Regions:      []cloud.Region{{Name: "dummy-region"}},
 				RegionConfig: regionConfig,
 			},
-			ControllerCloudRegion:     "dummy-region",
-			ControllerConfig:          controllerCfg,
-			ControllerModelConfig:     modelCfg,
-			ModelConstraints:          expectModelConstraints,
-			ControllerInheritedConfig: controllerInheritedConfig,
-			HostedModelConfig:         hostedModelConfigAttrs,
+			ControllerCloudRegion:         "dummy-region",
+			ControllerConfig:              controllerCfg,
+			ControllerModelConfig:         modelCfg,
+			ControllerModelEnvironVersion: 666,
+			ModelConstraints:              expectModelConstraints,
+			ControllerInheritedConfig:     controllerInheritedConfig,
+			HostedModelConfig:             hostedModelConfigAttrs,
 		},
 		BootstrapMachineAddresses: initialAddrs,
 		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},
@@ -200,10 +201,11 @@ LXC_BRIDGE="ignored"`[1:])
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the environment has been set up.
+	// Check that the model has been set up.
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.UUID(), gc.Equals, modelCfg.UUID())
+	c.Assert(model.EnvironVersion(), gc.Equals, 666)
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := model.Tag().(names.ModelTag)
@@ -222,6 +224,9 @@ LXC_BRIDGE="ignored"`[1:])
 		"state-port":              1234,
 		"api-port":                17777,
 		"set-numa-control-policy": false,
+		"max-logs-age":            "72h",
+		"max-logs-size":           "4G",
+		"max-txn-log-size":        "10M",
 	})
 
 	// Check that controller model configuration has been added, and
@@ -253,6 +258,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
 	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
+	c.Assert(hostedModel.EnvironVersion(), gc.Equals, 123)
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -318,6 +324,8 @@ LXC_BRIDGE="ignored"`[1:])
 		"Validate",
 		"Open",
 		"Create",
+		"Provider",
+		"Version",
 	)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		Cloud: environs.CloudSpec{
@@ -491,15 +499,28 @@ func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, 
 
 func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
-	return &fakeEnviron{Stub: &p.Stub}, p.NextErr()
+	return &fakeEnviron{Stub: &p.Stub, provider: p}, p.NextErr()
+}
+
+func (p *fakeProvider) Version() int {
+	p.MethodCall(p, "Version")
+	p.PopNoErr()
+	return 123
 }
 
 type fakeEnviron struct {
 	environs.Environ
 	*gitjujutesting.Stub
+	provider *fakeProvider
 }
 
 func (e *fakeEnviron) Create(args environs.CreateParams) error {
 	e.MethodCall(e, "Create", args)
 	return e.NextErr()
+}
+
+func (e *fakeEnviron) Provider() environs.EnvironProvider {
+	e.MethodCall(e, "Provider")
+	e.PopNoErr()
+	return e.provider
 }

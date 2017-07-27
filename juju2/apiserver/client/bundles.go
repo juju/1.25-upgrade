@@ -4,8 +4,8 @@
 package client
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/bundle"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/apiserver/bundle"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // GetBundleChanges returns the list of changes required to deploy the given
@@ -14,7 +14,7 @@ import (
 // This call is deprecated, clients should use the GetChanges endpoint on the
 // Bundle facade.
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	bundleAPI, err := bundle.NewFacade(c.api.auth)
+	bundleAPI, err := bundle.NewBundle(c.api.auth)
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}

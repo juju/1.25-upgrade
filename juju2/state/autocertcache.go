@@ -4,12 +4,13 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"golang.org/x/crypto/acme/autocert"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/mongo"
 )
 
 // AutocertCache returns an implementation
@@ -68,6 +69,6 @@ func (cache autocertCache) Delete(ctx context.Context, name string) error {
 }
 
 func (cache autocertCache) coll() (mongo.WriteCollection, func()) {
-	coll, closer := cache.st.getCollection(autocertCacheC)
+	coll, closer := cache.st.db().GetCollection(autocertCacheC)
 	return coll.Writeable(), closer
 }

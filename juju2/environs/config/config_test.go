@@ -20,10 +20,10 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cert"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -1015,6 +1015,7 @@ func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
@@ -1033,6 +1034,7 @@ func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "user@10.0.0.1")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (s *ConfigSuite) TestProxyValues(c *gc.C) {
@@ -1062,7 +1064,7 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHTTPSProxy(), gc.Equals, "")
 	c.Assert(config.FTPProxy(), gc.Equals, "")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "")
-	c.Assert(config.NoProxy(), gc.Equals, "")
+	c.Assert(config.NoProxy(), gc.Equals, "127.0.0.1,localhost,::1")
 }
 
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
@@ -1078,12 +1080,13 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		Http:    "http://http proxy",
 		Https:   "https://https proxy",
 		Ftp:     "ftp://ftp proxy",
-		NoProxy: "",
+		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
-	// Apt proxy settings always include the scheme. NoProxy is empty.
+	cfg, err = cfg.Apply(config.AptProxyConfigMap(proxySettings))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, expectedProxySettings)
 }
 
@@ -1091,15 +1094,43 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxySettings := proxy.Settings{
-		Http:  "http://httpproxy",
-		Https: "https://httpsproxy",
-		Ftp:   "ftp://ftpproxy",
+		Http:    "http://httpproxy",
+		Https:   "https://httpsproxy",
+		Ftp:     "ftp://ftpproxy",
+		NoProxy: "noproxyhost1,noproxyhost2",
 	}
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
+}
+
+func (s *ConfigSuite) TestStatusHistoryConfigDefaults(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 336*time.Hour)
+	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(5120))
+}
+
+func (s *ConfigSuite) TestStatusHistoryConfigValues(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"max-status-history-size": "8G",
+		"max-status-history-age":  "96h",
+	})
+	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 96*time.Hour)
+	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(8192))
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigDefault(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 5*time.Minute)
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"update-status-hook-interval": "30m",
+	})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 30*time.Minute)
 }
 
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {

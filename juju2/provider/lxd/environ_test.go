@@ -6,17 +6,19 @@
 package lxd_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/lxd"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environSuite struct {
@@ -65,17 +67,20 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		},
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := cmdtesting.Context(c)
 	params := environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
-	result, err := s.Env.Bootstrap(ctx, params)
+	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(ctx), params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
 	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.Finalize, gc.NotNil)
+
+	out := cmdtesting.Stderr(ctx)
+	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {

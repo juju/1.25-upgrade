@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type autocertCacheSuite struct {

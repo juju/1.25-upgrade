@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/audit"
-	mongoutils "github.com/juju/1.25-upgrade/juju2/mongo/utils"
-	stateaudit "github.com/juju/1.25-upgrade/juju2/state/internal/audit"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/audit"
+	mongoutils "github.com/juju/juju/mongo/utils"
+	stateaudit "github.com/juju/juju/state/internal/audit"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type AuditSuite struct {

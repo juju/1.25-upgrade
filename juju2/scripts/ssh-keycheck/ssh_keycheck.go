@@ -17,8 +17,8 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	jujussh "github.com/juju/1.25-upgrade/juju2/network/ssh"
+	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 func knownHostFilename() string {

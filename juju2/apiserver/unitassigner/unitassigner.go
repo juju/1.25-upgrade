@@ -7,16 +7,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
-
-func init() {
-	common.RegisterStandardFacade("UnitAssigner", 1, New)
-}
 
 // assignerState defines the state methods this facade needs, so they can be mocked
 // for testing.

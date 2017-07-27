@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 type RepoSuite struct {
@@ -27,7 +27,7 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.CharmsPath = c.MkDir()
 	// Change the environ's config to ensure we're using the one in state.
 	updateAttrs := map[string]interface{}{"default-series": series.LatestLts()}
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

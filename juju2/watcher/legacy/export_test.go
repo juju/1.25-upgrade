@@ -4,7 +4,7 @@
 package legacy
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/state/watcher"
 )
 
 func SetEnsureErr(f func(watcher.Errer) error) {

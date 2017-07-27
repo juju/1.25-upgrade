@@ -14,13 +14,13 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/metricsadder"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
+	"github.com/juju/juju/api/metricsadder"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/metrics/spool"
 )
 
 const (
-	defaultSocketName = "metrics-send.socket"
+	DefaultMetricsSendSocketName = "metrics-send.socket"
 )
 
 type stopper interface {
@@ -107,7 +107,7 @@ var socketName = func(baseDir, unitTag string) string {
 	case "windows":
 		return fmt.Sprintf(`\\.\pipe\send-metrics-%s`, unitTag)
 	default:
-		return path.Join(baseDir, defaultSocketName)
+		return path.Join(baseDir, DefaultMetricsSendSocketName)
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/juju/resource"
 )
 
 // OpenedResourceClient exposes the API functionality needed by OpenResource.

@@ -8,11 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/testing"
 )
 
 type FlagsSuite struct {
@@ -29,6 +30,12 @@ func (*FlagsSuite) TestConfigFlagSet(c *gc.C) {
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, nil)
 	c.Assert(f.Set("k1=v1"), jc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
+	c.Assert(f.Set("k1="), jc.ErrorIsNil)
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": ""})
+	c.Assert(f.Set("k1=v1"), jc.ErrorIsNil)
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "v1"})
+	c.Assert(f.Set(`k1=""`), jc.ErrorIsNil)
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": ""})
 	c.Assert(f.Set("k1==v2"), jc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2"})
 	c.Assert(f.Set("k2=3"), jc.ErrorIsNil)
@@ -79,7 +86,7 @@ func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *gc.C) {
 
 	var f ConfigFlag
 	f.files = append(f.files, configFile)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 	c.Assert(attrs, gc.IsNil)
@@ -91,7 +98,7 @@ func assertConfigFlag(c *gc.C, f ConfigFlag, files []string, attrs map[string]in
 }
 
 func assertConfigFlagReadAttrs(c *gc.C, f ConfigFlag, expect map[string]interface{}) {
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, jc.DeepEquals, expect)

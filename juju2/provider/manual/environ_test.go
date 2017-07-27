@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/instance"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type baseEnvironSuite struct {
@@ -26,7 +26,7 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(environs.OpenParams{
+	env, err := ManualProvider{}.Open(environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	})
@@ -82,28 +82,42 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
 		c.Assert(stdin, gc.Equals, `
+# Signal the jujud process to stop, then check it has done so before cleaning-up
+# after it.
 set -x
 touch '/var/lib/juju/uninstall-agent'
-# If jujud is running, we then wait for a while for it to stop.
+
 stopped=0
-if pkill -6 jujud; then
+function wait_for_jujud {
     for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
-            echo "jujud stopped"
+            echo jujud stopped
             stopped=1
             logger --id jujud stopped on attempt $i
             break
         fi
     done
-fi
-if [ $stopped -ne 1 ]; then
+}
+
+# There might be no jujud at all (for example, after a failed deployment) so
+# don't require pkill to succeed before looking for a jujud process.
+# SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
+# rather than terminate normally.
+pkill -SIGABRT jujud
+wait_for_jujud
+
+[[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    pkill -9 jujud
-    service juju-db stop
-    logger --id killed jujud and stopped juju-db
-fi
+    pkill -SIGKILL jujud && wait_for_jujud
+}
+[[ $stopped -ne 1 ]] && {
+    echo jujud removal failed
+    logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %d (%s) has state %s\n", $1, $2, $3)}')
+    exit 1
+}
+service juju-db stop && logger --id stopped juju-db
 apt-get -y purge juju-mongo*
 apt-get -y autoremove
 rm -f /etc/init/juju*

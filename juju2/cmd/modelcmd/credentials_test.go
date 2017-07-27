@@ -5,19 +5,19 @@ package modelcmd_test
 
 import (
 	"fmt"
-
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/dummy"
 )
 
 func init() {
@@ -68,15 +68,15 @@ func (mockProvider) FinalizeCredential(
 }
 
 type credentialsSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
+	testing.IsolationSuite
 	cloud cloud.Cloud
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.cloud = cloud.Cloud{
 		Name: "cloud",
 		Type: "fake",
@@ -91,7 +91,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	err := ioutil.WriteFile(keyFile, []byte("value"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Credentials["cloud"] = cloud.CloudCredential{
 		DefaultRegion: "second-region",
 		AuthCredentials: map[string]cloud.Credential{
@@ -109,7 +109,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 
 func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		testing.Context(c), s.store, modelcmd.GetCredentialsParams{
+		cmdtesting.Context(c), s.store, modelcmd.GetCredentialsParams{
 			Cloud:          s.cloud,
 			CloudRegion:    region,
 			CredentialName: cred,
@@ -119,9 +119,6 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	expectedRegion := region
 	if expectedRegion == "" {
 		expectedRegion = s.store.Credentials["cloud"].DefaultRegion
-		if expectedRegion == "" && len(s.cloud.Regions) > 0 {
-			expectedRegion = "first-region"
-		}
 	}
 	c.Assert(regionName, gc.Equals, expectedRegion)
 	c.Assert(credentialName, gc.Equals, cred)

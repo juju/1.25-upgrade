@@ -15,18 +15,18 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	toolstesting "github.com/juju/1.25-upgrade/juju2/environs/tools/testing"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/provider/dummy"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type SimpleStreamsToolsSuite struct {
@@ -99,7 +99,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	dummy.Reset(c)
 	attrs = dummy.SampleConfig().Merge(attrs)
 	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
@@ -208,8 +208,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
 	messages := []jc.SimpleMessage{
-		{loggo.INFO, "reading agent binaries with major version 1"},
-		{loggo.INFO, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
+		{loggo.DEBUG, "reading agent binaries with major version 1"},
+		{loggo.DEBUG, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
 		{loggo.TRACE, "no series specified when finding agent binaries, looking for \\[.*\\]"},
 	}

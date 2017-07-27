@@ -15,32 +15,34 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"github.com/juju/version"
-	"gopkg.in/goose.v1/cinder"
-	"gopkg.in/goose.v1/client"
-	gooseerrors "gopkg.in/goose.v1/errors"
-	"gopkg.in/goose.v1/identity"
-	gooselogging "gopkg.in/goose.v1/logging"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
-
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools"
 	"github.com/juju/utils/clock"
+	"github.com/juju/version"
+	"gopkg.in/goose.v2/cinder"
+	"gopkg.in/goose.v2/client"
+	gooseerrors "gopkg.in/goose.v2/errors"
+	"gopkg.in/goose.v2/identity"
+	gooselogging "gopkg.in/goose.v2/logging"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -55,6 +57,9 @@ type EnvironProvider struct {
 	// decorate the default networking implementation.
 	// This can be used to override behaviour.
 	NetworkingDecorator NetworkingDecorator
+
+	// ClientFromEndpoint returns an Openstack client for the given endpoint.
+	ClientFromEndpoint func(endpoint string) client.AuthenticatingClient
 }
 
 var (
@@ -68,6 +73,7 @@ var providerInstance *EnvironProvider = &EnvironProvider{
 	FirewallerFactory:   &firewallerFactory{},
 	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
 	NetworkingDecorator: nil,
+	ClientFromEndpoint:  newGooseClient,
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -104,10 +110,12 @@ var cloudSchema = &jsonschema.Schema{
 				Required:      []string{cloud.EndpointKey},
 				MaxProperties: jsonschema.Int(1),
 				Properties: map[string]*jsonschema.Schema{
-					cloud.EndpointKey: {
-						Singular: "the API endpoint url for the region",
-						Type:     []jsonschema.Type{jsonschema.StringType},
-						Format:   jsonschema.FormatURI,
+					cloud.EndpointKey: &jsonschema.Schema{
+						Singular:      "the API endpoint url for the region",
+						Type:          []jsonschema.Type{jsonschema.StringType},
+						Format:        jsonschema.FormatURI,
+						Default:       "",
+						PromptDefault: "use cloud api url",
 					},
 				},
 			},
@@ -125,6 +133,11 @@ var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
+}
+
+// Version is part of the EnvironProvider interface.
+func (EnvironProvider) Version() int {
+	return 0
 }
 
 func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
@@ -162,6 +175,17 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
+
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	client, err := authClient(e.cloud, e.ecfgUnlocked)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot set config")
+	}
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
+
 	return e, nil
 }
 
@@ -185,6 +209,20 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 // CloudSchema returns the schema for adding new clouds of this type.
 func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p EnvironProvider) Ping(endpoint string) error {
+	c := p.ClientFromEndpoint(endpoint)
+	if _, err := c.IdentityAuthOptions(); err != nil {
+		return errors.Wrap(err, errors.Errorf("No Openstack server running at %s", endpoint))
+	}
+	return nil
+}
+
+// newGooseClient is the default function in EnvironProvider.ClientFromEndpoint.
+func newGooseClient(endpoint string) client.AuthenticatingClient {
+	return client.NewClient(&identity.Credentials{URL: endpoint}, 0, nil)
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
@@ -413,16 +451,16 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	return machineAddresses
 }
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []network.PortRange) error {
-	return inst.e.firewaller.OpenInstancePorts(inst, machineId, ports)
+func (inst *openstackInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+	return inst.e.firewaller.OpenInstancePorts(inst, machineId, rules)
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []network.PortRange) error {
-	return inst.e.firewaller.CloseInstancePorts(inst, machineId, ports)
+func (inst *openstackInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+	return inst.e.firewaller.CloseInstancePorts(inst, machineId, rules)
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]network.PortRange, error) {
-	return inst.e.firewaller.InstancePorts(inst, machineId)
+func (inst *openstackInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+	return inst.e.firewaller.InstanceIngressRules(inst, machineId)
 }
 
 func (e *Environ) ecfg() *environConfig {
@@ -632,11 +670,6 @@ func (e *Environ) supportsNeutron() bool {
 	return ok
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *Environ) BootstrapMessage() string {
-	return ""
-}
-
 func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
@@ -783,13 +816,6 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(e.cloud, ecfg)
-	if err != nil {
-		return errors.Annotate(err, "cannot set config")
-	}
-	e.clientUnlocked = client
-	e.novaUnlocked = nova.New(e.clientUnlocked)
-	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
@@ -989,7 +1015,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.networking.ResolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 		if err != nil {
 			return nil, err
 		}
@@ -997,20 +1023,44 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 	}
 
-	var apiPort int
-	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
-	} else {
-		// All ports are the same so pick the first.
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	// For BUG 1680787: openstack: add support for neutron networks where port
+	// security is disabled.
+	// If any network specified for instance boot has PortSecurityEnabled equals
+	// false, don't create security groups, instance boot will fail.
+	createSecurityGroups := true
+	if len(networks) > 0 && e.supportsNeutron() {
+		client := e.neutron()
+		for _, n := range networks {
+			net, err := client.GetNetworkV2(n.NetworkId)
+			if err != nil {
+				return nil, err
+			}
+			if net.PortSecurityEnabled != nil &&
+				*net.PortSecurityEnabled == false {
+				createSecurityGroups = *net.PortSecurityEnabled
+				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
+				break
+			}
+		}
 	}
-	groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot set up groups")
-	}
-	novaGroupNames := make([]nova.SecurityGroupName, len(groupNames))
-	for i, name := range groupNames {
-		novaGroupNames[i].Name = name
+
+	var novaGroupNames = []nova.SecurityGroupName{}
+	if createSecurityGroups {
+		var apiPort int
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		} else {
+			// All ports are the same so pick the first.
+			apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		}
+		groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set up groups")
+		}
+		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
+		for i, name := range groupNames {
+			novaGroupNames[i].Name = name
+		}
 	}
 
 	machineName := resourceName(
@@ -1019,6 +1069,40 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		args.InstanceConfig.MachineId,
 	)
 
+	waitForActiveServerDetails := func(
+		client *nova.Client,
+		id string,
+		timeout time.Duration,
+	) (server *nova.ServerDetail, err error) {
+
+		var errStillBuilding = errors.Errorf("instance %q has status BUILD", id)
+		err = retry.Call(retry.CallArgs{
+			Clock:       e.clock,
+			Delay:       10 * time.Second,
+			MaxDuration: timeout,
+			Func: func() error {
+				server, err = client.GetServer(id)
+				if err != nil {
+					return err
+				}
+				if server.Status == nova.StatusBuild {
+					return errStillBuilding
+				}
+				return nil
+			},
+			NotifyFunc: func(lastError error, attempt int) {
+				args.StatusCallback(status.Provisioning, fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+			},
+			IsFatalError: func(err error) bool {
+				return err != errStillBuilding
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		return server, nil
+	}
+
 	tryStartNovaInstance := func(
 		attempts utils.AttemptStrategy,
 		client *nova.Client,
@@ -1026,7 +1110,26 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	) (server *nova.Entity, err error) {
 		for a := attempts.Start(); a.Next(); {
 			server, err = client.RunServer(instanceOpts)
-			if err == nil || gooseerrors.IsNotFound(err) == false {
+			if err != nil {
+				break
+			}
+			var serverDetail *nova.ServerDetail
+			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
+			if err != nil {
+				server = nil
+				break
+			} else if serverDetail.Status == nova.StatusActive {
+				break
+			} else if serverDetail.Status == nova.StatusError {
+				// Perhaps there is an error case where a retry in the same AZ
+				// is a good idea.
+				logger.Infof("Instance %q in ERROR state with fault %q", server.Id, serverDetail.Fault.Message)
+				logger.Infof("Deleting instance %q in ERROR state", server.Id)
+				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
+					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
+				}
+				server = nil
+				err = errors.New(serverDetail.Fault.Message)
 				break
 			}
 		}
@@ -1040,20 +1143,21 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		availabilityZones []string,
 	) (server *nova.Entity, err error) {
 		for _, zone := range availabilityZones {
+			logger.Infof("trying to build instance in availability zone %q", zone)
 			instanceOpts.AvailabilityZone = zone
 			e.configurator.ModifyRunServerOptions(&instanceOpts)
 			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
+			// 'No valid host available' is typically a resource error,
+			// therefore it a good idea to try another AZ if available.
 			if err == nil || isNoValidHostsError(err) == false {
 				break
 			}
+			logger.Infof("failed to build instance in availability zone %q", zone)
 
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
 		}
-
 		if err != nil {
 			err = errors.Annotate(err, "cannot run instance")
 		}
-
 		return server, err
 	}
 
@@ -1109,10 +1213,8 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 }
 
 func isNoValidHostsError(err error) bool {
-	if gooseErr, ok := err.(gooseerrors.Error); ok {
-		if cause := gooseErr.Cause(); cause != nil {
-			return strings.Contains(cause.Error(), "No valid host was found")
-		}
+	if cause := errors.Cause(err); cause != nil {
+		return strings.Contains(cause.Error(), "No valid host was found")
 	}
 	return false
 }
@@ -1185,7 +1287,7 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
 func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
-	servers, err := e.nova().ListServersDetail(nil)
+	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		return err
 	}
@@ -1270,20 +1372,6 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cinder, err := e.cinderProvider()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(axw): fix the storage API.
-	volumeSource, err := cinder.VolumeSource(nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	volumeIds, err := volumeSource.ListVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, instance := range instances {
 		err := e.TagInstance(instance.Id(), controllerTag)
 		if err != nil {
@@ -1292,13 +1380,11 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		}
 	}
 
-	for _, volumeId := range volumeIds {
-		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
-		if err != nil {
-			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
-			failed = append(failed, volumeId)
-		}
+	failedVolumes, err := e.adoptVolumes(controllerTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	failed = append(failed, failedVolumes...)
 
 	err = e.firewaller.UpdateGroupController(controllerUUID)
 	if err != nil {
@@ -1308,6 +1394,36 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		return errors.Errorf("error updating controller tag for some resources: %v", failed)
 	}
 	return nil
+}
+
+func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error) {
+	cinder, err := e.cinderProvider()
+	if errors.IsNotSupported(err) {
+		logger.Debugf("volumes not supported: not transferring ownership for volumes")
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(axw): fix the storage API.
+	volumeSource, err := cinder.VolumeSource(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeIds, err := volumeSource.ListVolumes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var failed []string
+	for _, volumeId := range volumeIds {
+		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			failed = append(failed, volumeId)
+		}
+	}
+	return failed, nil
 }
 
 // AllInstances returns all instances in this environment.
@@ -1446,32 +1562,39 @@ func jujuMachineFilter() *nova.Filter {
 	return filter
 }
 
-// portsToRuleInfo maps port ranges to nova rules
-func portsToRuleInfo(groupId string, ports []network.PortRange) []neutron.RuleInfoV2 {
-	rules := make([]neutron.RuleInfoV2, len(ports))
-	for i, portRange := range ports {
-		rules[i] = neutron.RuleInfoV2{
-			Direction:      "ingress",
-			ParentGroupId:  groupId,
-			PortRangeMin:   portRange.FromPort,
-			PortRangeMax:   portRange.ToPort,
-			IPProtocol:     portRange.Protocol,
-			RemoteIPPrefix: "0.0.0.0/0",
+// rulesToRuleInfo maps ingress rules to nova rules
+func rulesToRuleInfo(groupId string, rules []network.IngressRule) []neutron.RuleInfoV2 {
+	var result []neutron.RuleInfoV2
+	for _, r := range rules {
+		ruleInfo := neutron.RuleInfoV2{
+			Direction:     "ingress",
+			ParentGroupId: groupId,
+			PortRangeMin:  r.FromPort,
+			PortRangeMax:  r.ToPort,
+			IPProtocol:    r.Protocol,
+		}
+		sourceCIDRs := r.SourceCIDRs
+		if len(sourceCIDRs) == 0 {
+			sourceCIDRs = []string{"0.0.0.0/0"}
+		}
+		for _, sr := range sourceCIDRs {
+			ruleInfo.RemoteIPPrefix = sr
+			result = append(result, ruleInfo)
 		}
 	}
-	return rules
+	return result
 }
 
-func (e *Environ) OpenPorts(ports []network.PortRange) error {
-	return e.firewaller.OpenPorts(ports)
+func (e *Environ) OpenPorts(rules []network.IngressRule) error {
+	return e.firewaller.OpenPorts(rules)
 }
 
-func (e *Environ) ClosePorts(ports []network.PortRange) error {
-	return e.firewaller.ClosePorts(ports)
+func (e *Environ) ClosePorts(rules []network.IngressRule) error {
+	return e.firewaller.ClosePorts(rules)
 }
 
-func (e *Environ) Ports() ([]network.PortRange, error) {
-	return e.firewaller.Ports()
+func (e *Environ) IngressRules() ([]network.IngressRule, error) {
+	return e.firewaller.IngressRules()
 }
 
 func (e *Environ) Provider() environs.EnvironProvider {
@@ -1562,4 +1685,59 @@ func validateAuthURL(authURL string) error {
 		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
+}
+
+// Subnets is specified on environs.Networking.
+func (e *Environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	return e.networking.Subnets(instId, subnetIds)
+}
+
+// NetworkInterfaces is specified on environs.Networking.
+func (e *Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return e.networking.NetworkInterfaces(instId)
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *Environ) SupportsSpaces() (bool, error) {
+	return false, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *Environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
+// Spaces is specified on environs.Networking.
+func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// SupportsContainerAddresses is specified on environs.Networking.
+func (e *Environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container address")
+}
+
+// AllocateContainerAddresses is specified on environs.Networking.
+func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("allocate container address")
+}
+
+// ReleaseContainerAddresses is specified on environs.Networking.
+func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("release container address")
+}
+
+// ProviderSpaceInfo is specified on environs.NetworkingEnviron.
+func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable is specified on environs.NetworkingEnviron.
+func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses is specified on environs.SSHAddresses.
+func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
 }

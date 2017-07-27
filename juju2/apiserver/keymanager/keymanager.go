@@ -14,19 +14,15 @@ import (
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.keymanager")
-
-func init() {
-	common.RegisterStandardFacade("KeyManager", 1, NewKeyManagerAPI)
-}
 
 // The comment values used by juju internal ssh keys.
 var internalComments = set.NewStrings([]string{"juju-client-key", "juju-system-key"}...)
@@ -45,7 +41,7 @@ type KeyManagerAPI struct {
 	state      *state.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
-	apiUser    *names.UserTag
+	apiUser    names.UserTag
 	check      *common.BlockChecker
 }
 
@@ -53,20 +49,15 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
-	// Only clients and controllers can access the key manager service.
-	if !authorizer.AuthClient() && !authorizer.AuthController() {
+	// Only clients can access the key manager service.
+	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
-	}
-	var apiUser *names.UserTag
-	if authorizer.AuthClient() {
-		u, _ := authorizer.GetAuthTag().(names.UserTag)
-		apiUser = &u
 	}
 	return &KeyManagerAPI{
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
-		apiUser:    apiUser,
+		apiUser:    authorizer.GetAuthTag().(names.UserTag),
 		check:      common.NewBlockChecker(st),
 	}, nil
 }
@@ -77,13 +68,13 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 	} else if err != common.ErrPerm {
 		return errors.Trace(err)
 	}
-	if api.apiUser == nil || sshUser == config.JujuSystemKey {
+	if sshUser == config.JujuSystemKey {
 		// users cannot read the system key.
 		return common.ErrPerm
 	}
 	ok, err := common.HasPermission(
-		api.state.UserAccess,
-		*api.apiUser,
+		api.state.UserPermission,
+		api.apiUser,
 		permission.ReadAccess,
 		api.state.ModelTag(),
 	)
@@ -97,14 +88,6 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 }
 
 func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
-	// Are we a machine agent writing the Juju system key.
-	if api.apiUser == nil {
-		if sshUser == config.JujuSystemKey {
-			return nil
-		}
-		// controllers can only modify the system key.
-		return common.ErrPerm
-	}
 	if sshUser == config.JujuSystemKey {
 		// users cannot modify the system key.
 		return common.ErrPerm
@@ -113,7 +96,7 @@ func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ok, err := common.HasModelAdmin(api.authorizer, *api.apiUser, api.state.ControllerTag(), model)
+	ok, err := common.HasModelAdmin(api.authorizer, api.apiUser, api.state.ControllerTag(), model)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -184,7 +167,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// TODO(waigani) 2014-03-17 bug #1293324
 	// Pass in validation to ensure SSH keys
 	// have not changed underfoot
-	err := api.state.UpdateModelConfig(attrs, nil, nil)
+	err := api.state.UpdateModelConfig(attrs, nil)
 	if err != nil {
 		return fmt.Errorf("writing environ config: %v", err)
 	}

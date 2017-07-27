@@ -17,10 +17,10 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/storage"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CharmSuite struct {
@@ -151,14 +151,6 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 	return info
 }
 
-func (s *CharmSuite) TestDestroyStoreCharm(c *gc.C) {
-	info := s.dummyCharm(c, "cs:precise/dummy-2")
-	sch, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	err = sch.Destroy()
-	c.Assert(err, gc.ErrorMatches, "cannot destroy non-local charms")
-}
-
 func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
 	// We normally don't actually set up charm storage in state
 	// tests, but we need it here.
@@ -264,12 +256,10 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-		SetCharmURL: true,
-	})
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := app.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	removeUnit(c, unit)
 

@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type imageSuite struct {
@@ -129,6 +129,7 @@ func (s *stubConnector) connectToSource(remote Remote) (remoteClient, error) {
 func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
 	s.testEnsureImageExistsAlreadyPresent(c, "trusty", "ppc64el", "juju/trusty/ppc64el")
 	s.testEnsureImageExistsAlreadyPresent(c, "centos7", "ppc64el", "juju/centos7/ppc64el")
+	s.testEnsureImageExistsAlreadyPresent(c, "opensuseleap", "ppc64el", "juju/opensuseleap/ppc64el")
 }
 
 func (s *imageSuite) testEnsureImageExistsAlreadyPresent(c *gc.C, series, arch, localAlias string) {

@@ -8,11 +8,12 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/constraints"
 )
 
 // ConfigFlag records k=v attributes from command arguments
@@ -33,8 +34,12 @@ func (f *ConfigFlag) Set(s string) error {
 		return nil
 	}
 	var value interface{}
-	if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
-		return errors.Trace(err)
+	if fields[1] == "" {
+		value = ""
+	} else {
+		if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if f.attrs == nil {
 		f.attrs = make(map[string]interface{})

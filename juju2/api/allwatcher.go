@@ -6,9 +6,9 @@ package api
 import (
 	"sort"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // AllWatcher holds information allowing us to get Deltas describing

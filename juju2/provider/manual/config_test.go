@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type configSuite struct {
@@ -50,7 +50,7 @@ func MinimalConfig(c *gc.C) *config.Config {
 func getModelConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := manualProvider{}.validate(testConfig, nil)
+	envConfig, err := ManualProvider{}.validate(testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return envConfig
 }

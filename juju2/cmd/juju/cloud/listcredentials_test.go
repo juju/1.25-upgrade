@@ -6,20 +6,21 @@ package cloud_test
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/errors"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type listCredentialsSuite struct {
 	testing.BaseSuite
-	store              *jujuclienttesting.MemStore
+	store              *jujuclient.MemStore
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
@@ -40,12 +41,15 @@ var _ = gc.Suite(&listCredentialsSuite{
 
 func (s *listCredentialsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	environs.RegisterProvider("test-provider", &mockProvider{})
+	unreg := environs.RegisterProvider("test-provider", &mockProvider{})
+	s.AddCleanup(func(_ *gc.C) {
+		unreg()
+	})
 }
 
 func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				DefaultRegion:     "ap-southeast-2",
@@ -273,7 +277,7 @@ func (s *listCredentialsSuite) TestListCredentialsJSONFiltered(c *gc.C) {
 }
 
 func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				AuthCredentials: map[string]jujucloud.Credential{
@@ -296,29 +300,29 @@ func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
 }
 
 func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
-	listCmd := cloud.NewListCredentialsCommandForTest(jujuclienttesting.NewMemStore(), s.personalCloudsFunc, s.cloudByNameFunc)
-	ctx, err := testing.RunCommand(c, listCmd)
+	listCmd := cloud.NewListCredentialsCommandForTest(jujuclient.NewMemStore(), s.personalCloudsFunc, s.cloudByNameFunc)
+	ctx, err := cmdtesting.RunCommand(c, listCmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "No credentials to display.")
 
-	ctx, err = testing.RunCommand(c, listCmd, "--format", "yaml")
+	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "credentials: {}")
 
-	ctx, err = testing.RunCommand(c, listCmd, "--format", "json")
+	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, `{"credentials":{}}`)
 }
 
 func (s *listCredentialsSuite) listCredentials(c *gc.C, args ...string) string {
-	ctx, err := testing.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), args...)
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	return testing.Stdout(ctx)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	return cmdtesting.Stdout(ctx)
 }

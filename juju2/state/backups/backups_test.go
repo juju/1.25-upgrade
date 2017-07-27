@@ -13,10 +13,10 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state/backups"
-	backupstesting "github.com/juju/1.25-upgrade/juju2/state/backups/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/backups"
+	backupstesting "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/juju/testing"
 )
 
 type backupsSuite struct {

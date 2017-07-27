@@ -28,25 +28,27 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiuniter "github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	coreleadership "github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/juju/sockets"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/storage"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/juju/api"
+	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/core/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // worstCase is used for timeouts when timing out
@@ -292,9 +294,6 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		addControllerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddressesFromMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.HasLen, 1)
 }
 
 func addControllerMachine(c *gc.C, st *state.State) {
@@ -406,6 +405,7 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 
 type createServiceAndUnit struct {
 	serviceName string
+	storage     map[string]state.StorageConstraints
 }
 
 func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
@@ -414,7 +414,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, jc.ErrorIsNil)
-	svc := ctx.s.AddTestingService(c, csau.serviceName, sch)
+	svc := ctx.s.AddTestingServiceWithStorage(c, csau.serviceName, sch, csau.storage)
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -511,7 +511,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
 		MachineLockName:      hookExecutionLockName(),
-		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
+		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
 		TranslateResolverErr: s.translateResolverErr,
 		Observer:             ctx,
@@ -543,11 +543,11 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 	// mimics the behaviour of the unit agent and verifies that the UA will,
 	// eventually, see the correct error and respond appropriately.
 	err := s.waitDead(c, ctx)
-	if err != worker.ErrTerminateAgent {
+	if err != jworker.ErrTerminateAgent {
 		step(c, ctx, startUniter{})
 		err = s.waitDead(c, ctx)
 	}
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.unit.Life(), gc.Equals, state.Dead)
@@ -1456,7 +1456,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1768,7 +1768,7 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = ctx.st.DestroyStorageAttachment(
+	err = ctx.st.DetachStorage(
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 	)
@@ -1807,9 +1807,19 @@ func (t *manualTicker) Tick() error {
 	return nil
 }
 
+type dummyWaiter struct {
+	c chan time.Time
+}
+
+func (w dummyWaiter) After() <-chan time.Time {
+	return w.c
+}
+
 // ReturnTimer can be used to replace the update status signal generator.
-func (t *manualTicker) ReturnTimer() <-chan time.Time {
-	return t.c
+func (t *manualTicker) ReturnTimer() remotestate.UpdateStatusTimerFunc {
+	return func(_ time.Duration) remotestate.Waiter {
+		return dummyWaiter{t.c}
+	}
 }
 
 func newManualTicker() *manualTicker {

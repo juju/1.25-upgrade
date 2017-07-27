@@ -16,9 +16,9 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	coretest "github.com/juju/1.25-upgrade/juju2/tools"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/testing"
+	coretest "github.com/juju/juju/tools"
 )
 
 type ToolsSuite struct {
@@ -36,9 +36,9 @@ func (t *ToolsSuite) SetUpTest(c *gc.C) {
 func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 	// This test is to ensure we don't bring in dependencies on state, environ
 	// or any of the other bigger packages that'll drag in yet more dependencies.
-	// Only imports that start with "github.com/juju/1.25-upgrade/juju2" are checked, and the
+	// Only imports that start with "github.com/juju/juju" are checked, and the
 	// resulting slice has that prefix removed to keep the output short.
-	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/1.25-upgrade/juju2/agent/tools"),
+	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
 		gc.DeepEquals,
 		[]string{"tools"})
 }

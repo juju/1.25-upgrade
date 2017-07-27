@@ -17,11 +17,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
-	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/testing"
 )
 
 var logger = loggo.GetLogger("juju.rpc")
@@ -947,10 +947,10 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 		X: map[string]int{"hello": 65},
 	}
 	err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
-	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go (?:value)|(?:struct field \.X) of type \[\]string`)
 
 	err = client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
-	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go (?:value)|(?:struct field \.X) of type \[\]string`)
 
 	arg1 := struct {
 		X []string

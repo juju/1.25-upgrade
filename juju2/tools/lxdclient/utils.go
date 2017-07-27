@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 )
 
 type closingBuffer struct {
@@ -67,6 +67,8 @@ func IsRunningLocally() (bool, error) {
 	return running, nil
 }
 
+// errIPV6NotSupported is the error returned by glibc for attempts at unsupported
+// protocols.
 const errIPV6NotSupported = `socket: address family not supported by protocol`
 
 // EnableHTTPSListener configures LXD to listen for HTTPS requests,

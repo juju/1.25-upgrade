@@ -24,21 +24,21 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/juju/paths"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/juju/paths"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type cloudinitSuite struct {
@@ -329,8 +329,8 @@ install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
 printf '%s\\n' '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
-test -e /proc/self/fd/9 \|\| exec 9>&2
-\(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -386,8 +386,8 @@ install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
 printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
-test -e /proc/self/fd/9 \|\| exec 9>&2
-\(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -429,6 +429,16 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 	// CentOS non controller with systemd
 	{
 		cfg:          makeNormalConfig("centos7"),
+		inexactMatch: true,
+		expectScripts: `
+systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
+systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
+sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
+`,
+	},
+	// OpenSUSE non controller with systemd
+	{
+		cfg:          makeNormalConfig("opensuseleap"),
 		inexactMatch: true,
 		expectScripts: `
 systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
@@ -1164,21 +1174,27 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
-	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
+	first := `[ -e /etc/profile.d/juju-proxy.sh ] || printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
 	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
-		`export no_proxy=localhost,10.0.3.1`,
-		`export NO_PROXY=localhost,10.0.3.1`,
-		`(id ubuntu &> /dev/null) && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
+		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
+		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
-export no_proxy=localhost,10.0.3.1
-export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+export no_proxy=0.1.2.3,10.0.3.1,localhost
+export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
+# create symbolic links to this file from within /etc/systemd/system.conf.d/
+# and /etc/systemd/users.conf.d/.
+[Manager]
+DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "no_proxy=0.1.2.3,10.0.3.1,localhost" "NO_PROXY=0.1.2.3,10.0.3.1,localhost" 
+' > /etc/juju-proxy-systemd.conf`,
 	}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:i+6], jc.DeepEquals, expected)
+			c.Assert(cmds[i+1:i+7], jc.DeepEquals, expected)
 			found = true
 			break
 		}
@@ -1358,5 +1374,52 @@ func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	keys := []string{"akey", "bkey"}
 	expected := expectedUbuntuUser(cloudconfig.CentOSGroups, keys)
+	c.Assert(string(data), jc.YAMLEquals, expected)
+}
+
+func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
+	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(
+		minimalModelConfig(c),
+	).render()
+	instConfig.Bootstrap.InitialSSHHostKeys.RSA = &instancecfg.SSHKeyPair{
+		Private: "private",
+		Public:  "public",
+	}
+	cloudcfg, err := cloudinit.New(instConfig.Series)
+	c.Assert(err, jc.ErrorIsNil)
+
+	udata, err := cloudconfig.NewUserdataConfig(&instConfig, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+
+	configKeyValues := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configKeyValues["ssh_keys"], jc.DeepEquals, map[interface{}]interface{}{
+		"rsa_private": "private",
+		"rsa_public":  "public",
+	})
+
+	cmds := cloudcfg.BootCmds()
+	c.Assert(cmds, jc.DeepEquals, []string{
+		`echo 'Regenerating SSH RSA host key' >&$JUJU_PROGRESS_FD`,
+		`rm /etc/ssh/ssh_host_rsa_key*`,
+		`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`,
+		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
+		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
+	})
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserOpenSUSE(c *gc.C) {
+	ci, err := cloudinit.New("opensuseleap")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	keys := []string{"akey", "bkey"}
+	expected := expectedUbuntuUser(cloudconfig.OpenSUSEGroups, keys)
 	c.Assert(string(data), jc.YAMLEquals, expected)
 }

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/model"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type ManifoldsSuite struct {
@@ -43,15 +43,17 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"firewaller",
 		"instance-poller",
 		"is-responsible-flag",
+		"log-forwarder",
 		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
-		"space-importer",
-		"spaces-imported-gate",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
@@ -66,10 +68,14 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"spaces-imported-gate",
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		// model upgrade manifolds are run on all
+		// controller agents, "responsible" or not.
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"model-upgrader",
 	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -152,16 +158,18 @@ func (s *ManifoldsCrossModelSuite) TestNames(c *gc.C) {
 		"firewaller",
 		"instance-poller",
 		"is-responsible-flag",
+		"log-forwarder",
 		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"model-upgrader",
 		"not-alive-flag",
 		"not-dead-flag",
 		"remote-relations",
-		"space-importer",
-		"spaces-imported-gate",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",

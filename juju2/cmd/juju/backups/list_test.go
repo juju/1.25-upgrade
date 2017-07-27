@@ -10,8 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/backups"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cmd/juju/backups"
 )
 
 type listSuite struct {
@@ -28,8 +27,7 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 
 func (s *listSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
-	ctx := cmdtesting.Context(c)
-	ctx, err := testing.RunCommand(c, s.subcommand, []string{"--verbose"}...)
+	ctx, err := cmdtesting.RunCommand(c, s.subcommand, []string{"--verbose"}...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out := MetaResultString
@@ -38,7 +36,7 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 func (s *listSuite) TestBrief(c *gc.C) {
 	s.setSuccess()
-	ctx, err := testing.RunCommand(c, s.subcommand)
+	ctx, err := cmdtesting.RunCommand(c, s.subcommand)
 	c.Assert(err, jc.ErrorIsNil)
 	out := s.metaresult.ID + "\n"
 	s.checkStd(c, ctx, out, "")
@@ -46,6 +44,6 @@ func (s *listSuite) TestBrief(c *gc.C) {
 
 func (s *listSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
-	_, err := testing.RunCommand(c, s.subcommand)
+	_, err := cmdtesting.RunCommand(c, s.subcommand)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

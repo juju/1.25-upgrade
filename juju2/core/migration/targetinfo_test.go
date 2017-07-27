@@ -11,8 +11,8 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/core/migration"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type TargetInfoSuite struct {
@@ -51,17 +51,17 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		`"abc" in Addrs not valid`,
 	}, {
-		"CACert",
-		func(info *migration.TargetInfo) {
-			info.CACert = ""
-		},
-		"empty CACert not valid",
-	}, {
 		"AuthTag",
 		func(info *migration.TargetInfo) {
 			info.AuthTag = names.UserTag{}
 		},
 		"empty AuthTag not valid",
+	}, {
+		"Success - empty CACert",
+		func(info *migration.TargetInfo) {
+			info.CACert = ""
+		},
+		"",
 	}, {
 		"Password & Macaroons",
 		func(info *migration.TargetInfo) {

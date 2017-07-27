@@ -7,11 +7,11 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/machiner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/machiner"
 )
 
 type mockWatcher struct {

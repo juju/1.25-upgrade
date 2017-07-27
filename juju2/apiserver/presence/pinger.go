@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // Pinger exposes some methods implemented by state/presence.Pinger.

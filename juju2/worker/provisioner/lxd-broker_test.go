@@ -14,19 +14,19 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/provisioner"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/provisioner"
 )
 
 type lxdBrokerSuite struct {
@@ -162,7 +162,7 @@ func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.Insta
 	series string,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
-	callback container.StatusCallback,
+	callback environs.StatusCallbackFunc,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
 	return nil, nil, m.NextErr()

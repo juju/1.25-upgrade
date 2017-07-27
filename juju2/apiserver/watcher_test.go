@@ -9,17 +9,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade/facadetest"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type watcherSuite struct {
@@ -62,7 +62,7 @@ func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Conte
 }
 
 func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
-	factory, err := common.Facades.GetFactory(name, version)
+	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
 }
@@ -101,99 +101,6 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 			{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
 		},
 	})
-}
-
-func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
-	ch := make(chan params.RemoteApplicationChange, 1)
-	id := s.resources.Register(&fakeRemoteApplicationWatcher{ch: ch})
-	s.authorizer.Controller = true
-
-	ch <- params.RemoteApplicationChange{
-		ApplicationTag: names.NewApplicationTag("foo").String(),
-		Life:           params.Life("alive"),
-		Relations: params.RemoteRelationsChange{
-			RemovedRelations: []int{1, 2, 3},
-		},
-	}
-	facade := s.getFacade(c, "RemoteApplicationWatcher", 1, id, nopDispose).(remoteApplicationWatcher)
-	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.RemoteApplicationWatchResult{
-		Change: &params.RemoteApplicationChange{
-			ApplicationTag: names.NewApplicationTag("foo").String(),
-			Life:           params.Life("alive"),
-			Relations: params.RemoteRelationsChange{
-				RemovedRelations: []int{1, 2, 3},
-			},
-		},
-	})
-}
-
-type remoteApplicationWatcher interface {
-	Next() (params.RemoteApplicationWatchResult, error)
-}
-
-type fakeRemoteApplicationWatcher struct {
-	state.RemoteApplicationWatcher
-	ch chan params.RemoteApplicationChange
-}
-
-func (w *fakeRemoteApplicationWatcher) Changes() <-chan params.RemoteApplicationChange {
-	return w.ch
-}
-
-func (w *fakeRemoteApplicationWatcher) Stop() error {
-	return nil
-}
-
-func (s *watcherSuite) TestRemoteRelationsWatcher(c *gc.C) {
-	ch := make(chan params.RemoteRelationsChange, 1)
-	id := s.resources.Register(&fakeRemoteRelationsWatcher{ch: ch})
-	s.authorizer.Controller = true
-
-	ch <- params.RemoteRelationsChange{
-		RemovedRelations: []int{1, 2, 3},
-	}
-	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, nopDispose).(remoteRelationsWatcher)
-	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.RemoteRelationsWatchResult{
-		Change: &params.RemoteRelationsChange{
-			RemovedRelations: []int{1, 2, 3},
-		},
-	})
-}
-
-func (s *watcherSuite) TestStopDiscards(c *gc.C) {
-	id := s.resources.Register(&fakeRemoteRelationsWatcher{})
-	s.authorizer.Controller = true
-	var disposed bool
-	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, func() {
-		disposed = true
-	}).(remoteRelationsWatcher)
-	err := facade.Stop()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(disposed, jc.IsTrue)
-}
-
-type remoteRelationsWatcher interface {
-	Next() (params.RemoteRelationsWatchResult, error)
-	Stop() error
-}
-
-type fakeRemoteRelationsWatcher struct {
-	state.RemoteRelationsWatcher
-	ch chan params.RemoteRelationsChange
-}
-
-func (w *fakeRemoteRelationsWatcher) Changes() <-chan params.RemoteRelationsChange {
-	return w.ch
-}
-
-func (w *fakeRemoteRelationsWatcher) Stop() error {
-	return nil
 }
 
 func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
@@ -237,7 +144,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
 	s.authorizer.Tag = names.NewUserTag("frogdog")
 
-	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
+	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = factory(facadetest.Context{
 		Resources_: s.resources,

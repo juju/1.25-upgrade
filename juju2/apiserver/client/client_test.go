@@ -18,31 +18,31 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/client"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	toolstesting "github.com/juju/1.25-upgrade/juju2/environs/tools/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/presence"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type serverSuite struct {
@@ -61,36 +61,23 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 	s.client = s.clientForState(c, s.State)
 }
 
+func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
+	apiserverClient, err := client.NewFacade(st, common.NewResources(), auth)
+	c.Assert(err, jc.ErrorIsNil)
+	s.newEnviron = func() (environs.Environ, error) {
+		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{st}, environs.New)
+	}
+	client.SetNewEnviron(apiserverClient, func() (environs.Environ, error) {
+		return s.newEnviron()
+	})
+	return apiserverClient
+}
+
 func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
-	auth := testing.FakeAuthorizer{
+	return s.authClientForState(c, st, testing.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
-	}
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st}
-	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
-	s.newEnviron = func() (environs.Environ, error) {
-		return environs.GetEnviron(configGetter, environs.New)
-	}
-	newEnviron := func() (environs.Environ, error) {
-		return s.newEnviron()
-	}
-	blockChecker := common.NewBlockChecker(st)
-	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, auth)
-	c.Assert(err, jc.ErrorIsNil)
-	apiserverClient, err := client.NewClient(
-		client.NewStateBackend(st),
-		modelConfigAPI,
-		common.NewResources(),
-		auth,
-		statusSetter,
-		toolsFinder,
-		newEnviron,
-		blockChecker,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	return apiserverClient
+	})
 }
 
 func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
@@ -111,7 +98,12 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	conf, _ := s.State.ModelConfig()
-	info, err := s.client.ModelInfo()
+	// Model info is available to read-only users.
+	client := s.authClientForState(c, s.State, testing.FakeAuthorizer{
+		Tag:        names.NewUserTag("read"),
+		Controller: true,
+	})
+	info, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
@@ -120,6 +112,8 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info.UUID, gc.Equals, model.UUID())
 	c.Assert(info.OwnerTag, gc.Equals, model.Owner().String())
 	c.Assert(info.Life, gc.Equals, params.Alive)
+	expectedAgentVersion, _ := conf.AgentVersion()
+	c.Assert(info.AgentVersion, gc.DeepEquals, &expectedAgentVersion)
 	// The controller UUID is not returned by the ModelInfo endpoint on the
 	// Client facade.
 	c.Assert(info.ControllerUUID, gc.Equals, "")
@@ -446,8 +440,8 @@ var _ = gc.Suite(&clientSuite{})
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
 func clearSinceTimes(status *params.FullStatus) {
-	for applicationId, service := range status.Applications {
-		for unitId, unit := range service.Units {
+	for applicationId, application := range status.Applications {
+		for unitId, unit := range application.Units {
 			unit.WorkloadStatus.Since = nil
 			unit.AgentStatus.Since = nil
 			for id, subord := range unit.Subordinates {
@@ -455,16 +449,21 @@ func clearSinceTimes(status *params.FullStatus) {
 				subord.AgentStatus.Since = nil
 				unit.Subordinates[id] = subord
 			}
-			service.Units[unitId] = unit
+			application.Units[unitId] = unit
 		}
-		service.Status.Since = nil
-		status.Applications[applicationId] = service
+		application.Status.Since = nil
+		status.Applications[applicationId] = application
+	}
+	for applicationId, application := range status.RemoteApplications {
+		application.Status.Since = nil
+		status.RemoteApplications[applicationId] = application
 	}
 	for id, machine := range status.Machines {
 		machine.AgentStatus.Since = nil
 		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
+	status.Model.ModelStatus.Since = nil
 }
 
 func (s *clientSuite) TestClientStatus(c *gc.C) {
@@ -578,6 +577,12 @@ func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) 
 	s.AssertBlocked(c, err, msg)
 }
 
+func (s *serverSuite) TestCACert(c *gc.C) {
+	r, err := s.APIState.Client().CACert()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.Equals, coretesting.CACert)
+}
+
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyUnitResolved")
@@ -627,7 +632,7 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 	s.baseSuite.TearDownTest(c)
 }
 
-func (s *clientSuite) TestClientWatchAll(c *gc.C) {
+func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
@@ -635,7 +640,15 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	watcher, err := s.APIState.Client().WatchAll()
+
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: "ro-password",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	roClient := s.OpenAPIAs(c, user.UserTag(), "ro-password").Client()
+	defer roClient.Close()
+
+	watcher, err := roClient.WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
@@ -668,6 +681,101 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			WantsVote:               true,
 		},
 	}}) {
+		c.Logf("got:")
+		for _, d := range deltas {
+			c.Logf("%#v\n", d.Entity)
+		}
+	}
+}
+
+func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+	// A very simple end-to-end test, because
+	// all the logic is tested elsewhere.
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Include a remote app that needs admin access to see.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-db2",
+		OfferName:   "hosted-db2",
+		URL:         "admin/prod.db2",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{
+			{
+				Name:      "database",
+				Interface: "db2",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher, err := s.APIState.Client().WatchAll()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := watcher.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+	deltas, err := watcher.Next()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(deltas), gc.Equals, 2)
+	mIndex := 0
+	aIndex := 1
+	dMachine, ok0 := deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
+	dApp, ok1 := deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+	if !ok0 {
+		mIndex = 1
+		aIndex = 0
+		dMachine, ok0 = deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
+		dApp, ok1 = deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+	}
+	c.Assert(ok0, jc.IsTrue)
+	c.Assert(ok1, jc.IsTrue)
+	dMachine.AgentStatus.Since = nil
+	dMachine.InstanceStatus.Since = nil
+	dApp.Status.Since = nil
+
+	if !c.Check(deltas[mIndex], jc.DeepEquals, multiwatcher.Delta{
+		Entity: &multiwatcher.MachineInfo{
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			AgentStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+			},
+			InstanceStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+			},
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "quantal",
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []multiwatcher.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		},
+	}) {
+		c.Logf("got:")
+		for _, d := range deltas {
+			c.Logf("%#v\n", d.Entity)
+		}
+	}
+	if !c.Check(deltas[aIndex], jc.DeepEquals, multiwatcher.Delta{
+		Entity: &multiwatcher.RemoteApplicationInfo{
+			Name:           "remote-db2",
+			ModelUUID:      s.State.ModelUUID(),
+			ApplicationURL: "admin/prod.db2",
+			Life:           "alive",
+			Status: multiwatcher.StatusInfo{
+				Current: status.Unknown,
+				Message: "waiting for remote connection",
+			},
+		},
+	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)
@@ -939,7 +1047,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 // updateConfig sets config variable with given key to a given value
 // Asserts that no errors were encountered.
 func (s *baseSuite) updateConfig(c *gc.C, key string, block bool) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1150,7 +1258,6 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 				"enable-os-upgrade":        upgrade,
 				"enable-os-refresh-update": update,
 			},
-			nil,
 			nil,
 		)
 	}

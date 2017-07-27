@@ -6,9 +6,9 @@ package modelconfig
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -23,11 +23,6 @@ type Client struct {
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "ModelConfig")
 	return &Client{ClientFacade: frontend, facade: backend}
-}
-
-// Close closes the api connection.
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
 }
 
 // ModelGet returns all model settings.
@@ -72,4 +67,26 @@ func (c *Client) ModelSet(config map[string]interface{}) error {
 func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
 	return c.facade.FacadeCall("ModelUnset", args, nil)
+}
+
+// SetSLALevel sets the support level for the given model.
+func (c *Client) SetSLALevel(level, owner string, creds []byte) error {
+	args := params.ModelSLA{
+		ModelSLAInfo: params.ModelSLAInfo{
+			Level: level,
+			Owner: owner,
+		},
+		Credentials: creds,
+	}
+	return c.facade.FacadeCall("SetSLALevel", args, nil)
+}
+
+// SLALevel gets the support level for the given model.
+func (c *Client) SLALevel() (string, error) {
+	var result params.StringResult
+	err := c.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
 }

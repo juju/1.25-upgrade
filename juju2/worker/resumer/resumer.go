@@ -6,10 +6,11 @@ package resumer
 import (
 	"time"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+
+	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.resumer")

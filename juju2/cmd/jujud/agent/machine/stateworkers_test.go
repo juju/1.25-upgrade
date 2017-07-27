@@ -9,13 +9,13 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/machine"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
+	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type StateWorkersSuite struct {

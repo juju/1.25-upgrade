@@ -9,18 +9,14 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("Cloud", 1, newFacade)
-}
 
 // CloudAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
@@ -31,7 +27,8 @@ type CloudAPI struct {
 	getCredentialsAuthFunc common.GetAuthFunc
 }
 
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
+// NewFacade provides the required signature for facade registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
 	return NewCloudAPI(NewStateBackend(st), auth)
 }
 

@@ -5,8 +5,7 @@ package fortress
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	worker "gopkg.in/juju/worker.v1"
 )
 
 // StartFunc starts a worker.Worker.

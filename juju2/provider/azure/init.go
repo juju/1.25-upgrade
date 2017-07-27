@@ -8,9 +8,10 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
+	"github.com/juju/juju/provider/azure/internal/azurecli"
+	"github.com/juju/juju/provider/azure/internal/azurestorage"
 )
 
 const (
@@ -29,11 +30,12 @@ func NewProvider(config ProviderConfig) (environs.EnvironProvider, error) {
 
 func init() {
 	environProvider, err := NewProvider(ProviderConfig{
-		NewStorageClient:                  azurestorage.NewClient,
-		RetryClock:                        &clock.WallClock,
-		RandomWindowsAdminPassword:        randomAdminPassword,
-		GenerateSSHKey:                    ssh.GenerateKey,
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		NewStorageClient:           azurestorage.NewClient,
+		RetryClock:                 &clock.WallClock,
+		RandomWindowsAdminPassword: randomAdminPassword,
+		GenerateSSHKey:             ssh.GenerateKey,
+		ServicePrincipalCreator:    &azureauth.ServicePrincipalCreator{},
+		AzureCLI:                   azurecli.AzureCLI{},
 	})
 	if err != nil {
 		panic(err)

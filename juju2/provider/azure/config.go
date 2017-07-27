@@ -11,7 +11,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/environs/config"
 )
 
 const (

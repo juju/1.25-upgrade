@@ -10,14 +10,9 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("Pinger", 1, NewPinger)
-}
 
 // NewPinger returns an object that can be pinged by calling its Ping method.
 // If this method is not called frequently enough, the connection will be

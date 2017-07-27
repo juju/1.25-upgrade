@@ -12,14 +12,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/juju/osenv"
+	coretools "github.com/juju/juju/tools"
 )
 
 func newToolsMetadataCommand() cmd.Command {
@@ -109,7 +109,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	fmt.Fprintf(context.Stdout, "Finding tools in %s for stream %s.\n", c.metadataDir, c.stream)
+	fmt.Fprintf(context.Stdout, "Finding agent binaries in %s for stream %s.\n", c.metadataDir, c.stream)
 	toolsList, err := envtools.ReadList(sourceStorage, c.stream, -1, -1)
 	if err == envtools.ErrNoTools {
 		var source string

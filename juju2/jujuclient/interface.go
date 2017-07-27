@@ -4,19 +4,14 @@
 package jujuclient
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/controller"
+	"net/http"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 )
 
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
-	// UnresolvedAPIEndpoints holds a list of API addresses which may
-	// contain unresolved hostnames. It's used to compare more recent
-	// API addresses before resolving hostnames to determine if the
-	// cached addresses have changed and therefore perform (a possibly
-	// slow) local DNS resolution before comparing them against Addresses.
-	UnresolvedAPIEndpoints []string `yaml:"unresolved-api-endpoints,flow"`
-
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid"`
 
@@ -24,6 +19,18 @@ type ControllerDetails struct {
 	// current, and it will be empty if the environment has not been
 	// bootstrapped.
 	APIEndpoints []string `yaml:"api-endpoints,flow"`
+
+	// DNSCache holds a map of hostname to IP addresses, holding
+	// a cache of the last time the API endpoints were looked up.
+	// The information held here is strictly optional so that we
+	// can avoid slow DNS queries in the usual case that the controller's
+	// IP addresses haven't changed since the last time we connected.
+	DNSCache map[string][]string `yaml:"dns-cache,omitempty,flow"`
+
+	// PublicDNSName holds the public host name associated with the controller.
+	// If this is non-empty, it indicates that the controller will use an
+	// officially signed certificate when connecting with this host name.
+	PublicDNSName string `yaml:"public-hostname,omitempty"`
 
 	// CACert is a security certificate for this controller.
 	CACert string `yaml:"ca-cert"`
@@ -284,6 +291,24 @@ type BootstrapConfigGetter interface {
 	BootstrapConfigForController(string) (*BootstrapConfig, error)
 }
 
+// CookieJar is the interface implemented by cookie jars.
+type CookieJar interface {
+	http.CookieJar
+
+	// RemoveAll removes all the cookies (note: this doesn't
+	// save the cookie file).
+	RemoveAll()
+
+	// Save saves the cookies.
+	Save() error
+}
+
+// CookieStore allows the retrieval of cookie jars for storage
+// of per-controller authorization information.
+type CookieStore interface {
+	CookieJar(controllerName string) (CookieJar, error)
+}
+
 // ControllerStore is an amalgamation of ControllerUpdater, ControllerRemover,
 // and ControllerGetter.
 type ControllerStore interface {
@@ -327,4 +352,5 @@ type ClientStore interface {
 	ControllerStore
 	CredentialStore
 	ModelStore
+	CookieStore
 }

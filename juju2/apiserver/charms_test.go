@@ -22,13 +22,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/storage"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing/factory"
 )
 
 // charmsCommonSuite wraps authHTTPSuite and adds
@@ -583,7 +583,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	}, {
 		about:      "default icon requested: icon not found",
 		query:      "?url=local:quantal/dummy-1&icon=1",
-		expectBody: apiserver.DefaultIcon,
+		expectBody: common.DefaultCharmIcon,
 	}, {
 		about:      "default icon request ignored",
 		query:      "?url=local:quantal/mysql-1&file=revision&icon=1",

@@ -3,7 +3,7 @@
 
 package watcher
 
-import "github.com/juju/1.25-upgrade/juju2/core/migration"
+import "github.com/juju/juju/core/migration"
 
 // MigrationStatus is the client side version of
 // params.MigrationStatus.

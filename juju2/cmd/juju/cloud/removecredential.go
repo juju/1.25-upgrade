@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/jujuclient"
 )
 
 type removeCredentialCommand struct {

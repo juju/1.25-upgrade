@@ -9,14 +9,14 @@ import (
 	"encoding/json"
 	"net/url"
 
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	api "github.com/juju/romulus/api/plan"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	api "github.com/juju/romulus/api/plan"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // authorizationClient defines the interface of an api client that

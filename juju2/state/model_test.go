@@ -14,15 +14,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ModelSuite struct {
@@ -212,6 +212,88 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 	err = env.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.MigrationMode(), gc.Equals, state.MigrationModeExporting)
+}
+
+func (s *ModelSuite) TestSLA(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	level, err := st.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "unsupported")
+	c.Assert(model.SLACredential(), gc.DeepEquals, []byte{})
+	for _, goodLevel := range []string{"unsupported", "essential", "standard", "advanced"} {
+		err = st.SetSLA(goodLevel, "bob", []byte("auth "+goodLevel))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		level, err = st.SLALevel()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(level, gc.Equals, goodLevel)
+		c.Assert(model.SLALevel(), gc.Equals, goodLevel)
+		c.Assert(model.SLAOwner(), gc.Equals, "bob")
+		c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth "+goodLevel))
+	}
+
+	defaultLevel, err := state.NewSLALevel("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaultLevel, gc.Equals, state.SLAUnsupported)
+
+	err = model.SetSLA("nope", "nobody", []byte("auth nope"))
+	c.Assert(err, gc.ErrorMatches, `.*SLA level "nope" not valid.*`)
+
+	c.Assert(model.SLALevel(), gc.Equals, "advanced")
+	c.Assert(model.SLAOwner(), gc.Equals, "bob")
+	c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth advanced"))
+	slaCreds, err := st.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(slaCreds, gc.DeepEquals, []byte("auth advanced"))
+}
+
+func (s *ModelSuite) TestMeterStatus(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	ms, err := st.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
+	c.Assert(ms.Info, gc.Equals, "")
+
+	for i, validStatus := range []string{"RED", "GREEN", "AMBER"} {
+		info := fmt.Sprintf("info setting %d", i)
+		err = st.SetModelMeterStatus(validStatus, info)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		ms, err = st.ModelMeterStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ms.Code.String(), gc.Equals, validStatus)
+		c.Assert(ms.Info, gc.Equals, info)
+	}
+
+	err = model.SetMeterStatus("PURPLE", "foobar")
+	c.Assert(err, gc.ErrorMatches, `meter status "PURPLE" not valid`)
+
+	c.Assert(ms.Code, gc.Equals, state.MeterAmber)
+	c.Assert(ms.Info, gc.Equals, "info setting 2")
 }
 
 func (s *ModelSuite) TestControllerModel(c *gc.C) {
@@ -576,16 +658,16 @@ func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
 }
 
 func (s *ModelSuite) TestProcessDyingServerEnvironTransitionDyingToDead(c *gc.C) {
-	s.assertDyingEnvironTransitionDyingToDead(c, s.State)
+	s.assertDyingModelTransitionDyingToDead(c, s.State)
 }
 
 func (s *ModelSuite) TestProcessDyingHostedEnvironTransitionDyingToDead(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	s.assertDyingEnvironTransitionDyingToDead(c, st)
+	s.assertDyingModelTransitionDyingToDead(c, st)
 }
 
-func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.State) {
+func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.State) {
 	// Add a service to prevent the model from transitioning directly to Dead.
 	// Add the service before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
@@ -612,7 +694,7 @@ func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
+func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -661,6 +743,84 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
+func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := st.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{
+				Pool: "modelscoped-block",
+				Size: 123,
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystems, err := st.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystems, gc.HasLen, 1)
+
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	err = st.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// The filesystem will be gone, but the volume is persistent and should
+	// not have been removed.
+	err = st.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume\(s\)`)
+}
+
+func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := st.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{
+				Pool: "modelscoped",
+				Size: 123,
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes, err := st.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// The volume is persistent and should not have been removed along with
+	// the machine it was attached to.
+	err = st.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume\(s\)`)
+}
+
 func (s *ModelSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C) {
 	// Add a non-empty model to the controller.
 	st := s.Factory.MakeModel(c, nil)
@@ -687,23 +847,6 @@ func (s *ModelSuite) TestListModelUsers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
-}
-
-func (s *ModelSuite) TestMisMatchedEnvs(c *gc.C) {
-	// create another model
-	otherEnvState := s.Factory.MakeModel(c, nil)
-	defer otherEnvState.Close()
-	otherEnv, err := otherEnvState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// get that model from State
-	env, err := s.State.GetModel(otherEnv.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// check that the Users method errors
-	users, err := env.Users()
-	c.Assert(users, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot lookup model users outside the current model")
 }
 
 func (s *ModelSuite) TestListUsersIgnoredDeletedUsers(c *gc.C) {
@@ -747,6 +890,13 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	obtainedUsersOtherEnv, err := otherEnv.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
+
+	// It doesn't matter how you obtain the Model.
+	otherEnv2, err := s.State.GetModel(otherEnv.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedUsersOtherEnv2, err := otherEnv2.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv2, expectedUsersOtherEnv)
 }
 
 func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {
@@ -818,6 +968,59 @@ func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
 	c.Assert(st2.RemoveAllModelDocs(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+}
+
+func (s *ModelSuite) TestNewModelEnvironVersion(c *gc.C) {
+	v := 123
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		EnvironVersion: v,
+	})
+	defer st.Close()
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.EnvironVersion(), gc.Equals, v)
+}
+
+func (s *ModelSuite) TestSetEnvironVersion(c *gc.C) {
+	v := 123
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		m, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.EnvironVersion(), gc.Equals, 0)
+		err = m.SetEnvironVersion(v)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.EnvironVersion(), gc.Equals, v)
+	}).Check()
+
+	err = m.SetEnvironVersion(v)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.EnvironVersion(), gc.Equals, v)
+}
+
+func (s *ModelSuite) TestSetEnvironVersionCannotDecrease(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		m, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		err = m.SetEnvironVersion(2)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.EnvironVersion(), gc.Equals, 2)
+	}).Check()
+
+	err = m.SetEnvironVersion(1)
+	c.Assert(err, gc.ErrorMatches, `cannot set environ version to 1, which is less than the current version 2`)
+	// m's cached version is only updated on success
+	c.Assert(m.EnvironVersion(), gc.Equals, 0)
+
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.EnvironVersion(), gc.Equals, 2)
 }
 
 type ModelCloudValidationSuite struct {

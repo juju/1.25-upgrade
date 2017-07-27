@@ -11,25 +11,21 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
-// init registers the Bundle facade.
-func init() {
-	common.RegisterStandardFacade("Bundle", 1, newFacade)
+// NewFacade provides the required signature for facade registration.
+func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
+	return NewBundle(auth)
 }
 
-func newFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
-	return NewFacade(auth)
-}
-
-// NewFacade creates and returns a new Bundle API facade.
-func NewFacade(auth facade.Authorizer) (Bundle, error) {
+// NewBundle creates and returns a new Bundle API facade.
+func NewBundle(auth facade.Authorizer) (Bundle, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}

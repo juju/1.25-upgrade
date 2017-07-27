@@ -4,8 +4,8 @@
 package resolver
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type ResolverFunc func(

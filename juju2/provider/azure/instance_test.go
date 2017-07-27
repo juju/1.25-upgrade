@@ -15,14 +15,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	jujunetwork "github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azuretesting"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	jujunetwork "github.com/juju/juju/network"
+	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type instanceSuite struct {
@@ -42,10 +41,9 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:                            &s.sender,
-		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword:        func() string { return "sorandom" },
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		Sender:                     &s.sender,
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.sender = nil
@@ -275,16 +273,16 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 	))
 }
 
-func (s *instanceSuite) TestInstancePortsEmpty(c *gc.C) {
+func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	inst := s.getInstance(c)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
-	ports, err := inst.Ports("0")
+	rules, err := inst.IngressRules("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(rules, gc.HasLen, 0)
 }
 
-func (s *instanceSuite) TestInstancePorts(c *gc.C) {
+func (s *instanceSuite) TestIngressRules(c *gc.C) {
 	inst := s.getInstance(c)
 	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
 		Name: to.StringPtr("machine-0-xyzzy"),
@@ -296,10 +294,31 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 			Direction:            network.Inbound,
 		},
 	}, {
-		Name: to.StringPtr("machine-0-tcpcp"),
+		Name: to.StringPtr("machine-0-tcpcp-1"),
 		Properties: &network.SecurityRulePropertiesFormat{
 			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("1000-2000"),
+			SourceAddressPrefix:  to.StringPtr("*"),
+			Access:               network.Allow,
+			Priority:             to.Int32Ptr(201),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-tcpcp-2"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.TCP,
+			DestinationPortRange: to.StringPtr("1000-2000"),
+			SourceAddressPrefix:  to.StringPtr("192.168.1.0/24"),
+			Access:               network.Allow,
+			Priority:             to.Int32Ptr(201),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-tcpcp-3"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.TCP,
+			DestinationPortRange: to.StringPtr("1000-2000"),
+			SourceAddressPrefix:  to.StringPtr("10.0.0.0/24"),
 			Access:               network.Allow,
 			Priority:             to.Int32Ptr(201),
 			Direction:            network.Inbound,
@@ -352,25 +371,14 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}})
 	s.sender = azuretesting.Senders{nsgSender}
 
-	ports, err := inst.Ports("0")
+	rules, err := inst.IngressRules("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, jc.DeepEquals, []jujunetwork.PortRange{{
-		FromPort: 0,
-		ToPort:   65535,
-		Protocol: "udp",
-	}, {
-		FromPort: 1000,
-		ToPort:   2000,
-		Protocol: "tcp",
-	}, {
-		FromPort: 80,
-		ToPort:   80,
-		Protocol: "tcp",
-	}, {
-		FromPort: 80,
-		ToPort:   80,
-		Protocol: "udp",
-	}})
+	c.Assert(rules, jc.DeepEquals, []jujunetwork.IngressRule{
+		jujunetwork.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		jujunetwork.MustNewIngressRule("tcp", 1000, 2000, "0.0.0.0/0", "192.168.1.0/24", "10.0.0.0/24"),
+		jujunetwork.MustNewIngressRule("udp", 0, 65535, "0.0.0.0/0"),
+		jujunetwork.MustNewIngressRule("udp", 80, 80, "0.0.0.0/0"),
+	})
 }
 
 func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
@@ -380,24 +388,24 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	notFoundSender.AppendResponse(mocks.NewResponseWithStatus(
 		"rule not found", http.StatusNotFound,
 	))
-	s.sender = azuretesting.Senders{sender, notFoundSender}
+	s.sender = azuretesting.Senders{sender, notFoundSender, notFoundSender, notFoundSender}
 
-	err := inst.ClosePorts("0", []jujunetwork.PortRange{{
-		Protocol: "tcp",
-		FromPort: 1000,
-		ToPort:   1000,
-	}, {
-		Protocol: "udp",
-		FromPort: 1000,
-		ToPort:   2000,
-	}})
+	err := inst.ClosePorts("0", []jujunetwork.IngressRule{
+		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
+		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
+		jujunetwork.MustNewIngressRule("udp", 1000, 2000, "192.168.1.0/24", "10.0.0.0/24"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests, gc.HasLen, 4)
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[0].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
 	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-192-168-1-0-24"))
+	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-10-0-0-0-24"))
 }
 
 func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
@@ -423,27 +431,23 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	okSender := mocks.NewSender()
 	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	nsgSender := networkSecurityGroupSender(nil)
-	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
+	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
-	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
-		Protocol: "tcp",
-		FromPort: 1000,
-		ToPort:   1000,
-	}, {
-		Protocol: "udp",
-		FromPort: 1000,
-		ToPort:   2000,
-	}})
+	err := inst.OpenPorts("0", []jujunetwork.IngressRule{
+		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
+		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
+		jujunetwork.MustNewIngressRule("tcp", 1000, 2000, "192.168.1.0/24", "10.0.0.0/24"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests, gc.HasLen, 5)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000/tcp"),
+			Description:              to.StringPtr("1000/tcp from *"),
 			Protocol:                 network.TCP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
@@ -458,7 +462,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[2], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000-2000/udp"),
+			Description:              to.StringPtr("1000-2000/udp from *"),
 			Protocol:                 network.UDP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
@@ -466,6 +470,36 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
 			Access:    network.Allow,
 			Priority:  to.Int32Ptr(201),
+			Direction: network.Inbound,
+		},
+	})
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-192-168-1-0-24"))
+	assertRequestBody(c, s.requests[3], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000-2000/tcp from 192.168.1.0/24"),
+			Protocol:                 network.TCP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("192.168.1.0/24"),
+			DestinationPortRange:     to.StringPtr("1000-2000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.Int32Ptr(202),
+			Direction: network.Inbound,
+		},
+	})
+	c.Assert(s.requests[4].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[4].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-10-0-0-0-24"))
+	assertRequestBody(c, s.requests[4], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000-2000/tcp from 10.0.0.0/24"),
+			Protocol:                 network.TCP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("10.0.0.0/24"),
+			DestinationPortRange:     to.StringPtr("1000-2000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.Int32Ptr(203),
 			Direction: network.Inbound,
 		},
 	})
@@ -505,15 +539,10 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	}})
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
-		Protocol: "tcp",
-		FromPort: 1000,
-		ToPort:   1000,
-	}, {
-		Protocol: "udp",
-		FromPort: 1000,
-		ToPort:   2000,
-	}})
+	err := inst.OpenPorts("0", []jujunetwork.IngressRule{
+		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
+		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 2)
@@ -523,7 +552,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("1000-2000/udp"),
+			Description:              to.StringPtr("1000-2000/udp from *"),
 			Protocol:                 network.UDP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),

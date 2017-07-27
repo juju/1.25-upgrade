@@ -19,15 +19,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/agent/tools"
-	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/service/upstart"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/deployer"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
+	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/deployer"
 )
 
 var quote, cmdSuffix string

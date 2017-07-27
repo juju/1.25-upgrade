@@ -10,13 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/diskmanager"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/diskmanager"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&DiskManagerSuite{})

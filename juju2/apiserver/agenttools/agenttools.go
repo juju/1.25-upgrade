@@ -8,19 +8,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	coretools "github.com/juju/juju/tools"
 )
-
-func init() {
-	common.RegisterStandardFacade("AgentTools", 1, newAgentToolsAPI)
-}
 
 var logger = loggo.GetLogger("juju.apiserver.model")
 
@@ -38,7 +34,8 @@ type AgentToolsAPI struct {
 	envVersionUpdate envVersionUpdater
 }
 
-func newAgentToolsAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
+// NewFacade is used to register the facade.
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
 	newEnviron := func() (environs.Environ, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 		return newEnviron(st)

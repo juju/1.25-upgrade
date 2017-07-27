@@ -5,10 +5,10 @@ package engine
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 )
 
 // Decorator creates copies of dependency.Manifolds with additional

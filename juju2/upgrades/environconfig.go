@@ -6,9 +6,9 @@ package upgrades
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 )
 
 // environConfigUpdater is an interface used atomically write environment
@@ -16,7 +16,7 @@ import (
 type environConfigUpdater interface {
 	// UpdateModelConfig atomically updates and removes environment
 	// config attributes to the global state.
-	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
+	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }
 
 // environConfigReader is an interface used to read the current environment
@@ -58,7 +58,7 @@ func upgradeModelConfig(
 			removedAttrs = append(removedAttrs, key)
 		}
 	}
-	if err := updater.UpdateModelConfig(newAttrs, removedAttrs, nil); err != nil {
+	if err := updater.UpdateModelConfig(newAttrs, removedAttrs); err != nil {
 		return errors.Annotate(err, "updating config in state")
 	}
 	return nil

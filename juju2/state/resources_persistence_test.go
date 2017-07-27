@@ -14,10 +14,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	"github.com/juju/1.25-upgrade/juju2/state/statetest"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state/statetest"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ResourcePersistenceSuite{})
@@ -470,7 +470,8 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	// TODO(macgreagoir) We need to keep using time.Now() for now, while we
 	// have NewResolvePendingResourceOps returning LastPolled based on
 	// timeNow(). lp:1558657
-	lastPolled := time.Now().UTC().Round(time.Second)
+	// Note: truncate the time to remove monotonic time for Go 1.9+.
+	lastPolled := time.Now().UTC().Round(time.Second).Truncate(1)
 
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)

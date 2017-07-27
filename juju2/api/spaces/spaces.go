@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 const spacesFacade = "Spaces"
@@ -71,4 +71,16 @@ func (api *API) ListSpaces() ([]params.Space, error) {
 		return response.Results, errors.NewNotSupported(nil, err.Error())
 	}
 	return response.Results, err
+}
+
+// ReloadSpaces reloads spaces from substrate
+func (api *API) ReloadSpaces() error {
+	if api.facade.BestAPIVersion() < 3 {
+		return errors.NewNotSupported(nil, "Controller does not support reloading spaces")
+	}
+	err := api.facade.FacadeCall("ReloadSpaces", nil, nil)
+	if params.IsCodeNotSupported(err) {
+		return errors.NewNotSupported(nil, err.Error())
+	}
+	return err
 }

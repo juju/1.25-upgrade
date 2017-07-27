@@ -6,9 +6,9 @@ package resourceadapters
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
-	"github.com/juju/1.25-upgrade/juju2/resource/workers"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/resource/workers"
+	"github.com/juju/juju/state"
 )
 
 // NewLatestCharmHandler returns a LatestCharmHandler that uses the

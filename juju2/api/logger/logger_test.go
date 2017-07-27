@@ -8,11 +8,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/logger"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/watcher/watchertest"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/logger"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type loggerSuite struct {
@@ -52,7 +52,7 @@ func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

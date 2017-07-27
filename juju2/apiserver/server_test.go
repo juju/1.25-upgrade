@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
@@ -26,37 +26,44 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apimachiner "github.com/juju/1.25-upgrade/juju2/api/machiner"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/pubsub/centralhub"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/presence"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/api"
+	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/pubsub/centralhub"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/presence"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var fastDialOpts = api.DialOpts{}
 
 type serverSuite struct {
 	jujutesting.JujuConnSuite
+	pool *state.StatePool
 }
 
 var _ = gc.Suite(&serverSuite{})
 
+func (s *serverSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
+}
+
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -101,7 +108,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
 	port := srv.Addr().Port
@@ -210,6 +217,9 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
+	pool := state.NewStatePool(st)
+	defer pool.Close()
+
 	// Now close the proxy so that any attempts to use the
 	// controller will fail.
 	proxy.Close()
@@ -217,7 +227,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// Creating the server should succeed because it doesn't
 	// access the state (note that newServer does not log in,
 	// which *would* access the state).
-	_, srv := newServer(c, st)
+	_, srv := newServer(c, pool)
 	srv.Stop()
 }
 
@@ -268,27 +278,32 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bo
 }
 
 func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
-	origin := "http://localhost/"
 	url := fmt.Sprintf("wss://%s%s", addr, path)
-	config, err := websocket.NewConfig(url, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	requestHeader := http.Header{"Origin": {"http://localhost/"}}
+
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	pool.AddCert(xcert)
-	config.TlsConfig = utils.SecureTLSConfig()
+	tlsConfig := utils.SecureTLSConfig()
 	if tlsVersion > 0 {
 		// This is for testing only. Please don't muck with the maxtlsversion in
 		// production.
-		config.TlsConfig.MaxVersion = tlsVersion
+		tlsConfig.MaxVersion = tlsVersion
 	}
-	config.TlsConfig.RootCAs = pool
-	return websocket.DialConfig(config)
+	tlsConfig.RootCAs = pool
+
+	dialer := &websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
+	}
+	conn, _, err := dialer.Dial(url, requestHeader)
+	return conn, err
 }
 
 func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -304,7 +319,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -327,15 +342,15 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 
 	// '/randompath' is not ok
 	conn, err = dialWebsocket(c, addr, "/randompath", 0)
-	// Unfortunately go.net/websocket just returns Bad Status, it doesn't
+	// Unfortunately gorilla/websocket just returns bad handshake, it doesn't
 	// give us any information (whether this was a 404 Not Found, Internal
 	// Server Error, 200 OK, etc.)
-	c.Assert(err, gc.ErrorMatches, `websocket.Dial wss://localhost:\d+/randompath: bad status`)
+	c.Assert(err, gc.ErrorMatches, `websocket: bad handshake`)
 	c.Assert(conn, gc.IsNil)
 }
 
 func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
@@ -348,6 +363,7 @@ func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
 type macaroonServerSuite struct {
 	jujutesting.JujuConnSuite
 	discharger *bakerytest.Discharger
+	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&macaroonServerSuite{})
@@ -358,6 +374,8 @@ func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
@@ -366,7 +384,7 @@ func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
@@ -396,6 +414,7 @@ func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
 type macaroonServerWrongPublicKeySuite struct {
 	jujutesting.JujuConnSuite
 	discharger *bakerytest.Discharger
+	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&macaroonServerWrongPublicKeySuite{})
@@ -409,6 +428,8 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
@@ -417,7 +438,7 @@ func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	_, srv := newServer(c, s.State)
+	_, srv := newServer(c, s.pool)
 	defer assertStop(c, srv)
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
@@ -455,16 +476,16 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 
 	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	cu, err := s.State.UserAccess(user, ctag)
+	access, err := s.State.UserPermission(user, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cu.Access, gc.Equals, permission.LoginAccess)
+	c.Assert(access, gc.Equals, permission.LoginAccess)
 	return u, ctag
 }
 
 func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
@@ -476,7 +497,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, permission.AddModelAccess)
@@ -492,7 +513,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.State, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, permission.SuperuserAccess)
@@ -517,16 +538,17 @@ func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
 func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
+	handler, _ := apiserver.TestingAPIHandler(c, s.pool, otherState)
 	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
+	coretesting.SkipFlaky(c, "lp:1702215")
 	pool := state.NewStatePool(s.State)
-	cfg := defaultServerConfig(c, s.State)
-	cfg.StatePool = pool
-	_, server := newServerWithConfig(c, s.State, cfg)
+	defer pool.Close()
+	cfg := defaultServerConfig(c)
+	_, server := newServerWithConfig(c, pool, cfg)
 	defer assertStop(c, server)
 
 	w := s.State.WatchModels()
@@ -596,7 +618,7 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 }
 
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
-	handler, resources := apiserver.TestingAPIHandler(c, srvSt, st)
+	handler, resources := apiserver.TestingAPIHandler(c, s.pool, st)
 	resource := new(fakeResource)
 	resources.Register(resource)
 
@@ -606,19 +628,19 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 }
 
 // defaultServerConfig returns the default configuration for starting a test server.
-func defaultServerConfig(c *gc.C, st *state.State) apiserver.ServerConfig {
+func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		LogDir:      c.MkDir(),
-		Hub:         hub,
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(st),
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             names.NewMachineTag("0"),
+		LogDir:          c.MkDir(),
+		Hub:             hub,
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	}
 }
 
@@ -629,25 +651,25 @@ func defaultServerConfig(c *gc.C, st *state.State) apiserver.ServerConfig {
 // It returns information suitable for connecting to the state
 // without any authentication information or model tag, and the server
 // that's been started.
-func newServer(c *gc.C, st *state.State) (*api.Info, *apiserver.Server) {
-	return newServerWithConfig(c, st, defaultServerConfig(c, st))
+func newServer(c *gc.C, statePool *state.StatePool) (*api.Info, *apiserver.Server) {
+	return newServerWithConfig(c, statePool, defaultServerConfig(c))
 }
 
-func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api.Info, *apiserver.Server) {
-	cfg := defaultServerConfig(c, st)
+func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) (*api.Info, *apiserver.Server) {
+	cfg := defaultServerConfig(c)
 	cfg.Hub = hub
-	return newServerWithConfig(c, st, cfg)
+	return newServerWithConfig(c, statePool, cfg)
 }
 
 // newServerWithConfig is like newServer except that the entire
 // server configuration may be specified (see defaultServerConfig
 // for a suitable starting point).
-func newServerWithConfig(c *gc.C, st *state.State, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
+func newServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
 	// Note that we can't listen on localhost here because TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
 	// that we listen on IPv6 too, and listening on localhost does not do that.
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(st, listener, cfg)
+	srv, err := apiserver.NewServer(statePool, listener, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return &api.Info{
 		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},

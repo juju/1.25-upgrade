@@ -4,7 +4,7 @@
 package metricsmanager
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/metricsender"
 )
 
 func PatchSender(s metricsender.MetricSender) {

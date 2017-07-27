@@ -10,20 +10,16 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/cloudspec"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 )
-
-func init() {
-	common.RegisterStandardFacade("Agent", 2, NewAgentAPIV2)
-}
 
 // AgentAPIV2 implements the version 2 of the API provided to an agent.
 type AgentAPIV2 struct {

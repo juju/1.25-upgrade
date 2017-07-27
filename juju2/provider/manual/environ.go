@@ -20,20 +20,19 @@ import (
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/worker/terminationworker"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 const (
@@ -120,7 +119,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg)
+		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
 	result := &environs.BootstrapResult{
@@ -129,11 +128,6 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		Finalize: finalize,
 	}
 	return result, nil
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (e *manualEnviron) BootstrapMessage() string {
-	return ""
 }
 
 // ControllerInstances is specified in the Environ interface.
@@ -188,7 +182,7 @@ func (e *manualEnviron) AdoptResources(controllerUUID string, fromVersion versio
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	_, err := manualProvider{}.validate(cfg, e.cfg.Config)
+	_, err := ManualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -244,33 +238,47 @@ func (e *manualEnviron) Destroy() error {
 // DestroyController implements the Environ interface.
 func (e *manualEnviron) DestroyController(controllerUUID string) error {
 	script := `
+# Signal the jujud process to stop, then check it has done so before cleaning-up
+# after it.
 set -x
-touch %s
-# If jujud is running, we then wait for a while for it to stop.
+touch %[1]s
+
 stopped=0
-if pkill -%d jujud; then
+function wait_for_jujud {
     for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
-            echo "jujud stopped"
+            echo jujud stopped
             stopped=1
             logger --id jujud stopped on attempt $i
             break
         fi
     done
-fi
-if [ $stopped -ne 1 ]; then
+}
+
+# There might be no jujud at all (for example, after a failed deployment) so
+# don't require pkill to succeed before looking for a jujud process.
+# SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
+# rather than terminate normally.
+pkill -SIGABRT jujud
+wait_for_jujud
+
+[[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    %spkill -9 jujud
-    service %s stop
-    logger --id killed jujud and stopped %s
-fi
+    %[2]spkill -SIGKILL jujud && wait_for_jujud
+}
+[[ $stopped -ne 1 ]] && {
+    echo jujud removal failed
+    logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
+    exit 1
+}
+service %[3]s stop && logger --id stopped %[3]s
 apt-get -y purge juju-mongo*
 apt-get -y autoremove
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
-rm -fr %s %s
+rm -fr %[4]s %[5]s
 exit 0
 `
 	var diagnostics string
@@ -291,9 +299,7 @@ exit 0
 			agent.DefaultPaths.DataDir,
 			agent.UninstallFile,
 		)),
-		terminationworker.TerminationSignal,
 		diagnostics,
-		mongo.ServiceName,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
@@ -351,20 +357,20 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	return e.hw, e.series, nil
 }
 
-func (e *manualEnviron) OpenPorts(ports []network.PortRange) error {
+func (e *manualEnviron) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(ports []network.PortRange) error {
+func (e *manualEnviron) ClosePorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) Ports() ([]network.PortRange, error) {
+func (e *manualEnviron) IngressRules() ([]network.IngressRule, error) {
 	return nil, nil
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
-	return manualProvider{}
+	return ManualProvider{}
 }
 
 func isRunningController() bool {

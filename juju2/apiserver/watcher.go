@@ -4,70 +4,17 @@
 package apiserver
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/storagecommon"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterFacade(
-		"AllWatcher", 1, NewAllWatcher,
-		reflect.TypeOf((*SrvAllWatcher)(nil)),
-	)
-	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
-	// but they are get under separate names as it possible the may
-	// diverge in the future (especially in terms of authorisation
-	// checks).
-	common.RegisterFacade(
-		"AllModelWatcher", 2, NewAllWatcher,
-		reflect.TypeOf((*SrvAllWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"NotifyWatcher", 1, newNotifyWatcher,
-		reflect.TypeOf((*srvNotifyWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"StringsWatcher", 1, newStringsWatcher,
-		reflect.TypeOf((*srvStringsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"RemoteApplicationWatcher", 1, newRemoteApplicationWatcher,
-		reflect.TypeOf((*srvRemoteApplicationWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"RemoteRelationsWatcher", 1, newRemoteRelationsWatcher,
-		reflect.TypeOf((*srvRemoteRelationsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
-		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"EntityWatcher", 2, newEntitiesWatcher,
-		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"MigrationStatusWatcher", 1, newMigrationStatusWatcher,
-		reflect.TypeOf((*srvMigrationStatusWatcher)(nil)),
-	)
-}
 
 // NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
@@ -262,101 +209,6 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 		err = common.ErrStoppedWatcher
 	}
 	return params.RelationUnitsWatchResult{}, err
-}
-
-// srvRemoteApplicationWatcher will sends changes to relations a service
-// is involved in, including changes to the units involved in those
-// relations, and their settings.
-type srvRemoteApplicationWatcher struct {
-	watcherCommon
-	watcher state.RemoteApplicationWatcher
-}
-
-func newRemoteApplicationWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	resources := context.Resources()
-	auth := context.Auth()
-
-	if !auth.AuthController() {
-		return nil, common.ErrPerm
-	}
-	watcher, ok := resources.Get(id).(state.RemoteApplicationWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvRemoteApplicationWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-	}, nil
-}
-
-// Next returns when a change has occured to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvRemoteApplicationWatcher.
-func (w *srvRemoteApplicationWatcher) Next() (params.RemoteApplicationWatchResult, error) {
-	if change, ok := <-w.watcher.Changes(); ok {
-		return params.RemoteApplicationWatchResult{
-			Change: &change,
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = common.ErrStoppedWatcher
-	}
-	return params.RemoteApplicationWatchResult{}, err
-}
-
-// srvRemoteRelationsWatcher defines the API wrapping a RemoteRelationsWatcher.
-// This watcher notifies about:
-//  - addition and removal of relations of relations to remote applications
-//  - lifecycle changes to relations of relations to remote applications
-//  - settings of relation units changing
-//  - units departing the relation (joining is implicit in seeing new settings)
-type srvRemoteRelationsWatcher struct {
-	watcherCommon
-	watcher state.RemoteRelationsWatcher
-}
-
-// RemoteRelationsWatcher is a watcher that reports on changes to relations
-// and relation units related to those relations for a specified service.
-type RemoteRelationsWatcher interface {
-	Changes() <-chan params.RemoteRelationsChange
-	Err() error
-	Stop() error
-}
-
-func newRemoteRelationsWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	resources := context.Resources()
-	auth := context.Auth()
-
-	if !auth.AuthController() {
-		return nil, common.ErrPerm
-	}
-	watcher, ok := resources.Get(id).(state.RemoteRelationsWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvRemoteRelationsWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-	}, nil
-}
-
-// Next returns when a change has occured to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvRemoteRelationsWatcher.
-func (w *srvRemoteRelationsWatcher) Next() (params.RemoteRelationsWatchResult, error) {
-	if changes, ok := <-w.watcher.Changes(); ok {
-		return params.RemoteRelationsWatchResult{
-			Change: &changes,
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = common.ErrStoppedWatcher
-	}
-	return params.RemoteRelationsWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher

@@ -4,17 +4,16 @@
 package state_test
 
 import (
+	"fmt"
 	"time" // Only used for time types.
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
-
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type StatusUnitAgentSuite struct {
@@ -265,7 +264,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryInitial(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
-	primeUnitAgentStatusHistory(c, s.agent, 5, 0)
+	primeUnitAgentStatusHistory(c, s.agent, 5, 0, "")
 
 	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Check(err, jc.ErrorIsNil)
@@ -279,7 +278,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryLong(c *gc.C) {
-	primeUnitAgentStatusHistory(c, s.agent, 25, 0)
+	primeUnitAgentStatusHistory(c, s.agent, 25, 0, "")
 
 	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 15})
 	c.Check(err, jc.ErrorIsNil)

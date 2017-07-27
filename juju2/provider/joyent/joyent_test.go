@@ -6,8 +6,8 @@ package joyent_test
 import (
 	gc "gopkg.in/check.v1"
 
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	envtesting "github.com/juju/juju/environs/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 const (

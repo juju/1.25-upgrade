@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type VolumeStatusSuite struct {
@@ -28,7 +28,7 @@ func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
-				Pool: "environscoped", Size: 1024,
+				Pool: "modelscoped", Size: 1024,
 			},
 		}},
 	})

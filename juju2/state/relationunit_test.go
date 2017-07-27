@@ -14,10 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type RUs []*state.RelationUnit
@@ -152,7 +152,6 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -164,7 +163,6 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql1",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -813,6 +811,129 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 	}
 }
 
+func (s *RelationUnitSuite) TestSettingsAddress(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+
+	address, err := prr.pru0.SettingsAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+}
+
+func (s *RelationUnitSuite) TestSettingsAddressRemoteRelation(c *gc.C) {
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
+	err := prr.ru0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.ru0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+
+	address, err := prr.rru0.SettingsAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("4.3.2.1", network.ScopePublic))
+}
+
+func (s *RelationUnitSuite) TestSettingsAddressRemoteRelationNoPublicAddr(c *gc.C) {
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
+	err := prr.ru0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.ru0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
+
+	address, err := prr.rru0.SettingsAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+}
+
+func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	rus := []*state.RelationUnit{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
+	for _, ru := range rus {
+		result, err := ru.Valid()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result, jc.IsTrue)
+	}
+}
+
+func (s *RelationUnitSuite) TestValidNo(c *gc.C) {
+	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	wpApp := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wpLogging := newProReqRelationForApps(c, &s.ConnSuite, wpApp, mysqlLogging.rsvc)
+
+	// We have logging related to mysql and to wordpress. We can
+	// create an invalid RU by taking a logging unit from
+	// mysql-logging and getting the wp-logging RU for it.
+	ru, err := wpLogging.rel.Unit(mysqlLogging.ru0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := ru.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (s *RelationUnitSuite) TestValidSubordinateToSubordinate(c *gc.C) {
+	// Relate mysql and logging...
+	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	monApp := s.AddTestingService(c, "monitoring", s.AddTestingCharm(c, "monitoring"))
+	// Relate mysql and monitoring - relation to a non-subordinate
+	// needed to trigger creation of monitoring unit.
+	mysqlMonitoring := newProReqRelationForApps(c, &s.ConnSuite, mysqlLogging.psvc, monApp)
+	// Monitor the logging app (newProReqRelationForApps assumes that
+	// the providing app is a principal, so we need to do it by hand).
+	loggingApp := mysqlLogging.rsvc
+
+	// Can't infer endpoints because they're ambiguous.
+	ep1, err := loggingApp.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	ep2, err := monApp.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(ep1, ep2)
+	c.Assert(err, jc.ErrorIsNil)
+	prr := &ProReqRelation{rel: rel, psvc: loggingApp, rsvc: monApp}
+
+	// The units already exist, create the relation units.
+	prr.pu0 = mysqlLogging.ru0
+	prr.pru0, err = rel.Unit(prr.pu0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	prr.ru0 = mysqlMonitoring.ru0
+	prr.rru0, err = rel.Unit(prr.ru0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Logging monitoring relation units should be valid.
+	res, err := prr.rru0.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.IsTrue)
+	res, err = prr.pru0.Valid()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.IsTrue)
+}
+
 type PeerRelation struct {
 	rel                *state.Relation
 	app                *state.Application
@@ -863,19 +984,23 @@ func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 	} else {
 		rapp = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	eps, err := s.State.InferEndpoints("mysql", rapp.Name())
+	return newProReqRelationForApps(c, s, papp, rapp)
+}
+
+func newProReqRelationForApps(c *gc.C, s *ConnSuite, proApp, reqApp *state.Application) *ProReqRelation {
+	eps, err := s.State.InferEndpoints(proApp.Name(), reqApp.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	prr := &ProReqRelation{rel: rel, psvc: papp, rsvc: rapp}
-	prr.pu0, prr.pru0 = addRU(c, papp, rel, nil)
-	prr.pu1, prr.pru1 = addRU(c, papp, rel, nil)
-	if scope == charm.ScopeGlobal {
-		prr.ru0, prr.rru0 = addRU(c, rapp, rel, nil)
-		prr.ru1, prr.rru1 = addRU(c, rapp, rel, nil)
+	prr := &ProReqRelation{rel: rel, psvc: proApp, rsvc: reqApp}
+	prr.pu0, prr.pru0 = addRU(c, proApp, rel, nil)
+	prr.pu1, prr.pru1 = addRU(c, proApp, rel, nil)
+	if eps[0].Scope == charm.ScopeGlobal {
+		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, nil)
+		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, nil)
 	} else {
-		prr.ru0, prr.rru0 = addRU(c, rapp, rel, prr.pu0)
-		prr.ru1, prr.rru1 = addRU(c, rapp, rel, prr.pu1)
+		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, prr.pu0)
+		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, prr.pu1)
 	}
 	return prr
 }
@@ -933,12 +1058,12 @@ type RemoteProReqRelation struct {
 	psvc                   *state.RemoteApplication
 	rsvc                   *state.Application
 	pru0, pru1, rru0, rru1 *state.RelationUnit
+	ru0, ru1               *state.Unit
 }
 
 func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	psvc, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -957,8 +1082,8 @@ func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	prr := &RemoteProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
 	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
 	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
-	_, prr.rru0 = addRU(c, rsvc, rel, nil)
-	_, prr.rru1 = addRU(c, rsvc, rel, nil)
+	prr.ru0, prr.rru0 = addRU(c, rsvc, rel, nil)
+	prr.ru1, prr.rru1 = addRU(c, rsvc, rel, nil)
 	return prr
 }
 

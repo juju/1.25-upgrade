@@ -5,10 +5,10 @@ package remotestate
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 type relationUnitsWatcher struct {

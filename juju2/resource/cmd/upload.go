@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // UploadClient has the API client methods needed by UploadCommand.
@@ -56,7 +56,7 @@ func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "attach",
 		Args:    "application name=file",
-		Purpose: "upload a file as a resource for an application",
+		Purpose: "Upload a file as a resource for an application.",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be
 used as a resource for an application.
@@ -110,7 +110,7 @@ func (c *UploadCommand) addResourceFile(arg string) error {
 func (c *UploadCommand) Run(*cmd.Context) error {
 	apiclient, err := c.deps.NewClient(c)
 	if err != nil {
-		return errors.Annotatef(err, "can't connect to %s", c.ConnectionName())
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 

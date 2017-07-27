@@ -14,22 +14,23 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/version"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -128,6 +129,7 @@ type ModelParams struct {
 	CloudRegion             string
 	CloudCredential         names.CloudCredentialTag
 	StorageProviderRegistry storage.ProviderRegistry
+	EnvironVersion          int
 }
 
 type SpaceParams struct {
@@ -420,12 +422,27 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
 	}
+
+	rSt, err := factory.st.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+
+	resourceMap := make(map[string]string)
+	for name, res := range params.Charm.Meta().Resources {
+		pendingID, err := rSt.AddPendingResource(params.Name, "", charmresource.Resource{
+			Meta:   res,
+			Origin: charmresource.OriginUpload,
+		}, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		resourceMap[name] = pendingID
+	}
+
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:        params.Name,
 		Charm:       params.Charm,
 		Settings:    charm.Settings(params.Settings),
 		Storage:     params.Storage,
 		Constraints: params.Constraints,
+		Resources:   resourceMap,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -629,6 +646,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		Config:          cfg,
 		Owner:           params.Owner.(names.UserTag),
 		StorageProviderRegistry: params.StorageProviderRegistry,
+		EnvironVersion:          params.EnvironVersion,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st

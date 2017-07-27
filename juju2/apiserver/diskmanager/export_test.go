@@ -3,7 +3,7 @@
 
 package diskmanager
 
-import "github.com/juju/1.25-upgrade/juju2/state"
+import "github.com/juju/juju/state"
 
 type StateInterface stateInterface
 

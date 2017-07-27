@@ -6,16 +6,15 @@ package maas
 import (
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
 // Ensure MAAS provider supports the expected interfaces.
 var (
-	_ config.ConfigSchemaSource = (*maasEnvironProvider)(nil)
+	_ config.ConfigSchemaSource = (*MaasEnvironProvider)(nil)
 )
 
 type configSuite struct {
@@ -48,10 +47,6 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	mockCapabilities := func(*gomaasapi.MAASObject, string) (set.Strings, error) {
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	}
-	s.PatchValue(&GetCapabilities, mockCapabilities)
 	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
@@ -68,7 +63,7 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
+	_, err = MaasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
 
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")

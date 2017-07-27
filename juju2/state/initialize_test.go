@@ -10,16 +10,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type InitializeSuite struct {
@@ -250,7 +250,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	controllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
+	controllerInheritedConfig, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
@@ -361,7 +361,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	st.Close()
 
 	s.openState(c, st.ModelTag())
-	err = s.State.UpdateModelConfig(update, remove, nil)
+	err = s.State.UpdateModelConfig(update, remove)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
@@ -455,8 +455,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 
 	for k := range regionInheritedConfigIn {
 		// Query for config for each region
-		regionInheritedConfig, err := state.ReadSettings(
-			s.State, state.GlobalSettingsC,
+		regionInheritedConfig, err := s.State.ReadSettings(
+			state.GlobalSettingsC,
 			"dummy#"+k)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(

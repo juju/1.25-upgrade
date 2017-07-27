@@ -14,10 +14,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -503,8 +503,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// history entry. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(st, machineGlobalKey(mdoc.Id), machineStatusDoc)
-	probablyUpdateStatusHistory(st, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
+	probablyUpdateStatusHistory(st.db(), machineGlobalKey(mdoc.Id), machineStatusDoc)
+	probablyUpdateStatusHistory(st.db(), machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
 	return prereqOps, machineOp, nil
 }
 
@@ -844,27 +844,28 @@ func (st *State) enableHAIntentionOps(
 	}
 	// Use any placement directives that have been provided
 	// when adding new machines, until the directives have
-	// been all used up. Set up a helper function to do the
-	// work required.
+	// been all used up. Ignore constraints for provided machines.
+	// Set up a helper function to do the work required.
 	placementCount := 0
-	getPlacement := func() string {
+	getPlacementConstraints := func() (string, constraints.Value) {
 		if placementCount >= len(intent.placement) {
-			return ""
+			return "", cons
 		}
 		result := intent.placement[placementCount]
 		placementCount++
-		return result
+		return result, constraints.Value{}
 	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
+		placement, constraints := getPlacementConstraints()
 		template := MachineTemplate{
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints: cons,
-			Placement:   getPlacement(),
+			Constraints: constraints,
+			Placement:   placement,
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {

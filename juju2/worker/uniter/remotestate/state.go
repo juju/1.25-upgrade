@@ -4,13 +4,21 @@
 package remotestate
 
 import (
+	"time"
+
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
+
+type Waiter interface {
+	After() <-chan time.Time
+}
+
+type UpdateStatusTimerFunc func(time.Duration) Waiter
 
 type State interface {
 	Relation(names.RelationTag) (Relation, error)
@@ -19,6 +27,7 @@ type State interface {
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
+	UpdateStatusHookInterval() (time.Duration, error)
 }
 
 type Unit interface {
@@ -32,6 +41,9 @@ type Unit interface {
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
+	// WatchRelation returns a watcher that fires when relations
+	// relevant for this unit change.
+	WatchRelations() (watcher.StringsWatcher, error)
 }
 
 type Application interface {
@@ -51,9 +63,6 @@ type Application interface {
 	// WatchLeadershipSettings returns a watcher that fires when the leadership
 	// settings for this service change.
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
-	// WatchRelation returns a watcher that fires when the relations on this
-	// service change.
-	WatchRelations() (watcher.StringsWatcher, error)
 }
 
 type Relation interface {

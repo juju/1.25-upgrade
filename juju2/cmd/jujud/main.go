@@ -19,18 +19,20 @@ import (
 	"github.com/juju/utils/exec"
 	proxyutils "github.com/juju/utils/proxy"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd"
-	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/dumplogs"
-	components "github.com/juju/1.25-upgrade/juju2/component/all"
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	"github.com/juju/1.25-upgrade/juju2/juju/sockets"
+	"github.com/juju/juju/agent"
+	jujucmd "github.com/juju/juju/cmd"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/dumplogs"
+	"github.com/juju/juju/cmd/jujud/introspect"
+	components "github.com/juju/juju/component/all"
+	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
-	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
-	"github.com/juju/1.25-upgrade/juju2/utils/proxy"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var log = loggo.GetLogger("juju.cmd.jujud")
@@ -64,7 +66,7 @@ const (
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
 	if value == "" {
-		return "", fmt.Errorf("%s not set", name)
+		return "", errors.Errorf("%s not set", name)
 	}
 	return value, nil
 }
@@ -167,6 +169,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		agentConf,
 		bufferedLogger,
 		agentcmd.DefaultIntrospectionSocketName,
+		upgrades.PreUpgradeSteps,
 		"",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
@@ -204,7 +207,7 @@ func Main(args []string) int {
 
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		os.Exit(exit_err)
 	}
 
@@ -216,7 +219,7 @@ func Main(args []string) int {
 	case names.Jujuc:
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = exit_err
-		err = fmt.Errorf("jujuc should not be called directly")
+		err = errors.New("jujuc should not be called directly")
 	case names.JujuRun:
 		run := &RunCommand{
 			MachineLockName: agent.MachineLockName,
@@ -224,11 +227,13 @@ func Main(args []string) int {
 		code = cmd.Main(run, ctx, args[1:])
 	case names.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
+	case names.JujuIntrospect:
+		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
 	default:
 		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 	}
 	return code
 }

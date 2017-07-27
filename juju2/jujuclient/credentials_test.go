@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type CredentialsSuite struct {
@@ -91,6 +91,24 @@ func (s *CredentialsSuite) TestUpdateCredentialRemovesDefaultIfNecessary(c *gc.C
 	creds, err := store.AllCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds[s.cloudName].DefaultCredential, gc.Equals, "")
+}
+
+func (s *CredentialsSuite) TestUpdateCredentialRemovesCloudWhenNoCredentialLeft(c *gc.C) {
+	s.cloudName = firstTestCloudName(c)
+
+	store := jujuclient.NewFileCredentialStore()
+	err := store.UpdateCredential(s.cloudName, s.credentials)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// delete all
+	err = store.UpdateCredential(s.cloudName, cloud.CloudCredential{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	creds, err := store.AllCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, exists := creds[s.cloudName]
+	c.Assert(exists, jc.IsFalse)
 }
 
 func (s *CredentialsSuite) assertCredentialsNotExists(c *gc.C) {

@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/juju/permission"
 )
 
 type userAccessDoc struct {
@@ -138,6 +138,22 @@ func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserA
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}
 	return newUserAccess(perm, userDoc, names.NewControllerTag(userDoc.ObjectUUID)), nil
+}
+
+// UserPermission returns the access permission for the passed subject and target.
+func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+	switch target.Kind() {
+	case names.ModelTagKind, names.ControllerTagKind:
+		access, err := st.UserAccess(subject, target)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return access.Access, nil
+	case names.ApplicationOfferTagKind:
+		return st.GetOfferAccess(target.(names.ApplicationOfferTag), subject)
+	default:
+		return "", errors.NotValidf("%q as a target", target.Kind())
+	}
 }
 
 func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag) permission.UserAccess {

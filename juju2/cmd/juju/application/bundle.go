@@ -20,17 +20,17 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/api/charms"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourceadapters"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 )
 
 var watchAll = func(c *api.Client) (allWatcher, error) {

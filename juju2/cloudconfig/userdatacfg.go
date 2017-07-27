@@ -13,9 +13,9 @@ import (
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 )
 
 const (
@@ -65,6 +65,8 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	case os.Ubuntu:
 		return &unixConfigure{base}, nil
 	case os.CentOS:
+		return &unixConfigure{base}, nil
+	case os.OpenSUSE:
 		return &unixConfigure{base}, nil
 	case os.Windows:
 		return &windowsConfigure{base}, nil
@@ -151,6 +153,8 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 			groups = UbuntuGroups
 		case os.CentOS:
 			groups = CentOSGroups
+		case os.OpenSUSE:
+			groups = OpenSUSEGroups
 		}
 		conf.AddUser(&cloudinit.User{
 			Name:              "ubuntu",

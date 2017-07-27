@@ -12,14 +12,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/clock/monotonic"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
@@ -32,22 +31,22 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/audit"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	stateaudit "github.com/juju/1.25-upgrade/juju2/state/internal/audit"
-	statelease "github.com/juju/1.25-upgrade/juju2/state/lease"
-	"github.com/juju/1.25-upgrade/juju2/state/workers"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/utils/clock/monotonic"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	stateaudit "github.com/juju/juju/state/internal/audit"
+	statelease "github.com/juju/juju/state/lease"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -103,16 +102,7 @@ type State struct {
 	// available by starting new ones as they fail. It doesn't do
 	// that yet, but having a type that collects them together is the
 	// first step.
-	//
-	// note that the allManager stuff below probably ought to be
-	// folded in as well, but that feels like its own task.
-	workers workers.Workers
-
-	// mu guards allManager, allModelManager & allModelWatcherBacking
-	mu                     sync.Mutex
-	allManager             *storeManager
-	allModelManager        *storeManager
-	allModelWatcherBacking Backing
+	workers *workers
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
@@ -149,6 +139,7 @@ func (st *State) IsController() bool {
 func (st *State) ControllerUUID() string {
 	return st.controllerTag.Id()
 }
+
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
@@ -224,9 +215,13 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 		}
 	}
-	// Logs are in a separate database so don't get caught by that
+	// Logs and presence are in separate databases so don't get caught by that
 	// loop.
 	removeModelLogs(st.MongoSession(), modelUUID)
+	err := presence.RemovePresenceForModel(st.getPresenceCollection(), st.modelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Remove all user permissions for the model.
 	permPattern := bson.M{
@@ -271,7 +266,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 // removeAllInCollectionRaw removes all the documents from the given
 // named collection.
 func (st *State) removeAllInCollectionRaw(name string) error {
-	coll, closer := st.getCollection(name)
+	coll, closer := st.db().GetCollection(name)
 	defer closer()
 	_, err := coll.Writeable().RemoveAll(nil)
 	return errors.Trace(err)
@@ -286,7 +281,7 @@ func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 // removeInCollectionOps generates operations to remove all documents
 // from the named collection matching a specific selector.
 func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, error) {
-	coll, closer := st.getCollection(name)
+	coll, closer := st.db().GetCollection(name)
 	defer closer()
 
 	var ids []bson.M
@@ -360,18 +355,9 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	factory := workersFactory{
-		st:    st,
-		clock: st.clock,
-	}
-	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
-		Factory: factory,
-		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
-		Clock:   st.clock,
-		Delay:   time.Second,
-	})
+	workers, err := newWorkers(st)
 	if err != nil {
-		return errors.Annotatef(err, "cannot create standard state workers")
+		return errors.Trace(err)
 	}
 	st.workers = workers
 
@@ -477,7 +463,7 @@ func (st *State) EnsureModelRemoved() error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.getCollection(name)
+		coll, closer := st.db().GetCollection(name)
 		defer closer()
 		n, err := coll.Find(nil).Count()
 		if err != nil {
@@ -509,6 +495,12 @@ func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
 }
 
+// getPingBatcher returns the implementation of how we serialize Ping requests
+// for agents to the database.
+func (st *State) getPingBatcher() *presence.PingBatcher {
+	return st.workers.pingBatcherWorker()
+}
+
 // getTxnLogCollection returns the raw mongodb txns collection, which is
 // needed to interact with the state/watcher package.
 func (st *State) getTxnLogCollection() *mgo.Collection {
@@ -521,6 +513,18 @@ func (st *State) getTxnLogCollection() *mgo.Collection {
 // getCollection multiple times.
 func (st *State) newDB() (Database, func()) {
 	return st.database.Copy()
+}
+
+// db returns the Database instance used by the State. It is part of
+// the modelBackend interface.
+func (st *State) db() Database {
+	return st.database
+}
+
+// txnLogWatcher returns the TxnLogWatcher for the State. It is part
+// of the modelBackend interface.
+func (st *State) txnLogWatcher() *watcher.Watcher {
+	return st.workers.txnLogWatcher()
 }
 
 // Ping probes the state's database connection to ensure
@@ -546,23 +550,19 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-func (st *State) Watch() *Multiwatcher {
-	st.mu.Lock()
-	if st.allManager == nil {
-		st.allManager = newStoreManager(newAllWatcherStateBacking(st))
-	}
-	st.mu.Unlock()
-	return NewMultiwatcher(st.allManager)
+// WatchParams defines config to control which
+// entites are included when watching a model.
+type WatchParams struct {
+	// IncludeOffers controls whether application offers should be watched.
+	IncludeOffers bool
+}
+
+func (st *State) Watch(params WatchParams) *Multiwatcher {
+	return NewMultiwatcher(st.workers.allManager(params))
 }
 
 func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {
-	st.mu.Lock()
-	if st.allModelManager == nil {
-		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st, pool)
-		st.allModelManager = newStoreManager(st.allModelWatcherBacking)
-	}
-	st.mu.Unlock()
-	return NewMultiwatcher(st.allModelManager)
+	return NewMultiwatcher(st.workers.allModelManager(pool))
 }
 
 // versionInconsistentError indicates one or more agents have a
@@ -610,7 +610,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	}}}
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
-		collection, closer := st.getCollection(name)
+		collection, closer := st.db().GetCollection(name)
 		defer closer()
 		var doc struct {
 			DocID string `bson:"_id"`
@@ -660,7 +660,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, settingsC, modelGlobalKey)
+		settings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -746,7 +746,7 @@ func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, e
 // AllMachines returns all machines in the model
 // ordered by id.
 func (st *State) AllMachines() ([]*Machine, error) {
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.db().GetCollection(machinesC)
 	defer closer()
 	return st.allMachines(machinesCollection)
 }
@@ -754,7 +754,7 @@ func (st *State) AllMachines() ([]*Machine, error) {
 // AllMachinesFor returns all machines for the model represented
 // by the given modeluuid
 func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
-	machinesCollection, closer := st.getCollectionFor(modelUUID, machinesC)
+	machinesCollection, closer := st.db().GetCollectionFor(modelUUID, machinesC)
 	defer closer()
 	return st.allMachines(machinesCollection)
 }
@@ -819,7 +819,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.db().GetCollection(machinesC)
 	defer closer()
 
 	var err error
@@ -1146,6 +1146,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		NeverSet: true,
 	}
 
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	removeNils(args.Settings)
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -1174,7 +1179,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			assertModelActiveOp(st.ModelUUID()),
 			endpointBindingsOp,
 		}
-		addOps, err := addApplicationOps(st, addApplicationOpsArgs{
+		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
 			applicationDoc: appDoc,
 			statusDoc:      statusDoc,
 			constraints:    args.Constraints,
@@ -1225,7 +1230,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return ops, nil
 	}
 	// At the last moment before inserting the application, prime status history.
-	probablyUpdateStatusHistory(st, app.globalKey(), statusDoc)
+	probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
 	if err = st.run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.
@@ -1235,6 +1240,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+// removeNils removes any keys with nil values from the given map.
+func removeNils(m map[string]interface{}) {
+	for k, v := range m {
+		if v == nil {
+			delete(m, k)
+		}
+	}
 }
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
@@ -1276,7 +1290,7 @@ func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 }
 
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
-	col, close := st.getCollection(assignUnitC)
+	col, close := st.db().GetCollection(assignUnitC)
 	defer close()
 
 	var docs []assignUnitDoc
@@ -1424,7 +1438,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 
 // Application returns a application state by name.
 func (st *State) Application(name string) (_ *Application, err error) {
-	applications, closer := st.getCollection(applicationsC)
+	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()
 
 	if !names.IsValidApplication(name) {
@@ -1443,7 +1457,7 @@ func (st *State) Application(name string) (_ *Application, err error) {
 
 // AllApplications returns all deployed applications in the model.
 func (st *State) AllApplications() (applications []*Application, err error) {
-	applicationsCollection, closer := st.getCollection(applicationsC)
+	applicationsCollection, closer := st.db().GetCollection(applicationsC)
 	defer closer()
 
 	sdocs := []applicationDoc{}
@@ -1556,13 +1570,23 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 }
 
 func applicationByName(st *State, name string) (ApplicationEntity, error) {
-	s, err := st.RemoteApplication(name)
+	app, err := st.Application(name)
 	if err == nil {
-		return s, nil
+		return app, nil
 	} else if err != nil && !errors.IsNotFound(err) {
 		return nil, err
+	} else if !featureflag.Enabled(feature.CrossModelRelations) {
+		return nil, err
 	}
-	return st.Application(name)
+	remoteApp, remoteErr := st.RemoteApplication(name)
+	if errors.IsNotFound(remoteErr) {
+		// We can't find either an application or a remote application
+		// by that name. Report the missing application, since that's
+		// probably what was intended (and still indicates the problem
+		// for remote applications).
+		return nil, err
+	}
+	return remoteApp, remoteErr
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1757,7 +1781,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 // KeyRelation returns the existing relation with the given key (which can
 // be derived unambiguously from the relation's endpoints).
 func (st *State) KeyRelation(key string) (*Relation, error) {
-	relations, closer := st.getCollection(relationsC)
+	relations, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -1773,7 +1797,7 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 
 // Relation returns the existing relation with the given id.
 func (st *State) Relation(id int) (*Relation, error) {
-	relations, closer := st.getCollection(relationsC)
+	relations, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -1789,7 +1813,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // AllRelations returns all relations in the model ordered by id.
 func (st *State) AllRelations() (relations []*Relation, err error) {
-	relationsCollection, closer := st.getCollection(relationsC)
+	relationsCollection, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
 	docs := relationDocSlice{}
@@ -1817,7 +1841,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsValidUnit(name) {
 		return nil, errors.Errorf("%q is not a valid unit name", name)
 	}
-	units, closer := st.getCollection(unitsC)
+	units, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	doc := unitDoc{}
@@ -1880,8 +1904,9 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.workers.TxnLogWatcher().StartSync()
-	st.workers.PresenceWatcher().Sync()
+	st.workers.txnLogWatcher().StartSync()
+	st.workers.pingBatcherWorker().Sync()
+	st.workers.presenceWatcher().Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password
@@ -1981,7 +2006,7 @@ const stateServingInfoKey = "stateServingInfo"
 
 // StateServingInfo returns information for running a controller machine
 func (st *State) StateServingInfo() (StateServingInfo, error) {
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
 	var info StateServingInfo
@@ -2127,7 +2152,7 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id)
 // audit.AuditEntry instances to the database.
 func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 	insert := func(collectionName string, docs ...interface{}) error {
-		collection, closeCollection := st.getCollection(collectionName)
+		collection, closeCollection := st.db().GetCollection(collectionName)
 		defer closeCollection()
 
 		writeableCollection := collection.Writeable()
@@ -2135,6 +2160,51 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 		return errors.Trace(writeableCollection.Insert(docs...))
 	}
 	return stateaudit.PutAuditEntryFn(auditingC, insert)
+}
+
+// SetSLA sets the SLA on the current connected model.
+func (st *State) SetSLA(level, owner string, credentials []byte) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.SetSLA(level, owner, credentials)
+}
+
+// SetModelMeterStatus sets the meter status for the current connected model.
+func (st *State) SetModelMeterStatus(status, info string) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.SetMeterStatus(status, info)
+}
+
+// ModelMeterStatus returns the meter status for the current connected model.
+func (st *State) ModelMeterStatus() (MeterStatus, error) {
+	model, err := st.Model()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
+	}
+	return model.MeterStatus(), nil
+}
+
+// SLALevel returns the SLA level of the current connected model.
+func (st *State) SLALevel() (string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return model.SLALevel(), nil
+}
+
+// SLACredential returns the SLA credential of the current connected model.
+func (st *State) SLACredential() ([]byte, error) {
+	model, err := st.Model()
+	if err != nil {
+		return []byte{}, errors.Trace(err)
+	}
+	return model.SLACredential(), nil
 }
 
 var tagPrefix = map[byte]string{
@@ -2160,13 +2230,14 @@ func tagForGlobalKey(key string) (string, bool) {
 // to set the internal clock for the State instance. It is named such
 // that it should be obvious if it is ever called from a non-test package.
 func (st *State) SetClockForTesting(clock clock.Clock) error {
-	st.clock = clock
 	// Need to restart the lease workers so they get the new clock.
+	// Stop them first so they don't try to use it when we're setting it.
 	st.workers.Kill()
 	err := st.workers.Wait()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	st.clock = clock
 	err = st.start(st.controllerTag)
 	if err != nil {
 		return errors.Trace(err)

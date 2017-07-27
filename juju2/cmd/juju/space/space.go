@@ -13,10 +13,10 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/spaces"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/spaces"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // SpaceAPI defines the necessary API methods needed by the space
@@ -47,6 +47,9 @@ type SpaceAPI interface {
 
 	// RenameSpace changes the name of the space.
 	RenameSpace(name, newName string) error
+
+	// ReloadSpaces fetches spaces and subnets from substrate
+	ReloadSpaces() error
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.space")
@@ -135,6 +138,10 @@ func (m *mvpAPIShim) AddSpace(name string, subnetIds []string, public bool) erro
 
 func (m *mvpAPIShim) ListSpaces() ([]params.Space, error) {
 	return m.facade.ListSpaces()
+}
+
+func (m *mvpAPIShim) ReloadSpaces() error {
+	return m.facade.ReloadSpaces()
 }
 
 // NewAPI returns a SpaceAPI for the root api endpoint that the

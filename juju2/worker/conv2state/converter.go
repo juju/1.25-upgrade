@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/machiner"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/watcher"
 )
 
 // New returns a new notify watch handler that will convert the given machine &

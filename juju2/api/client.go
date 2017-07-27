@@ -13,22 +13,22 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/downloader"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 // Client represents the client-accessible part of the state.
@@ -48,6 +48,12 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	return &result, nil
 }
 
+// CACert returns the CA certificate associated with
+// the connection.
+func (c *Client) CACert() (string, error) {
+	return common.NewAPIAddresser(c.facade).CACert()
+}
+
 // StatusHistory retrieves the last <size> results of
 // <kind:combined|agent|workload|machine|machineinstance|container|containerinstance> status
 // for <name> unit
@@ -56,9 +62,10 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	args := params.StatusHistoryRequest{
 		Kind: string(kind),
 		Filter: params.StatusHistoryFilter{
-			Size:  filter.Size,
-			Date:  filter.Date,
-			Delta: filter.Delta,
+			Size:    filter.Size,
+			Date:    filter.FromDate,
+			Delta:   filter.Delta,
+			Exclude: filter.Exclude.Values(),
 		},
 		Tag: tag.String(),
 	}
@@ -158,12 +165,26 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (scrip
 }
 
 // DestroyMachines removes a given set of machines.
+//
+// NOTE(axw) this exists only for backwards compatibility, when MachineManager
+// facade v3 is not available. The MachineManager.DestroyMachines method should
+// be preferred.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (c *Client) DestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{MachineNames: machines}
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
 }
 
 // ForceDestroyMachines removes a given set of machines and all associated units.
+//
+// NOTE(axw) this exists only for backwards compatibility, when MachineManager
+// facade v3 is not available. The MachineManager.ForceDestroyMachines method
+// should be preferred.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (c *Client) ForceDestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{Force: true, MachineNames: machines}
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
@@ -501,26 +522,14 @@ func (c *Client) AgentVersion() (version.Number, error) {
 	return result.Version, nil
 }
 
-// websocketDialConfig is called instead of websocket.DialConfig so we can
-// override it in tests.
-var websocketDialConfig = func(config *websocket.Config) (base.Stream, error) {
-	c, err := websocket.DialConfig(config)
+// websocketDial is called instead of dialer.Dial so we can override it in
+// tests.
+var websocketDial = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
+	c, _, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return websocketStream{c}, nil
-}
-
-type websocketStream struct {
-	*websocket.Conn
-}
-
-func (c websocketStream) ReadJSON(v interface{}) error {
-	return websocket.JSON.Receive(c.Conn, v)
-}
-
-func (c websocketStream) WriteJSON(v interface{}) error {
-	return websocket.JSON.Send(c.Conn, v)
+	return c, nil
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

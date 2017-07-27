@@ -9,8 +9,8 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 )
 
 // environMongo implements state/lease.Mongo to expose environ-filtered mongo
@@ -21,7 +21,7 @@ type environMongo struct {
 
 // GetCollection is part of the lease.Mongo interface.
 func (m *environMongo) GetCollection(name string) (mongo.Collection, func()) {
-	return m.state.getCollection(name)
+	return m.state.db().GetCollection(name)
 }
 
 // RunTransaction is part of the lease.Mongo interface.

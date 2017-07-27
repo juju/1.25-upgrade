@@ -4,24 +4,40 @@
 package api
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"context"
+	"net/url"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
 var (
 	CertDir             = &certDir
-	NewWebsocketDialer  = newWebsocketDialer
-	WebsocketDialConfig = &websocketDialConfig
+	WebsocketDial       = &websocketDial
 	SlideAddressToFront = slideAddressToFront
 	BestVersion         = bestVersion
 	FacadeVersions      = &facadeVersions
-	DialAPI             = dialAPI
 )
+
+func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
+	result, err := dialAPI(context.TODO(), info, opts)
+	if err != nil {
+		return nil, "", err
+	}
+	// Replace the IP address in the URL with the
+	// host name so that tests can check it more
+	// easily.
+	u, _ := url.Parse(result.urlStr)
+	u.Host = result.addr
+	return result.conn, u.String(), nil
+}
 
 // RPCConnection defines the methods that are called on the rpc.Conn instance.
 type RPCConnection rpcConnection
@@ -36,6 +52,11 @@ func SetServerAddress(c *Client, scheme, addr string) {
 // ServerRoot is exported so that we can test the built URL.
 func ServerRoot(c *Client) string {
 	return c.st.serverRoot()
+}
+
+// UnderlyingConn returns the underlying transport connection.
+func UnderlyingConn(c Connection) jsoncodec.JSONConn {
+	return c.(*state).conn
 }
 
 // TestingStateParams is the parameters for NewTestingState, so that you can

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 func PatchConfig(config Config, fieldName string, value interface{}) error {

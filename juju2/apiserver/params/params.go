@@ -15,12 +15,12 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/tools"
 )
 
 // FindTags wraps a slice of strings that are prefixes to use when
@@ -407,7 +407,7 @@ type Creds struct {
 // then the provided macaroon slices will be used for authentication (if
 // any one is valid, the authentication succeeds). If there are no
 // valid macaroons and macaroon authentication is configured,
-// the LoginResponse will contain a macaroon that when
+// the LoginResult will contain a macaroon that when
 // discharged, may allow access.
 type LoginRequest struct {
 	AuthTag     string           `json:"auth-tag"`
@@ -666,6 +666,12 @@ type LoginResult struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
 
+	// PublicDNSName holds the host name for which an officially
+	// signed certificate will be used for TLS connection to the server.
+	// If empty, the private Juju CA certificate must be used to verify
+	// the connection.
+	PublicDNSName string `json:"public-dns-name,omitempty"`
+
 	// ModelTag is the tag for the model that is being connected to.
 	ModelTag string `json:"model-tag,omitempty"`
 
@@ -896,4 +902,98 @@ type MacaroonResults struct {
 type MacaroonResult struct {
 	Result *macaroon.Macaroon `json:"result,omitempty"`
 	Error  *Error             `json:"error,omitempty"`
+}
+
+// DestroyMachineResults contains the results of a MachineManager.Destroy
+// API request.
+type DestroyMachineResults struct {
+	Results []DestroyMachineResult `json:"results,omitempty"`
+}
+
+// DestroyMachineResult contains one of the results of a MachineManager.Destroy
+// API request.
+type DestroyMachineResult struct {
+	Error *Error              `json:"error,omitempty"`
+	Info  *DestroyMachineInfo `json:"info,omitempty"`
+}
+
+// DestroyMachineInfo contains information related to the removal of
+// a machine.
+type DestroyMachineInfo struct {
+	// DetachedStorage is the tags of storage instances that will be
+	// detached from the machine (assigned units) as a result of
+	// destroying the machine, and will remain in the model after
+	// the machine and unit are removed.
+	DetachedStorage []Entity `json:"detached-storage,omitempty"`
+
+	// DestroyedStorage is the tags of storage instances that will be
+	// destroyed as a result of destroying the machine.
+	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+
+	// DestroyedStorage is the tags of units that will be destroyed
+	// as a result of destroying the machine.
+	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+}
+
+// DestroyApplicationResults contains the results of a DestroyApplication
+// API request.
+type DestroyApplicationResults struct {
+	Results []DestroyApplicationResult `json:"results,omitempty"`
+}
+
+// DestroyApplicationResult contains one of the results of a
+// DestroyApplication API request.
+type DestroyApplicationResult struct {
+	Error *Error                  `json:"error,omitempty"`
+	Info  *DestroyApplicationInfo `json:"info,omitempty"`
+}
+
+// DestroyApplicationInfo contains information related to the removal of
+// an application.
+type DestroyApplicationInfo struct {
+	// DetachedStorage is the tags of storage instances that will be
+	// detached from the application's units, and will remain in the
+	// model after the units are removed.
+	DetachedStorage []Entity `json:"detached-storage,omitempty"`
+
+	// DestroyedStorage is the tags of storage instances that will be
+	// destroyed as a result of destroying the application.
+	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+
+	// DestroyedUnits is the tags of units that will be destroyed
+	// as a result of destroying the application.
+	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+}
+
+// DestroyUnitResults contains the results of a DestroyUnit API request.
+type DestroyUnitResults struct {
+	Results []DestroyUnitResult `json:"results,omitempty"`
+}
+
+// DestroyUnitResult contains one of the results of a
+// DestroyUnit API request.
+type DestroyUnitResult struct {
+	Error *Error           `json:"error,omitempty"`
+	Info  *DestroyUnitInfo `json:"info,omitempty"`
+}
+
+// DestroyUnitInfo contains information related to the removal of
+// an application unit.
+type DestroyUnitInfo struct {
+	// DetachedStorage is the tags of storage instances that will be
+	// detached from the unit, and will remain in the model after
+	// the unit is removed.
+	DetachedStorage []Entity `json:"detached-storage,omitempty"`
+
+	// DestroyedStorage is the tags of storage instances that will be
+	// destroyed as a result of destroying the unit.
+	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+}
+
+// DumpModelRequest wraps the request for a dump-model call.
+// A simplified dump will not contain a complete export, but instead
+// a reduced set that is determined by the server.
+type DumpModelRequest struct {
+	Entities   []Entity `json:"entities"`
+	Simplified bool     `json:"simplified"`
 }

@@ -11,9 +11,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state/backups"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&mongoRestoreSuite{})

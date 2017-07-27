@@ -6,7 +6,7 @@ package backups_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/backups"
+	"github.com/juju/juju/api/backups"
 )
 
 type backupsSuite struct {

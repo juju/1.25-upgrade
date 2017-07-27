@@ -26,12 +26,12 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/juju/paths"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 // KeyUpgradeBackup is the config key used to store information about
@@ -98,7 +98,7 @@ type dialAndLogger func(*mongo.MongoInfo, retry.CallArgs) (mgoSession, mgoDb, er
 type requisitesSatisfier func(string) error
 
 type mongoService func() error
-type mongoEnsureService func(string, int, int, bool, mongo.Version, bool) error
+type mongoEnsureService func(string, int, int, bool, mongo.Version, bool, mongo.MemoryProfile) error
 type mongoDialInfo func(mongo.Info, mongo.DialOpts) (*mgo.DialInfo, error)
 
 type initiateMongoServerFunc func(peergrouper.InitiateMongoParams) error
@@ -358,7 +358,8 @@ func (u *UpgradeMongoCommand) UpdateService(auth bool) error {
 		oplogSize,
 		numaCtlPolicy,
 		u.agentConfig.MongoVersion(),
-		auth)
+		auth,
+		mongo.MemoryProfileLow)
 	return errors.Annotate(err, "cannot ensure mongodb service script is properly installed")
 }
 
@@ -611,9 +612,11 @@ func (u *UpgradeMongoCommand) removeOldDb(dataDir string) error {
 }
 
 func satisfyPrerequisites(operatingsystem string) error {
-	// CentOS is not currently supported by our mongo package.
+	// CentOS and OpenSUSE are  not currently supported by our mongo package.
 	if operatingsystem == "centos7" {
 		return errors.New("centos7 is still not suported by this upgrade")
+	} else if operatingsystem == "opensuseleap" {
+		return errors.New("openSUSE Leap is still not suported by this upgrade")
 	}
 
 	pacman, err := manager.NewPackageManager(operatingsystem)

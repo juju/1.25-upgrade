@@ -10,10 +10,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var (
@@ -139,7 +139,7 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
 func NewModelHookContext(
-	id, modelUUID, envName, unitName, meterCode, meterInfo, availZone string,
+	id, modelUUID, envName, unitName, meterCode, meterInfo, slaLevel, availZone string,
 	apiAddresses []string, proxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
@@ -157,6 +157,8 @@ func NewModelHookContext(
 		relationId:         -1,
 		assignedMachineTag: machineTag,
 		availabilityzone:   availZone,
+		slaLevel:           slaLevel,
+		principal:          unitName,
 	}
 }
 
@@ -183,4 +185,8 @@ func CachedSettings(cf0 ContextFactory, relId int, unitName string) (params.Sett
 	cf := cf0.(*contextFactory)
 	settings, found := cf.relationCaches[relId].members[unitName]
 	return settings, found
+}
+
+func (ctx *HookContext) SLALevel() string {
+	return ctx.slaLevel
 }

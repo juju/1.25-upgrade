@@ -10,11 +10,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.
@@ -170,7 +170,29 @@ func (u *Unit) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.facade, u.tag)
+	return common.Watch(u.st.facade, "Watch", u.tag)
+}
+
+// WatchRelations returns a StringsWatcher that notifies of changes to
+// the lifecycles of relations involving u.
+func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchUnitRelations", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
 }
 
 // Service returns the service.
@@ -304,29 +326,36 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	return names.ParseMachineTag(result.Result)
 }
 
-// IsPrincipal returns whether the unit is deployed in its own container,
-// and can therefore have subordinate services deployed alongside it.
+// PrincipalName returns the principal unit name and true for subordinates.
+// For principal units the function returns "" and false.
 //
-// NOTE: This differs from state.Unit.IsPrincipal() by returning an
+// NOTE: This differs from state.Unit.PrincipalName() by returning an
 // error as well, because it needs to make an API call.
-func (u *Unit) IsPrincipal() (bool, error) {
+func (u *Unit) PrincipalName() (string, bool, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("GetPrincipal", args, &results)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return false, result.Error
+		return "", false, result.Error
 	}
-	// GetPrincipal returns false when the unit is subordinate.
-	return !result.Ok, nil
+	var unitName string
+	if result.Ok {
+		unitTag, err := names.ParseUnitTag(result.Result)
+		if err != nil {
+			return "", false, err
+		}
+		unitName = unitTag.Id()
+	}
+	return unitName, result.Ok, nil
 }
 
 // HasSubordinates returns the tags of any subordinate units.
@@ -737,4 +766,19 @@ func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
 	}
 
 	return result.Config, nil
+}
+
+func (u *Unit) NetworkInfo(bindings []string) (map[string]params.NetworkInfoResult, error) {
+	var results params.NetworkInfoResults
+	args := params.NetworkInfoParams{
+		Unit:     u.tag.String(),
+		Bindings: bindings,
+	}
+
+	err := u.st.facade.FacadeCall("NetworkInfo", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return results.Results, nil
 }

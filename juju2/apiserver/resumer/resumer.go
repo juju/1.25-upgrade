@@ -6,14 +6,10 @@
 package resumer
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("Resumer", 2, NewResumerAPI)
-}
 
 // ResumerAPI implements the API used by the resumer worker.
 type ResumerAPI struct {

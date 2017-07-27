@@ -10,10 +10,10 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiserverstorage "github.com/juju/1.25-upgrade/juju2/apiserver/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
+	"github.com/juju/juju/apiserver/params"
+	apiserverstorage "github.com/juju/juju/apiserver/storage"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 type poolSuite struct {

@@ -4,8 +4,8 @@
 package machinemanager
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
 
 type StateInterface stateInterface

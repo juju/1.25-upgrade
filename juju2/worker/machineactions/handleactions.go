@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/1.25-upgrade/juju2/core/actions"
+	"github.com/juju/juju/core/actions"
 )
 
 // RunAsUser is the user that the machine juju-run action is executed as.

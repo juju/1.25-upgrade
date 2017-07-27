@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/url"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -17,17 +18,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/component/all"
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/migration"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/component/all"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 func init() {
@@ -180,7 +180,6 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
-		"app2/blob2": "<placeholder>",
 	})
 	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
 }

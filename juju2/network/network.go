@@ -108,7 +108,7 @@ type SubnetInfo struct {
 	// unknown.
 	CIDR string
 
-	// ProviderId is a provider-specific network id. This the only
+	// ProviderId is a provider-specific subnet id. This the only
 	// required field.
 	ProviderId Id
 
@@ -123,9 +123,15 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceProviderId holds the provider Id of the space associated with
-	// this subnet. Can be empty if not supported.
+	// SpaceProviderId holds the provider Id of the space associated
+	// with this subnet. Can be empty if not supported.
+	// TODO(babbageclunk): change this to ProviderSpaceId to be
+	// consistent with the InterfaceInfo.Provider*Id fields.
 	SpaceProviderId Id
+
+	// ProviderNetworkId holds the provider id of the network
+	// containing this subnet, for example VPC id for EC2.
+	ProviderNetworkId Id
 }
 
 type SpaceInfo struct {
@@ -187,6 +193,10 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderNetworkId is the provider-specific id for the
+	// associated network.
+	ProviderNetworkId Id
 
 	// ProviderSpaceId is the provider-specific id for the associated space, if
 	// known and supported.
@@ -270,6 +280,25 @@ type Route struct {
 	GatewayIP string
 	// Metric is the weight to apply to this route.
 	Metric int
+}
+
+// InterfaceAddress represents a single address attached to the interface.
+type InterfaceAddress struct {
+	Address string
+	CIDR    string
+}
+
+// NetworkInfo describes one interface with assigned IP addresses, it's a mirror of params.NetworkInfo.
+type NetworkInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// InterfaceName is the OS-specific interface name, eg. "eth0" or "eno1.412"
+	InterfaceName string
+
+	// Addresses contains a list of addresses configured on the interface.
+	Addresses []InterfaceAddress
 }
 
 // Validate that this Route is properly formed.

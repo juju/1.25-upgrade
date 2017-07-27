@@ -6,7 +6,7 @@ package testing
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/instance"
 )
 
 // MatchInstances uses DeepEquals to check the instances returned.  The lists

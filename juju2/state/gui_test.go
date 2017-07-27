@@ -11,8 +11,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 )
 
 type guiVersionSuite struct {

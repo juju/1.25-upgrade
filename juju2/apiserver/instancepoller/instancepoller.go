@@ -9,16 +9,12 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
-
-func init() {
-	common.RegisterStandardFacade("InstancePoller", 3, newInstancePollerAPI)
-}
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
@@ -35,8 +31,8 @@ type InstancePollerAPI struct {
 	clock         clock.Clock
 }
 
-// newInstancePollerAPI wraps NewInstancePollerAPI for RegisterStandardFacade.
-func newInstancePollerAPI(
+// NewFacade wraps NewInstancePollerAPI for facade registration.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

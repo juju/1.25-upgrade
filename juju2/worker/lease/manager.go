@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.lease")
@@ -20,6 +20,29 @@ var logger = loggo.GetLogger("juju.worker.lease")
 // errStopped is returned to clients when an operation cannot complete because
 // the manager has started (and possibly finished) shutdown.
 var errStopped = errors.New("lease manager stopped")
+
+type dummySecretary struct{}
+
+func (d dummySecretary) CheckLease(name string) error               { return nil }
+func (d dummySecretary) CheckHolder(name string) error              { return nil }
+func (d dummySecretary) CheckDuration(duration time.Duration) error { return nil }
+
+// NewDeadManager returns a manager that's already dead
+// and always returns the given error.
+func NewDeadManager(err error) *Manager {
+	m := Manager{
+		config: ManagerConfig{
+			Secretary: dummySecretary{},
+		},
+	}
+	catacomb.Invoke(catacomb.Plan{
+		Site: &m.catacomb,
+		Work: func() error {
+			return errors.Trace(err)
+		},
+	})
+	return &m
+}
 
 // NewManager returns a new *Manager configured as supplied. The caller takes
 // responsibility for killing, and handling errors from, the returned Worker.

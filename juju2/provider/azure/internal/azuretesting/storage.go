@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/juju/testing"
 
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/provider/azure/internal/azurestorage"
 )
 
 type MockStorageClient struct {

@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013-2106 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package kvm
@@ -7,9 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/kvm/libvirt"
+	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type kvmContainer struct {
@@ -19,6 +24,9 @@ type kvmContainer struct {
 	// this allows for checking when we don't know, but using a
 	// value if we already know it (like in the list situation).
 	started *bool
+
+	pathfinder func(string) (string, error)
+	runCmd     runFunc
 }
 
 var _ Container = (*kvmContainer)(nil)
@@ -28,40 +36,73 @@ func (c *kvmContainer) Name() string {
 }
 
 func (c *kvmContainer) Start(params StartParams) error {
+	var srcFunc func() simplestreams.DataSource
+	if params.ImageDownloadURL != "" {
+		srcFunc = func() simplestreams.DataSource {
+			return imagedownloads.NewDataSource(params.ImageDownloadURL)
+		}
+	}
+	var ftype = BIOSFType
+	if params.Arch == arch.ARM64 {
+		ftype = UEFIFType
+	}
 
-	logger.Debugf("Synchronise images for %s %s %v", params.Series, params.Arch, params.ImageDownloadURL)
-	if err := SyncImages(params.Series, params.Arch, params.ImageDownloadURL); err != nil {
-		return err
+	sp := syncParams{
+		arch:    params.Arch,
+		series:  params.Series,
+		ftype:   ftype,
+		srcFunc: srcFunc,
+	}
+	logger.Debugf("synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
+	var callback ProgressCallback
+	if params.StatusCallback != nil {
+		callback = func(msg string) {
+			params.StatusCallback(status.Provisioning, msg, nil)
+		}
+	}
+	if err := Sync(sp, nil, callback); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return errors.Trace(err)
+		}
+		logger.Debugf("image already cached %s", err)
 	}
 	var bridge string
-	var interfaces []network.InterfaceInfo
+	var interfaces []libvirt.InterfaceInfo
 	if params.Network != nil {
 		if params.Network.NetworkType == container.BridgeNetwork {
 			bridge = params.Network.Device
-			interfaces = params.Network.Interfaces
+			for _, iface := range params.Network.Interfaces {
+				interfaces = append(interfaces, interfaceInfo{config: iface})
+			}
 		} else {
 			err := errors.New("Non-bridge network devices not yet supported")
 			logger.Infof(err.Error())
 			return err
 		}
 	}
-	logger.Debugf("Create the machine %s", c.name)
+	logger.Debugf("create the machine %s", c.name)
+	if params.StatusCallback != nil {
+		params.StatusCallback(status.Provisioning, "Creating instance", nil)
+	}
 	if err := CreateMachine(CreateMachineParams{
-		Hostname:      c.name,
-		Series:        params.Series,
-		Arch:          params.Arch,
-		UserDataFile:  params.UserDataFile,
-		NetworkBridge: bridge,
-		Memory:        params.Memory,
-		CpuCores:      params.CpuCores,
-		RootDisk:      params.RootDisk,
-		Interfaces:    interfaces,
+		Hostname:          c.name,
+		Series:            params.Series,
+		UserDataFile:      params.UserDataFile,
+		NetworkConfigData: params.NetworkConfigData,
+		NetworkBridge:     bridge,
+		Memory:            params.Memory,
+		CpuCores:          params.CpuCores,
+		RootDisk:          params.RootDisk,
+		Interfaces:        interfaces,
 	}); err != nil {
 		return err
 	}
 
 	logger.Debugf("Set machine %s to autostart", c.name)
-	return AutostartMachine(c.name)
+	if params.StatusCallback != nil {
+		params.StatusCallback(status.Provisioning, "Starting instance", nil)
+	}
+	return AutostartMachine(c)
 }
 
 func (c *kvmContainer) Stop() error {
@@ -71,15 +112,16 @@ func (c *kvmContainer) Stop() error {
 	}
 	// Make started state unknown again.
 	c.started = nil
-	logger.Debugf("Stop %s", c.name)
-	return DestroyMachine(c.name)
+	logger.Debugf("Stop %s", c)
+
+	return DestroyMachine(c)
 }
 
 func (c *kvmContainer) IsRunning() bool {
 	if c.started != nil {
 		return *c.started
 	}
-	machines, err := ListMachines()
+	machines, err := ListMachines(run)
 	if err != nil {
 		return false
 	}
@@ -89,4 +131,23 @@ func (c *kvmContainer) IsRunning() bool {
 
 func (c *kvmContainer) String() string {
 	return fmt.Sprintf("<KVM container %v>", *c)
+}
+
+type interfaceInfo struct {
+	config network.InterfaceInfo
+}
+
+// MACAddress returns the embedded MacAddress value.
+func (i interfaceInfo) MACAddress() string {
+	return i.config.MACAddress
+}
+
+// InterfaceName returns the embedded InterfaceName value.
+func (i interfaceInfo) InterfaceName() string {
+	return i.config.InterfaceName
+}
+
+// ParentInterfaceName returns the embedded ParentInterfaceName value.
+func (i interfaceInfo) ParentInterfaceName() string {
+	return i.config.ParentInterfaceName
 }

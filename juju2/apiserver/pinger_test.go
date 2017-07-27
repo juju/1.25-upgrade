@@ -10,13 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/rpc"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // pingerSuite exercises the apiserver's ping timeout functionality
@@ -98,7 +97,7 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval)
+	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval*2)
 	checkConnectionDies(c, conn)
 }
 
@@ -115,7 +114,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	}
 
 	// However, once we stop pinging for too long, the connection dies
-	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval)
+	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval*2)
 	checkConnectionDies(c, conn)
 }
 
@@ -149,18 +148,11 @@ func waitForClock(c *gc.C, clock *testing.Clock) {
 }
 
 func checkConnectionDies(c *gc.C, conn api.Connection) {
-	attempt := utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: coretesting.ShortWait,
+	select {
+	case <-conn.Broken():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("connection didn't get shut down")
 	}
-	for a := attempt.Start(); a.Next(); {
-		err := pingConn(conn)
-		if err != nil {
-			c.Assert(err, gc.ErrorMatches, "connection is shut down")
-			return
-		}
-	}
-	c.Fatal("connection didn't get shut down")
 }
 
 func pingConn(conn api.Connection) error {

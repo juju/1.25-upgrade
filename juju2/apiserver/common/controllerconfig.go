@@ -4,8 +4,8 @@
 package common
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // ControllerConfigAPI implements two common methods for use by various

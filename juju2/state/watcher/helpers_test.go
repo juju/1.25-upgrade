@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/state/watcher"
 )
 
 type dummyWatcher struct {

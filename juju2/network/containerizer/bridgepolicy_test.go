@@ -11,13 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/network/containerizer"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testcharms"
 )
 
 // bridgePolicyStateSuite contains white-box tests for how we handle applying
@@ -737,6 +737,38 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridg
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridgesDefinedHostSpace(c *gc.C) {
+	// There is a "default" and "dmz" space, our machine has 1 network
+	// interface, which is part of "default" space. We have UseLocalBridges
+	// set, which means we should fall back to using 'lxdbr0' instead of
+	// bridging the host device.
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
+	s.createAllDefaultDevices(c, s.machine)
+	s.addContainerMachine(c)
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         true,
+	}
+	// No defined spaces for the container, host has spaces but we have
+	// UseLocalBridges set so we should fall back to lxdbr0
+	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, gc.Equals, 0)
+
+	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#lxdbr0`)
+}
+
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridgesNoAddress(c *gc.C) {
 	// We should only use 'lxdbr0' instead of bridging the host device.
 	s.setupTwoSpaces(c)
@@ -1086,6 +1118,25 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 		BridgeName: "br-bond0.100",
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 13)
+}
+
+var bridgeNames = map[string]string{
+	"eno0":            "br-eno0",
+	"twelvechars0":    "br-twelvechars0",
+	"thirteenchars":   "b-thirteenchars",
+	"enfourteenchar":  "b-fourteenchar",
+	"enfifteenchars0": "b-fifteenchars0",
+	"fourteenchars1":  "b-5590a4-chars1",
+	"fifteenchars.12": "b-7e0acf-ars.12",
+	"zeros0526193032": "b-000000-193032",
+	"enx00e07cc81e1d": "b-x00e07cc81e1d",
+}
+
+func (s *bridgePolicyStateSuite) TestBridgeNameForDevice(c *gc.C) {
+	for deviceName, bridgeName := range bridgeNames {
+		generatedBridgeName := containerizer.BridgeNameForDevice(deviceName)
+		c.Assert(generatedBridgeName, gc.Equals, bridgeName)
+	}
 }
 
 // TODO(jam): 2017-01-31 Make sure KVM guests default to virbr0, and LXD guests use lxdbr0

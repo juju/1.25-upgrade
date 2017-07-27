@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.common")
@@ -92,4 +92,28 @@ func BuiltInClouds() (map[string]jujucloud.Cloud, error) {
 		}
 	}
 	return allClouds, nil
+}
+
+// CloudByName returns a cloud for given name
+// regardless of whether it's public, private or builtin cloud.
+// Not to be confused with cloud.CloudByName which does not cater
+// for built-in clouds like localhost.
+func CloudByName(cloudName string) (*jujucloud.Cloud, error) {
+	cloud, err := jujucloud.CloudByName(cloudName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Check built in clouds like localhost (lxd).
+			builtinClouds, err := BuiltInClouds()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			aCloud, found := builtinClouds[cloudName]
+			if !found {
+				return nil, errors.NotFoundf("cloud %s", cloudName)
+			}
+			return &aCloud, nil
+		}
+		return nil, errors.Trace(err)
+	}
+	return cloud, nil
 }

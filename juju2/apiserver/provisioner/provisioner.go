@@ -11,30 +11,26 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/networkingcommon"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/storagecommon"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/network/containerizer"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
-
-func init() {
-	common.RegisterStandardFacade("Provisioner", 3, NewProvisionerAPI)
-}
 
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
@@ -52,6 +48,7 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
+	*networkingcommon.NetworkConfigAPI
 
 	st                      *state.State
 	resources               facade.Resources
@@ -129,6 +126,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
+		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                      st,
 		resources:               resources,
 		authorizer:              authorizer,
@@ -984,121 +982,6 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 		return errors.Trace(err)
 	}
 	return machine.MarkForRemoval()
-}
-
-func (p *ProvisionerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
-	// TODO(jam): 2017-03-02 This is a copy of the content of
-	// Machiner.SetObservedNetworkConfig, either refactor the code to make them
-	// the same, or keep them in sync.
-	// https://bugs.launchpad.net/juju/+bug/1669397
-	m, err := p.getMachineForSettingNetworkConfig(args.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if m.IsContainer() {
-		return nil
-	}
-	observedConfig := args.Config
-	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
-	if len(observedConfig) == 0 {
-		logger.Infof("not updating machine %q network config: no observed network config found", m.Id())
-		return nil
-	}
-
-	providerConfig, err := p.getOneMachineProviderNetworkConfig(m)
-	if errors.IsNotProvisioned(err) {
-		logger.Infof("not updating machine %q network config: %v", m.Id(), err)
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	finalConfig := observedConfig
-	if len(providerConfig) != 0 {
-		finalConfig = networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-		logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), finalConfig)
-	}
-
-	return p.setOneMachineNetworkConfig(m, finalConfig)
-}
-
-func (p *ProvisionerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
-	canModify, err := p.getCanModify()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !canModify(tag) {
-		return nil, errors.Trace(common.ErrPerm)
-	}
-
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := p.getMachine(canAccess, tag)
-	if errors.IsNotFound(err) {
-		return nil, errors.Trace(common.ErrPerm)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if m.IsContainer() {
-		logger.Warningf("not updating network config for container %q", m.Id())
-	}
-
-	return m, nil
-}
-
-func (p *ProvisionerAPI) setOneMachineNetworkConfig(m *state.Machine, networkConfig []params.NetworkConfig) error {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(networkConfig)
-
-	logger.Debugf("setting devices: %+v", devicesArgs)
-	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("setting addresses: %+v", devicesAddrs)
-	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("updated machine %q network config", m.Id())
-	return nil
-}
-
-func (p *ProvisionerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
-	instId, err := m.InstanceId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
-	if errors.IsNotSupported(err) {
-		logger.Infof("not updating provider network config: %v", err)
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get provider network config")
-	}
-
-	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
-	}
-	if len(interfaceInfos) == 0 {
-		logger.Infof("not updating provider network config: no interfaces returned")
-		return nil, nil
-	}
-
-	providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
-	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
-
-	return providerConfig, nil
 }
 
 func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {

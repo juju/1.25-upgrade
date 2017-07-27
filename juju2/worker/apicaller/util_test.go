@@ -11,15 +11,15 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/apicaller"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 var errNotProvisioned = &params.Error{Code: params.CodeNotProvisioned}
@@ -190,8 +190,8 @@ func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []te
 		calls[i] = testing.StubCall{
 			FuncName: "apiOpen",
 			Args: []interface{}{info, api.DialOpts{
-				Timeout:    time.Second,
-				RetryDelay: 200 * time.Millisecond,
+				DialTimeout: time.Second,
+				RetryDelay:  200 * time.Millisecond,
 			}},
 		}
 	}

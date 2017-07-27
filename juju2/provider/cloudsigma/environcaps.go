@@ -4,7 +4,7 @@
 package cloudsigma
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/juju/constraints"
 )
 
 var unsupportedConstraints = []string{

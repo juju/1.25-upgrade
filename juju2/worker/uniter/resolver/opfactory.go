@@ -9,9 +9,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.resolver")

@@ -13,15 +13,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/annotations"
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/annotations"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
 )
 
 type permSuite struct {
@@ -122,8 +122,16 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientDestroyServiceUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
+		about: "Application.DestroyUnit",
+		op:    opClientDestroyUnit,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
 		about: "Application.Destroy",
 		op:    opClientServiceDestroy,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Application.DestroyApplication",
+		op:    opClientDestroyApplication,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.GetConstraints",
@@ -342,18 +350,28 @@ func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).DestroyUnits("wordpress/99")
+	err := application.NewClient(st).DestroyUnitsDeprecated("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}
 	return func() {}, err
 }
 
+func opClientDestroyUnit(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	_, err := application.NewClient(st).DestroyUnits("wordpress/99")
+	return func() {}, err
+}
+
 func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).Destroy("non-existent")
+	err := application.NewClient(st).DestroyDeprecated("non-existent")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
+	return func() {}, err
+}
+
+func opClientDestroyApplication(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	_, err := application.NewClient(st).DestroyApplications("non-existent")
 	return func() {}, err
 }
 

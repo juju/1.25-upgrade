@@ -17,8 +17,8 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 type registrationSuite struct {

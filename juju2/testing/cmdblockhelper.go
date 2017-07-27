@@ -6,11 +6,12 @@ package testing
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/block"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/block"
 )
 
 // CmdBlockHelper is a helper struct used to block commands.
@@ -63,7 +64,7 @@ func (s *CmdBlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
 }
 
 func AssertOperationWasBlocked(c *gc.C, err error, msg string) {
-	c.Assert(err.Error(), jc.Contains, "disabled")
+	c.Assert(err.Error(), jc.Contains, "disabled", gc.Commentf("%s", errors.Details(err)))
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, msg)

@@ -8,13 +8,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // Unit represents a state.Unit.
@@ -42,6 +42,8 @@ type Backend interface {
 	AllApplications() ([]*state.Application, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
+	AllIPAddresses() ([]*state.Address, error)
+	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllModels() ([]*state.Model, error)
 	AllRelations() ([]*state.Relation, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
@@ -68,9 +70,10 @@ type Backend interface {
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
 	SetModelConstraints(constraints.Value) error
+	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
-	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
-	Watch() *state.Multiwatcher
+	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
+	Watch(params state.WatchParams) *state.Multiwatcher
 }
 
 func NewStateBackend(st *state.State) Backend {

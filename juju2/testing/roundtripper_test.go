@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testing"
 )
 
 type metadataSuite struct{}

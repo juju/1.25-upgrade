@@ -6,10 +6,10 @@ package cloud
 import (
 	"github.com/juju/cmd"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/jujuclient"
 )
 
 func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {

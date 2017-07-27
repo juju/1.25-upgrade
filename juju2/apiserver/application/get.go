@@ -6,8 +6,8 @@ package application
 import (
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 )
 
 // Get returns the configuration for a service.
@@ -57,6 +57,12 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 			if option.Default != nil {
 				info["value"] = option.Default
 			}
+		}
+		// There is a chance that a user will set a value
+		// that may still be equal to charm's default value for this setting.
+		// This needs to work for nil values too, i.e. charm did not set
+		// settings default and this setting is still not set/is nil on the deployed application.
+		if info["value"] == option.Default {
 			info["default"] = true
 		}
 		results[name] = info

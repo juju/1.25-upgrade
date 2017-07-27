@@ -22,8 +22,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/wrench"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/wrench"
 )
 
 var logger = loggo.GetLogger("juju.testing")
@@ -91,6 +91,13 @@ func SkipIfPPC64EL(c *gc.C, bugID string) {
 func SkipIfI386(c *gc.C, bugID string) {
 	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
 		c.Skip(fmt.Sprintf("Test disabled on I386 until fixed - see bug %s", bugID))
+	}
+}
+
+// SkipIfS390X skips the test if the arch is S390X.
+func SkipIfS390X(c *gc.C, bugID string) {
+	if arch.NormaliseArch(runtime.GOARCH) == arch.S390X {
+		c.Skip(fmt.Sprintf("Test disabled on S390X until fixed - see bug %s", bugID))
 	}
 }
 
@@ -243,6 +250,10 @@ func GetPackageManager() (s PackageManagerStruct, err error) {
 		s.PackageManager = "yum"
 		s.PackageQuery = "yum"
 		s.RepositoryManager = "yum-config-manager --add-repo"
+	case jujuos.OpenSUSE:
+		s.PackageManager = "zypper"
+		s.PackageQuery = "zypper"
+		s.RepositoryManager = "zypper addrepo"
 	case jujuos.Ubuntu:
 		s.PackageManager = "apt-get"
 		s.PackageQuery = "dpkg-query"

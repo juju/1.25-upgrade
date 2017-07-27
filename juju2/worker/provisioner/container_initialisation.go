@@ -13,21 +13,20 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	apiprovisioner "github.com/juju/1.25-upgrade/juju2/api/provisioner"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/container/kvm"
-	"github.com/juju/1.25-upgrade/juju2/container/lxd"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
 )
 
 var (
@@ -39,7 +38,7 @@ var (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner              worker.Runner
+	runner              *worker.Runner
 	supportedContainers []instance.ContainerType
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
@@ -58,7 +57,7 @@ type ContainerSetup struct {
 
 // ContainerSetupParams are used to initialise a container setup handler.
 type ContainerSetupParams struct {
-	Runner              worker.Runner
+	Runner              *worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
 	Machine             *apiprovisioner.Machine
@@ -217,7 +216,7 @@ func observeNetwork() ([]params.NetworkConfig, error) {
 }
 
 func defaultBridger() (network.Bridger, error) {
-	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
 }
 
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
@@ -250,8 +249,8 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	ToolsFinder,
 	error,
 ) {
-	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
+	var series string
 
 	managerConfig, err := containerManagerConfig(containerType, cs.provisioner, cs.config)
 	if err != nil {
@@ -260,7 +259,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 
 	switch containerType {
 	case instance.KVM:
-		initialiser = kvm.NewContainerInitialiser()
 		manager, err := kvm.NewContainerManager(managerConfig)
 		if err != nil {
 			return nil, nil, nil, err
@@ -276,12 +274,11 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			return nil, nil, nil, err
 		}
 	case instance.LXD:
-		series, err := cs.machine.Series()
+		series, err = cs.machine.Series()
 		if err != nil {
 			return nil, nil, nil, err
 		}
 
-		initialiser = lxd.NewContainerInitialiser(series)
 		manager, err := lxd.NewContainerManager(managerConfig)
 		if err != nil {
 			return nil, nil, nil, err
@@ -299,8 +296,16 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	default:
 		return nil, nil, nil, fmt.Errorf("unknown container type: %v", containerType)
 	}
-
+	initialiser := getContainerInitialiser(containerType, series)
 	return initialiser, broker, toolsFinder, nil
+}
+
+// getContainerInitialiser exists to patch out in tests.
+var getContainerInitialiser = func(ct instance.ContainerType, series string) container.Initialiser {
+	if ct == instance.LXD {
+		return lxd.NewContainerInitialiser(series)
+	}
+	return kvm.NewContainerInitialiser()
 }
 
 func containerManagerConfig(
@@ -325,7 +330,7 @@ var StartProvisioner = startProvisionerWorker
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
 func startProvisionerWorker(
-	runner worker.Runner,
+	runner *worker.Runner,
 	containerType instance.ContainerType,
 	provisioner *apiprovisioner.State,
 	config agent.Config,

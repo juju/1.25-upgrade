@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v2/identity"
 	"gopkg.in/ini.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 const (

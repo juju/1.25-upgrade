@@ -15,19 +15,20 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/unit"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/introspection"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/cmd/jujud/agent/unit"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	jujuversion "github.com/juju/juju/version"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/worker/logsender"
 )
 
 var (
@@ -44,7 +45,7 @@ type UnitAgent struct {
 	AgentConf
 	configChangedVal *voyeur.Value
 	UnitName         string
-	runner           worker.Runner
+	runner           *worker.Runner
 	bufferedLogger   *logsender.BufferedLogWriter
 	setupLogging     func(agent.Config) error
 	logToStdErr      bool
@@ -95,26 +96,41 @@ func (a *UnitAgent) Init(args []string) error {
 		return cmdutil.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
-		return errors.Errorf(`--unit-name option expects "<service>/<n>" argument`)
+		return errors.Errorf(`--unit-name option expects "<application>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay)
+	a.runner = worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.IsFatal,
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
+
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
+		return err
+	}
+	agentConfig := a.CurrentConfig()
 
 	if !a.logToStdErr {
-		if err := a.ReadConfig(a.Tag().String()); err != nil {
-			return err
-		}
-		agentConfig := a.CurrentConfig()
 
 		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
 		a.ctx.Stderr = &lumberjack.Logger{
 			Filename:   agent.LogFilename(agentConfig),
 			MaxSize:    300, // megabytes
 			MaxBackups: 2,
+			Compress:   true,
 		}
 
+	}
+
+	if loggingOverride := agentConfig.Value(agent.LoggingOverride); loggingOverride != "" {
+		logger.Infof("setting logging override to %q", loggingOverride)
+		loggo.DefaultContext().ResetLoggerLevels()
+		err := loggo.ConfigureLoggers(loggingOverride)
+		if err != nil {
+			logger.Errorf("setting logging override %v", err)
+		}
 	}
 
 	return nil

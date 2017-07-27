@@ -10,12 +10,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/common/cloudspec"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/common/cloudspec"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CloudSpecSuite{})

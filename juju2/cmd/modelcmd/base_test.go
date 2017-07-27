@@ -4,35 +4,36 @@
 package modelcmd_test
 
 import (
+	"io/ioutil"
 	"strings"
 
-	gc "gopkg.in/check.v1"
-
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type BaseCommandSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	store *jujuclienttesting.MemStore
+	testing.IsolationSuite
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&BaseCommandSuite{})
 
 func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "foo"
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
 		APIEndpoints: []string{"testing.invalid:1234"},
@@ -54,9 +55,13 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	cmd := modelcmd.NewModelCommandBase(s.store, "foo", "admin/badmodel")
-	cmd.SetAPIOpen(apiOpen)
-	conn, err := cmd.NewAPIRoot()
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(apiOpen)
+	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	baseCmd.SetModelName("foo:admin/badmodel", false)
+	conn, err := baseCmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)
@@ -80,7 +85,7 @@ type NewGetBootstrapConfigParamsFuncSuite struct {
 var _ = gc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
 
 func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
-	clientStore := jujuclienttesting.NewMemStore()
+	clientStore := jujuclient.NewMemStore()
 	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
 	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
 		Cloud:               "cloud",
@@ -94,7 +99,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 	var registry mockProviderRegistry
 
 	f := modelcmd.NewGetBootstrapConfigParamsFunc(
-		coretesting.Context(c),
+		cmdtesting.Context(c),
 		clientStore,
 		&registry,
 	)

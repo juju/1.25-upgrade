@@ -9,21 +9,40 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
+
+func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
+	return nil
+}
+
+// FakeStateInfo holds information about no state - it will always
+// give an error when connected to.  The machine id gives the machine id
+// of the machine to be started.
+func FakeStateInfo(machineId string) *mongo.MongoInfo {
+	return &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{"0.1.2.3:1234"},
+			CACert: testing.CACert,
+		},
+		Tag:      names.NewMachineTag(machineId),
+		Password: "unimportant",
+	}
+}
 
 // FakeAPIInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
@@ -115,7 +134,7 @@ func StartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons}
+	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
 	result, err := StartInstanceWithParams(env, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -203,6 +222,9 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 	instanceConfig.Tags = instancecfg.InstanceTags(env.Config().UUID(), params.ControllerUUID, cfg, nil)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
+	if params.StatusCallback == nil {
+		params.StatusCallback = fakeCallback
+	}
 	return nil
 }
 

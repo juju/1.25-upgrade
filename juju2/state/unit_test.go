@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"strconv"
 	"time" // Only used for time types.
 
@@ -12,14 +13,14 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -911,6 +912,54 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	assertRemoved(c, s.unit)
 }
 
+func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
+	err := s.unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	now := coretesting.NonZeroTime()
+	for i := 0; i < 10; i++ {
+		info := status.StatusInfo{
+			Status:  status.Executing,
+			Message: fmt.Sprintf("status %d", i),
+			Since:   &now,
+		}
+		err := s.unit.SetAgentStatus(info)
+		c.Assert(err, jc.ErrorIsNil)
+		info.Status = status.Active
+		err = s.unit.SetStatus(info)
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+	}
+
+	filter := status.StatusHistoryFilter{Size: 100}
+	agentInfo, err := s.unit.AgentHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(agentInfo), jc.GreaterThan, 9)
+
+	workloadInfo, err := s.unit.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(workloadInfo), jc.GreaterThan, 9)
+
+	versionInfo, err := s.unit.WorkloadVersionHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(versionInfo), jc.GreaterThan, 9)
+
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentInfo, err = s.unit.AgentHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentInfo, gc.HasLen, 0)
+
+	workloadInfo, err = s.unit.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(workloadInfo, gc.HasLen, 0)
+
+	versionInfo, err = s.unit.WorkloadVersionHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(versionInfo, gc.HasLen, 0)
+}
+
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	c.Assert(entity.Refresh(), gc.IsNil)
 	c.Assert(entity.Life(), gc.Equals, life)
@@ -1761,17 +1810,19 @@ snapshot:
 		},
 		{
 			actionName: "juju-run",
-			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
+			errString:  `validation failed: \(root\) : "command" property is missing and required, given \{\}; \(root\) : "timeout" property is missing and required, given \{\}`,
 		},
 		{
 			actionName:   "juju-run",
 			givenPayload: map[string]interface{}{"command": "allyourbasearebelongtous"},
-			errString:    `validation failed: (root) : "timeout" property is missing and required, given {"command":"allyourbasearebelongtous"}`,
+			errString:    `validation failed: \(root\) : "timeout" property is missing and required, given \{"command":"allyourbasearebelongtous"\}`,
 		},
 		{
 			actionName:   "juju-run",
 			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
-			errString:    `validation failed: (root) : "command" property is missing and required, given {"timeout":5e+09}`,
+			// Note: in Go 1.8 the representation of large numbers in JSON changed
+			// to use integer rather than exponential notation, hence the pattern.
+			errString: `validation failed: \(root\) : "command" property is missing and required, given \{"timeout":5.*\}`,
 		},
 		{
 			actionName:      "juju-run",
@@ -1788,8 +1839,7 @@ snapshot:
 		c.Logf("running test %d", i)
 		action, err := unit1.AddAction(t.actionName, t.givenPayload)
 		if t.errString != "" {
-			c.Assert(err.Error(), gc.Equals, t.errString)
-			continue
+			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)

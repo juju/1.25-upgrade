@@ -4,11 +4,11 @@
 package application_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }

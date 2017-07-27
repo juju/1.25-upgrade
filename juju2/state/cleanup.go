@@ -7,11 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/feature"
 )
 
 type cleanupKind string
@@ -23,7 +26,7 @@ const (
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingModel         cleanupKind = "applications"
+	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
@@ -31,6 +34,9 @@ const (
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 	cleanupModelsForDyingController      cleanupKind = "models"
 	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
+	cleanupResourceBlob                  cleanupKind = "resourceBlob"
+	cleanupVolumesForDyingModel          cleanupKind = "modelVolumes"
+	cleanupFilesystemsForDyingModel      cleanupKind = "modelFilesystems"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -59,7 +65,7 @@ func newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	count, err := cleanups.Count()
 	if err != nil {
@@ -73,7 +79,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // of the system.
 func (st *State) Cleanup() (err error) {
 	var doc cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	iter := cleanups.Find(nil).Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
@@ -91,8 +97,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
-		case cleanupServicesForDyingModel:
-			err = st.cleanupServicesForDyingModel()
+		case cleanupApplicationsForDyingModel:
+			err = st.cleanupApplicationsForDyingModel()
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
@@ -107,14 +113,14 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupModelsForDyingController()
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
+		case cleanupVolumesForDyingModel:
+			err = st.cleanupVolumesForDyingModel()
+		case cleanupFilesystemsForDyingModel:
+			err = st.cleanupFilesystemsForDyingModel()
+		case cleanupResourceBlob:
+			err = st.cleanupResourceBlob(doc.Prefix)
 		default:
-			handler, ok := cleanupHandlers[doc.Kind]
-			if !ok {
-				err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
-			} else {
-				persist := st.newPersistence()
-				err = handler(st, persist, doc.Prefix)
-			}
+			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
 			logger.Errorf("cleanup failed for %v(%q): %v", doc.Kind, doc.Prefix, err)
@@ -132,21 +138,15 @@ func (st *State) Cleanup() (err error) {
 	return nil
 }
 
-// CleanupHandler is a function that state may call during cleanup
-// to perform cleanup actions for some cleanup type.
-type CleanupHandler func(st *State, persist Persistence, prefix string) error
-
-var cleanupHandlers = map[cleanupKind]CleanupHandler{}
-
-// RegisterCleanupHandler identifies the handler to use a given
-// cleanup kind.
-func RegisterCleanupHandler(kindStr string, handler CleanupHandler) error {
-	kind := cleanupKind(kindStr)
-	if _, ok := cleanupHandlers[kind]; ok {
-		return errors.NewAlreadyExists(nil, fmt.Sprintf("cleanup handler for %q already registered", kindStr))
+func (st *State) cleanupResourceBlob(storagePath string) error {
+	// Ignore attempts to clean up a placeholder resource.
+	if storagePath == "" {
+		return nil
 	}
-	cleanupHandlers[kind] = handler
-	return nil
+
+	persist := st.newPersistence()
+	storage := persist.NewStorage()
+	return storage.Remove(storagePath)
 }
 
 func (st *State) cleanupRelationSettings(prefix string) error {
@@ -212,22 +212,90 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupServicesForDyingModel sets all services to Dying, if they are
+// cleanupVolumesForDyingModel sets all persistent volumes to Dying,
+// if they are not already Dying or Dead. It's expected to be used when
+// a model is destroyed.
+func (st *State) cleanupVolumesForDyingModel() (err error) {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, v := range volumes {
+		err := st.DestroyVolume(v.VolumeTag())
+		if errors.IsNotFound(err) {
+			continue
+		} else if IsContainsFilesystem(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupFilesystemsForDyingModel sets all persistent filesystems to
+// Dying, if they are not already Dying or Dead. It's expected to be used
+// when a model is destroyed.
+func (st *State) cleanupFilesystemsForDyingModel() (err error) {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, fs := range filesystems {
+		err := st.DestroyFilesystem(fs.FilesystemTag())
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupServicesForDyingModel() (err error) {
-	// This won't miss services, because a Dying model cannot have
-	// services added to it. But we do have to remove the services themselves
-	// via individual transactions, because they could be in any state at all.
-	applications, closer := st.getCollection(applicationsC)
+func (st *State) cleanupApplicationsForDyingModel() (err error) {
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
+			return err
+		}
+	}
+	return st.removeApplicationsForDyingModel()
+}
+
+func (st *State) removeApplicationsForDyingModel() (err error) {
+	// This won't miss applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications
+	// themselves via individual transactions, because they could be in any
+	// state at all.
+	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
-	defer closeIter(iter, &err, "reading service document")
+	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
 		if err := application.Destroy(); err != nil {
-			return err
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
+	// This won't miss remote applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications themselves
+	// via individual transactions, because they could be in any state at all.
+	remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
+	defer closer()
+	remoteApp := RemoteApplication{st: st}
+	sel := bson.D{{"life", Alive}}
+	iter := remoteApps.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading remote application document")
+	for iter.Next(&remoteApp.doc) {
+		if err := remoteApp.Destroy(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -235,12 +303,12 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
-// service is destroyed.
+// application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
-	// This won't miss units, because a Dying service cannot have units added
-	// to it. But we do have to remove the units themselves via individual
-	// transactions, because they could be in any state at all.
-	units, closer := st.getCollection(unitsC)
+	// This won't miss units, because a Dying application cannot have units
+	// added to it. But we do have to remove the units themselves via
+	// individual transactions, because they could be in any state at all.
+	units, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	unit := Unit{st: st}
@@ -262,10 +330,6 @@ func (st *State) cleanupCharm(charmURL string) error {
 	curl, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
-	}
-	if curl.Schema != "local" {
-		// No cleanup necessary or possible.
-		return nil
 	}
 
 	ch, err := st.Charm(curl)
@@ -331,7 +395,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := st.DestroyStorageAttachment(storageTag, unitTag)
+		err := st.DetachStorage(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -479,6 +543,12 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine volume attachments")
 	}
 	for _, va := range volumeAttachments {
+		if detachable, err := isDetachableVolumeTag(m.st, va.Volume()); err != nil {
+			return errors.Trace(err)
+		} else if !detachable {
+			// Non-detachable volumes will be removed along with the machine.
+			continue
+		}
 		if err := m.st.DetachVolume(va.Machine(), va.Volume()); err != nil {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
@@ -494,6 +564,12 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine filesystem attachments")
 	}
 	for _, fsa := range filesystemAttachments {
+		if detachable, err := isDetachableFilesystemTag(m.st, fsa.Filesystem()); err != nil {
+			return errors.Trace(err)
+		} else if !detachable {
+			// Non-detachable filesystems will be removed along with the machine.
+			continue
+		}
 		if err := m.st.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		}
@@ -548,7 +624,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error)
 	// have attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.getCollection(storageAttachmentsC)
+	coll, closer := st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	var doc storageAttachmentDoc
@@ -557,7 +633,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error)
 	defer closeIter(iter, &err, "reading storage attachment document")
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
-		if err := st.DestroyStorageAttachment(storageTag, unitTag); err != nil {
+		if err := st.DetachStorage(storageTag, unitTag); err != nil {
 			return errors.Annotate(err, "destroying storage attachment")
 		}
 	}
@@ -574,7 +650,7 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.getCollection(volumeAttachmentsC)
+	coll, closer := st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
 	var doc volumeAttachmentDoc
@@ -600,7 +676,7 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.getCollection(filesystemAttachmentsC)
+	coll, closer := st.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	var doc filesystemAttachmentDoc

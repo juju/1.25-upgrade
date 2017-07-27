@@ -5,117 +5,143 @@ package application
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/annotations"
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/api/charms"
-	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	jutesting "github.com/juju/testing"
+	"github.com/juju/juju/api/annotations"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/cmd/modelcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
 )
 
-type RemoveServiceSuite struct {
+type RemoveApplicationSuite struct {
 	jujutesting.RepoSuite
 	testing.CmdBlockHelper
-	stub            *jutesting.Stub
-	budgetAPIClient budgetAPIClient
 }
 
-var _ = gc.Suite(&RemoveServiceSuite{})
+var _ = gc.Suite(&RemoveApplicationSuite{})
 
-func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
+func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
-	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 }
 
-func runRemoveService(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewRemoveServiceCommand(), args...)
-	return err
+func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, NewRemoveApplicationCommand(), args...)
 }
 
-func (s *RemoveServiceSuite) setupTestService(c *gc.C) {
+func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "quantal")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	_, err := runDeploy(c, ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
-	s.setupTestService(c)
-	err := runRemoveService(c, "riak")
+func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
+	s.setupTestApplication(c)
+	ctx, err := runRemoveApplication(c, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Application("riak")
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, "removing application multi-series\n")
+	multiSeries, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Dying)
-	s.stub.CheckNoCalls(c)
+	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
 }
 
-func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
-	deploy := NewDefaultDeployCommand()
-	_, err := testing.RunCommand(c, deploy, ch, "--series", "quantal")
+func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
+
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
+	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,rootfs")
 	c.Assert(err, jc.ErrorIsNil)
-	err = runRemoveService(c, "metered")
+
+	ctx, err := runRemoveApplication(c, "storage-filesystem-multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Application("metered")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Dying)
-	s.stub.CheckNoCalls(c)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing application storage-filesystem-multi-series
+- will remove storage data/0
+- will remove storage data/1
+- will remove storage data/2
+- will remove storage data/3
+`[1:])
 }
 
-func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
-	s.setupTestService(c)
+func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-app",
+		SourceModel: names.NewModelTag("test"),
+		Token:       "token",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.RemoteApplication("remote-app")
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := runRemoveApplication(c, "remote-app")
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, "removing application remote-app\n")
+
+	// Removed immediately since there are no units.
+	_, err = s.State.RemoteApplication("remote-app")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered-multi-series")
+	deploy := NewDeployCommand()
+	_, err := cmdtesting.RunCommand(c, deploy, ch)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runRemoveApplication(c, "metered-multi-series")
+	c.Assert(err, jc.ErrorIsNil)
+	multiSeries, err := s.State.Application("metered-multi-series")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
+}
+
+func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
+	s.setupTestApplication(c)
 
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveService")
-	err := runRemoveService(c, "riak")
+	_, err := runRemoveApplication(c, "multi-series")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
-	riak, err := s.State.Application("riak")
+	multiSeries, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Alive)
-	s.stub.CheckNoCalls(c)
+	c.Assert(multiSeries.Life(), gc.Equals, state.Alive)
 }
 
-func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
+func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {
 	// Destroy an application that does not exist.
-	err := runRemoveService(c, "gargleblaster")
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "gargleblaster" not found`,
-		Code:    "not found",
-	})
-	s.stub.CheckNoCalls(c)
+	ctx, err := runRemoveApplication(c, "gargleblaster")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing application gargleblaster failed: application "gargleblaster" not found
+`[1:])
 }
 
-func (s *RemoveServiceSuite) TestInvalidArgs(c *gc.C) {
-	err := runRemoveService(c)
+func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
+	_, err := runRemoveApplication(c)
 	c.Assert(err, gc.ErrorMatches, `no application specified`)
-	err = runRemoveService(c, "ping", "pong")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["pong"\]`)
-	err = runRemoveService(c, "invalid:name")
+	_, err = runRemoveApplication(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
-	s.stub.CheckNoCalls(c)
 }
 
 type RemoveCharmStoreCharmsSuite struct {
 	charmStoreSuite
-	stub            *jutesting.Stub
-	ctx             *cmd.Context
-	budgetAPIClient budgetAPIClient
+	ctx *cmd.Context
 }
 
 var _ = gc.Suite(&RemoveCharmStoreCharmsSuite{})
@@ -123,10 +149,7 @@ var _ = gc.Suite(&RemoveCharmStoreCharmsSuite{})
 func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 	s.charmStoreSuite.SetUpTest(c)
 
-	s.ctx = testing.Context(c)
-	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
+	s.ctx = cmdtesting.Context(c)
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deployCmd := &DeployCommand{}
@@ -153,30 +176,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 		}, nil
 	}
 
-	_, err := testing.RunCommand(c, cmd, "cs:quantal/metered-1")
+	_, err := cmdtesting.RunCommand(c, cmd, "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-}
-
-func (s *RemoveCharmStoreCharmsSuite) TestRemoveAllocation(c *gc.C) {
-	err := runRemoveService(c, "metered")
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []jutesting.StubCall{{
-		"DeleteAllocation", []interface{}{testing.ModelTag.Id(), "metered"}}})
-}
-
-type mockBudgetAPIClient struct {
-	*jutesting.Stub
-}
-
-// CreateAllocation implements apiClient.
-func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
-	c.MethodCall(c, "CreateAllocation", budget, limit, model, services)
-	return "Allocation created.", c.NextErr()
-}
-
-// DeleteAllocation implements apiClient.
-func (c *mockBudgetAPIClient) DeleteAllocation(model, application string) (string, error) {
-	c.MethodCall(c, "DeleteAllocation", model, application)
-	return "Allocation removed.", c.NextErr()
 }

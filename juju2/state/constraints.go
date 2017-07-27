@@ -11,8 +11,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 )
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
@@ -89,7 +89,7 @@ func removeConstraintsOp(st *State, id string) txn.Op {
 }
 
 func readConstraints(st *State, id string) (constraints.Value, error) {
-	constraintsCollection, closer := st.getCollection(constraintsC)
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
 	doc := constraintsDoc{}

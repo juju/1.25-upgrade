@@ -3,10 +3,10 @@ juju
 
 juju is devops distilled.
 
-Juju enables you to use [Charms](http://jujucharms.com/charms) to deploy your application architectures to EC2, OpenStack,
-Azure, HP your data center and even your own Ubuntu based laptop.
-Moving between models is simple giving you the flexibility to switch hosts
-whenever you want — for free.
+Juju enables you to use [Charms](http://jujucharms.com/charms) to deploy your
+application architectures to EC2, OpenStack, Azure, GCE, your data center, and
+even your own Ubuntu based laptop.  Moving between models is simple giving you
+the flexibility to switch hosts whenever you want — for free.
 
 For more information, see the [docs](https://jujucharms.com/docs/stable/getting-started).
 
@@ -57,7 +57,7 @@ Getting juju
 
 The easiest way to get the source for `juju` is to use the `go get` command.
 
-    go get -d -v github.com/juju/1.25-upgrade/juju2/...
+    go get -d -v github.com/juju/juju/...
 
 This command will checkout the source of `juju` and inspect it for any unmet
 Go package dependencies, downloading those as well. `go get` will also build and
@@ -67,15 +67,17 @@ install `juju` and its dependencies. To checkout without installing, use the
     go help get
 
 At this point you will have the git local repository of the `juju` source at
-`$GOPATH/github.com/juju/1.25-upgrade/juju2`. The source for any dependent packages will
+`$GOPATH/src/github.com/juju/juju`. The source for any dependent packages will
 also be available inside `$GOPATH`. You can use `git pull --rebase`, or the 
-less convenient `go get -u github.com/juju/1.25-upgrade/juju2/...` to update the source
+less convenient `go get -u github.com/juju/juju/...` to update the source
 from time to time.
 If you want to know more about contributing to `juju`, please read the
 [CONTRIBUTING](CONTRIBUTING.md) companion to this file.
 
 Installing prerequisites
 ------------------------
+
+### *Runtime Dependencies*
 
 You can use `make install-dependencies` or, if you prefer to install
 them manually, check the Makefile target.
@@ -84,11 +86,17 @@ This will add some PPAs to ensure that you can install the required
 golang and mongodb-server versions for precise onwards, in addition to the
 other dependencies.
 
+### *Build Dependencies*
+
+Before you can build Juju, see
+[Dependency management](CONTRIBUTING.md#dependency-management) section of
+`CONTRIBUTING` to ensure you have build dependencies setup.
+
 
 Building juju
 =============
 
-    go install -v github.com/juju/1.25-upgrade/juju2/...
+    go install -v github.com/juju/juju/...
 
 Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
 if you have just completed the previous step to get the `juju` source, the
@@ -110,13 +118,9 @@ commands. You can verify this using
 
     which juju
 
-You should be able to bootstrap a local model now with the following
-(Note: the use of sudo for bootstrap here is only required for the local
-provider because it uses LXC, which requires root privileges)
+You should be able to bootstrap a local model now with the following:
 
-    juju init
-    juju switch local
-    sudo juju bootstrap
+    juju bootstrap localhost
 
 Installing bash completion for juju
 ===================================
@@ -153,3 +157,7 @@ To enable strict mode, the following bugs need to be resolved, and the snap upda
  * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
 
+Needed for confinement
+----------------------
+ * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
+ * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)

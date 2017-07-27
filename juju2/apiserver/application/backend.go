@@ -8,15 +8,18 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 // Backend defines the state functionality required by the application
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
+	AllModels() ([]Model, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 	RemoteApplication(name string) (*state.RemoteApplication, error)
@@ -30,6 +33,10 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
+	NewStorage() storage.Storage
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -46,6 +53,7 @@ type BlockChecker interface {
 // the same names.
 type Application interface {
 	AddUnit() (*state.Unit, error)
+	AllUnits() ([]Unit, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
@@ -70,6 +78,7 @@ type Application interface {
 // the same names.
 type Charm interface {
 	charm.Charm
+	StoragePath() string
 }
 
 // Machine defines a subset of the functionality provided by the
@@ -93,9 +102,20 @@ type Relation interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
+	UnitTag() names.UnitTag
 	Destroy() error
 	IsPrincipal() bool
 	Life() state.Life
+}
+
+// Model defines a subset of the functionality provided by the
+// state.Model type, as required by the application facade. For
+// details on the methods, see the methods on state.Model with
+// the same names.
+type Model interface {
+	Tag() names.Tag
+	Name() string
+	Owner() names.UserTag
 }
 
 type stateShim struct {
@@ -113,6 +133,10 @@ func NewStateBackend(st *state.State) Backend {
 // charm.Charm and charm.URL.
 func CharmToStateCharm(ch Charm) *state.Charm {
 	return ch.(stateCharmShim).Charm
+}
+
+func (s stateShim) NewStorage() storage.Storage {
+	return storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 }
 
 func (s stateShim) Application(name string) (Application, error) {
@@ -163,6 +187,18 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	return stateUnitShim{u}, nil
 }
 
+func (s stateShim) AllModels() ([]Model, error) {
+	models, err := s.State.AllModels()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Model, len(models))
+	for i, m := range models {
+		result[i] = stateModelShim{m}
+	}
+	return result, nil
+}
+
 type stateApplicationShim struct {
 	*state.Application
 }
@@ -173,6 +209,18 @@ func (a stateApplicationShim) Charm() (Charm, bool, error) {
 		return nil, false, err
 	}
 	return ch, force, nil
+}
+
+func (a stateApplicationShim) AllUnits() ([]Unit, error) {
+	units, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Unit, len(units))
+	for i, u := range units {
+		out[i] = stateUnitShim{u}
+	}
+	return out, nil
 }
 
 type stateCharmShim struct {
@@ -189,4 +237,8 @@ type stateRelationShim struct {
 
 type stateUnitShim struct {
 	*state.Unit
+}
+
+type stateModelShim struct {
+	*state.Model
 }

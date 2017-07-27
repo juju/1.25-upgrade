@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/feature"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type logSuite struct {

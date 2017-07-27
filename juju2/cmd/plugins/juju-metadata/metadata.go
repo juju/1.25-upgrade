@@ -4,17 +4,16 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/juju"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
+	_ "github.com/juju/juju/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.plugins.metadata")
@@ -30,11 +29,11 @@ Juju model.
 func Main(args []string) {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		os.Exit(2)
 	}
 	if err := juju.InitJujuXDGDataHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		os.Exit(2)
 	}
 	os.Exit(cmd.Main(NewSuperCommand(), ctx, args[1:]))

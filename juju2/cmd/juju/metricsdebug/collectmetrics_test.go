@@ -4,6 +4,7 @@
 package metricsdebug_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -11,12 +12,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/action"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/metricsdebug"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/juju/metricsdebug"
+	"github.com/juju/juju/cmd/modelcmd"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type collectMetricsSuite struct {
@@ -309,12 +310,12 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 			runClient.results = test.results
 		}
 		metricsdebug.PatchGetActionResult(s.PatchValue, test.actionMap)
-		ctx, err := coretesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), test.args...)
+		ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), test.args...)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(coretesting.Stdout(ctx), gc.Matches, test.stdout)
+			c.Assert(cmdtesting.Stdout(ctx), gc.Matches, test.stdout)
 		}
 	}
 }
@@ -326,7 +327,7 @@ func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
 	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
-	_, err := coretesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), "foobar")
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), "foobar")
 	c.Assert(err, gc.ErrorMatches, `"foobar" is not a local charm`)
 	runClient.CheckCallNames(c, "Close")
 }

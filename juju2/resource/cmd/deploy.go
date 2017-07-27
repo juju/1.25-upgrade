@@ -12,7 +12,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/juju/charmstore"
 )
 
 // DeployClient exposes the functionality of the resources API needed

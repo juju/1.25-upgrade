@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const remoteRelationsFacade = "RemoteRelations"
@@ -47,13 +47,14 @@ func (c *Client) PublishLocalRelationChange(change params.RemoteRelationChangeEv
 	return nil
 }
 
-// ConsumeRemoteApplicationChange consumes remote changes to applications into the local model.
-func (c *Client) ConsumeRemoteApplicationChange(change params.RemoteApplicationChange) error {
-	args := params.RemoteApplicationChanges{
-		Changes: []params.RemoteApplicationChange{change},
+// ImportRemoteEntity adds an entity to the remote entities collection
+// with the specified opaque token.
+func (c *Client) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
+		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String(), Token: token}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ConsumeRemoteApplicationChange", args, &results)
+	err := c.facade.FacadeCall("ImportRemoteEntities", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -84,11 +85,36 @@ func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult
 	return results.Results, nil
 }
 
-// RegisterRemoteRelation sets up the local model to participate in the specified relation.
-func (c *Client) RegisterRemoteRelation(rel params.RegisterRemoteRelation) error {
-	args := params.RegisterRemoteRelations{Relations: []params.RegisterRemoteRelation{rel}}
+// GetToken returns the token associated with the entity with the given tag for the specified model.
+func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error) {
+	args := params.GetTokenArgs{Args: []params.GetTokenArg{
+		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: tag.String()}},
+	}
+	var results params.StringResults
+	err := c.facade.FacadeCall("GetTokens", args, &results)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		if params.IsCodeNotFound(result.Error) {
+			return "", errors.NotFoundf("token for %v in model %v", tag, sourceModelUUID)
+		}
+		return "", errors.Trace(result.Error)
+	}
+	return result.Result, nil
+}
+
+// RemoveRemoteEntity removes the specified entity from the remote entities collection.
+func (c *Client) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
+		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String()}},
+	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
+	err := c.facade.FacadeCall("RemoveRemoteEntities", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -100,6 +126,20 @@ func (c *Client) RegisterRemoteRelation(rel params.RegisterRemoteRelation) error
 		return errors.Trace(result.Error)
 	}
 	return nil
+}
+
+// RegisterRemoteRelations sets up the local model to participate in the specified relations.
+func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
+	args := params.RegisterRemoteRelations{Relations: relations}
+	var results params.RemoteEntityIdResults
+	err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(relations) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(relations), len(results.Results))
+	}
+	return results.Results, nil
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
@@ -220,5 +260,20 @@ func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUn
 		return nil, result.Error
 	}
 	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchRemoteRelations returns a strings watcher that notifies of the addition,
+// removal, and lifecycle changes of remote relations in the model.
+func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	err := c.facade.FacadeCall("WatchRemoteRelations", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }

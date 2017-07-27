@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/cmd"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewConfigCommandForTest returns a configCommand with the api
@@ -46,7 +46,7 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 func NewShowCommandForTest(api ShowModelAPI, refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore) cmd.Command {
 	cmd := &showModelCommand{api: api, RefreshModels: refreshFunc}
 	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
 }
 
 // NewDumpCommandForTest returns a DumpCommand with the api provided as specified.
@@ -66,11 +66,13 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
 func NewDestroyCommandForTest(
 	api DestroyModelAPI,
+	configApi ModelConfigAPI,
 	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
 	sleepFunc func(time.Duration),
 ) cmd.Command {
 	cmd := &destroyCommand{
 		api:           api,
+		configApi:     configApi,
 		RefreshModels: refreshFunc,
 		sleepFunc:     sleepFunc,
 	}
@@ -91,19 +93,23 @@ type RevokeCommand struct {
 }
 
 // NewGrantCommandForTest returns a GrantCommand with the api provided as specified.
-func NewGrantCommandForTest(api GrantModelAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCommand) {
+func NewGrantCommandForTest(modelsApi GrantModelAPI, offersAPI GrantOfferAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCommand) {
 	cmd := &grantCommand{
-		api: api,
+		modelsApi: modelsApi,
+		offersApi: offersAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd), &GrantCommand{cmd}
 }
 
 // NewRevokeCommandForTest returns an revokeCommand with the api provided as specified.
-func NewRevokeCommandForTest(api RevokeModelAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCommand) {
+func NewRevokeCommandForTest(modelsApi RevokeModelAPI, offersAPI RevokeOfferAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCommand) {
 	cmd := &revokeCommand{
-		api: api,
+		modelsApi: modelsApi,
+		offersApi: offersAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
 }
+
+var GetBudgetAPIClient = &getBudgetAPIClient

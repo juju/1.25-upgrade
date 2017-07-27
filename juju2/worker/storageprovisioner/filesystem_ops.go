@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 )
 
 // createFilesystems creates filesystems with the specified parameters.
@@ -469,6 +469,7 @@ func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 			"",
 			params.FilesystemInfo{
 				f.FilesystemId,
+				"", // pool
 				f.Size,
 			},
 		}

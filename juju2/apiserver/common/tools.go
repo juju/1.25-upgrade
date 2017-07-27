@@ -11,13 +11,13 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
+	coretools "github.com/juju/juju/tools"
 )
 
 var envtoolsFindTools = envtools.FindTools

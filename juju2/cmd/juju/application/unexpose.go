@@ -7,9 +7,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var usageUnexposeSummary = `
@@ -27,7 +27,7 @@ See also:
     expose`[1:]
 
 // NewUnexposeCommand returns a command to unexpose services.
-func NewUnexposeCommand() cmd.Command {
+func NewUnexposeCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&unexposeCommand{})
 }
 

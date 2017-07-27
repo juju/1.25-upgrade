@@ -13,10 +13,10 @@ import (
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
@@ -26,6 +26,11 @@ type environProvider struct {
 }
 
 var providerInstance environProvider
+
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
+}
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
@@ -102,6 +107,11 @@ func awsClient(cloud environs.CloudSpec) (*ec2.EC2, error) {
 // this provider does not support custom clouds, this always returns nil.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

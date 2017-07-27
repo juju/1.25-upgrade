@@ -10,11 +10,11 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/provider/ec2/internal/ec2instancetypes"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&specSuite{})

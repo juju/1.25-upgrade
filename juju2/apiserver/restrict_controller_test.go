@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/testing"
 )
 
 type restrictControllerSuite struct {
@@ -35,8 +35,7 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "Pinger", 1, "Ping")
 	s.assertMethod(c, "Bundle", 1, "GetChanges")
 	s.assertMethod(c, "HighAvailability", 2, "EnableHA")
-	s.assertMethod(c, "CrossModelRelations", 1, "FindApplicationOffers")
-	s.assertMethod(c, "ApplicationOffers", 1, "ListOffers")
+	s.assertMethod(c, "ApplicationOffers", 1, "ApplicationOffers")
 }
 
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {

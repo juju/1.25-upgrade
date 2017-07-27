@@ -21,7 +21,7 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cert"
+	"github.com/juju/juju/cert"
 )
 
 func TestAll(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/downloader"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/testing"
 )
 
 type DownloaderSuite struct {

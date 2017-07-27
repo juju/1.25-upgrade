@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ConfigValidatorSuite struct {
@@ -63,7 +63,7 @@ func (s *ConfigValidatorSuite) updateModelConfig(c *gc.C) error {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	return s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	return s.State.UpdateModelConfig(updateAttrs, nil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {

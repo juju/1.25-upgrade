@@ -16,11 +16,11 @@ import (
 	"github.com/lxc/lxd/shared"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/provider/lxd/lxdnames"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environProvider struct {
@@ -39,6 +39,11 @@ func NewProvider() environs.EnvironProvider {
 		},
 		interfaceAddress: utils.GetAddressForInterface,
 	}
+}
+
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
 }
 
 // Open implements environs.EnvironProvider.
@@ -61,6 +66,11 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 // this provider does not support custom clouds, this always returns nil.
 func (p *environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p *environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig implements environs.EnvironProvider.

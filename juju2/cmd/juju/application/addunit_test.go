@@ -6,16 +6,17 @@ package application_test
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/application"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/testing"
 )
 
 type AddUnitSuite struct {
@@ -90,13 +91,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := testing.InitCommand(application.NewAddUnitCommandForTest(s.fake), t.args)
+		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), args...)
 	return err
 }
 
@@ -141,8 +142,8 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	ctx, _ := testing.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	ctx, _ := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 

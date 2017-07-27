@@ -6,9 +6,9 @@ package storage
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 type State interface {

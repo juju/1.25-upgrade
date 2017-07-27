@@ -13,15 +13,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/keymanager"
-	keymanagertesting "github.com/juju/1.25-upgrade/juju2/apiserver/keymanager/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/keymanager"
+	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type keyManagerSuite struct {
@@ -58,28 +58,24 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
-func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsController(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Controller = true
-	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endPoint, gc.NotNil)
+func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesController(c *gc.C) {
+	s.testNewKeyManagerAPIRefuses(c, names.NewMachineTag("0"), true)
 }
 
-func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-	anAuthoriser.Controller = false
-	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesUnit(c *gc.C) {
+	s.testNewKeyManagerAPIRefuses(c, names.NewUnitTag("mysql/0"), false)
 }
 
-func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonController(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Tag = names.NewMachineTag("99")
-	anAuthoriser.Controller = false
-	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesMachine(c *gc.C) {
+	s.testNewKeyManagerAPIRefuses(c, names.NewMachineTag("99"), false)
+}
+
+func (s *keyManagerSuite) testNewKeyManagerAPIRefuses(c *gc.C, tag names.Tag, controller bool) {
+	auth := apiservertesting.FakeAuthorizer{
+		Tag:        tag,
+		Controller: controller,
+	}
+	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, auth)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -89,7 +85,7 @@ func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
 }
 
 func (s *keyManagerSuite) setAuthorisedKeysForModel(c *gc.C, st *state.State, keys string) {
-	err := st.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := st.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	modelConfig, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +134,7 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 	})
 }
 
-func (s *keyManagerSuite) TestListJujuSystemKeyAsUser(c *gc.C) {
+func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("fred")
 	var err error
@@ -252,57 +248,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	s.assertModelKeys(c, initialKeys)
 }
 
-func (s *keyManagerSuite) TestAddJujuSystemKeyAsController(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Controller = true
-	anAuthoriser.Tag = names.NewMachineTag("0")
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(err, jc.ErrorIsNil)
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
-
-	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
-	args := params.ModifyUserSSHKeys{
-		User: "juju-system-key",
-		Keys: []string{newKey},
-	}
-	results, err := s.keymanager.AddKeys(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
-	s.assertModelKeys(c, append(initialKeys, newKey))
-}
-
-func (s *keyManagerSuite) TestAddUserKeyAsController(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Tag = names.NewMachineTag("controller")
-	anAuthoriser.Controller = true
-	var err error
-	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(err, jc.ErrorIsNil)
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key
-	initialKeys := []string{key1, key2}
-	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
-
-	newKey := sshtesting.ValidKeyThree.Key + " some-user"
-	args := params.ModifyUserSSHKeys{
-		User: "some-user",
-		Keys: []string{newKey},
-	}
-	_, err = s.keymanager.AddKeys(args)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-	s.assertModelKeys(c, initialKeys)
-}
-
-func (s *keyManagerSuite) TestAddJujuSystemKeyAsUser(c *gc.C) {
+func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("fred")
 	var err error

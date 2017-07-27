@@ -13,15 +13,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/common"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmstore"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 type charmVersionSuite struct {
@@ -52,6 +53,7 @@ func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
+		Tag:        names.NewMachineTag("99"),
 	}
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
@@ -109,14 +111,14 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Update mysql version and run update again.
-	svc, err := s.State.Application("mysql")
+	app, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
 	cfg := state.SetCharmConfig{
 		Charm:      ch,
 		ForceUnits: true,
 	}
-	err = svc.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = s.charmrevisionupdater.UpdateLatestRevisions()
@@ -182,14 +184,15 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cloud, err := s.State.Cloud(env.Cloud())
+	cloud, err := s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	expected_header := []string{
-		"environment_uuid=" + env.UUID(),
-		"cloud=" + env.Cloud(),
-		"cloud_region=" + env.CloudRegion(),
+		"environment_uuid=" + model.UUID(),
+		"controller_uuid=" + s.State.ControllerUUID(),
+		"cloud=" + model.Cloud(),
+		"cloud_region=" + model.CloudRegion(),
 		"provider=" + cloud.Type,
 		"controller_version=" + version.Current.String(),
 	}

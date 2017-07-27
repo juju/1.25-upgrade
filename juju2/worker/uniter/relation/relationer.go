@@ -8,9 +8,9 @@ import (
 
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	apiuniter "github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 // Relationer manages a unit's presence in a relation.

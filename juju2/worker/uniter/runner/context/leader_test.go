@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type LeaderSuite struct {

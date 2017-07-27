@@ -11,9 +11,9 @@ import (
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit/cloudinittest"
-	"github.com/juju/1.25-upgrade/juju2/provider/cloudsigma"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
+	"github.com/juju/juju/provider/cloudsigma"
+	"github.com/juju/juju/testing"
 )
 
 type UserdataSuite struct{ testing.BaseSuite }

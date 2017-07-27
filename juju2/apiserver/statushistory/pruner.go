@@ -4,27 +4,25 @@
 package statushistory
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("StatusHistory", 2, NewAPI)
-}
-
-// API is the concrete implementation of the Pruner endpoint..
+// API is the concrete implementation of the Pruner endpoint.
 type API struct {
+	*common.ModelWatcher
 	st         *state.State
 	authorizer facade.Authorizer
 }
 
 // NewAPI returns an API Instance.
-func NewAPI(st *state.State, _ facade.Resources, auth facade.Authorizer) (*API, error) {
+func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, error) {
 	return &API{
-		st:         st,
-		authorizer: auth,
+		ModelWatcher: common.NewModelWatcher(st, r, auth),
+		st:           st,
+		authorizer:   auth,
 	}, nil
 }
 

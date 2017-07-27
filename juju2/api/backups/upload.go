@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/httpattachment"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/apiserver/httpattachment"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Upload sends the backup archive to remote storage.

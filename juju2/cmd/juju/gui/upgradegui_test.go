@@ -17,17 +17,17 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/controller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/gui"
-	envgui "github.com/juju/1.25-upgrade/juju2/environs/gui"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/gui"
+	envgui "github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/simplestreams"
+	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 type upgradeGUISuite struct {
@@ -38,8 +38,8 @@ var _ = gc.Suite(&upgradeGUISuite{})
 
 // run executes the upgrade-gui command passing the given args.
 func (s *upgradeGUISuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := coretesting.RunCommand(c, gui.NewUpgradeGUICommand(), args...)
-	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
+	ctx, err := cmdtesting.RunCommand(c, gui.NewUpgradeGUICommand(), args...)
+	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
 // calledFunc is returned by the patch* methods below, and when called reports

@@ -7,8 +7,8 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
@@ -100,7 +100,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.RawMetadata = compute.Metadata{
 		Items: []*compute.MetadataItems{{
 			Key:   "eggs",
-			Value: "steak",
+			Value: StringPtr("steak"),
 		}},
 		Fingerprint: "heymumwatchthis",
 	}
@@ -130,11 +130,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{
-			ID:        "spam",
-			ZoneName:  "a-zone",
-			Status:    StatusRunning,
-			Metadata:  s.Metadata,
-			Addresses: s.Addresses,
+			ID:                "spam",
+			ZoneName:          "a-zone",
+			Status:            StatusRunning,
+			Metadata:          s.Metadata,
+			Addresses:         s.Addresses,
+			NetworkInterfaces: s.RawInstance.NetworkInterfaces,
 		},
 		spec: &s.InstanceSpec,
 	}
@@ -142,6 +143,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
+}
+
+func StringPtr(val string) *string {
+	return &val
 }
 
 type fakeCall struct {
@@ -170,13 +175,15 @@ type fakeConn struct {
 	Project       *compute.Project
 	Instance      *compute.Instance
 	Instances     []*compute.Instance
-	Firewall      *compute.Firewall
+	Firewalls     []*compute.Firewall
 	Zones         []*compute.Zone
 	Err           error
 	FailOnCall    int
 	Disks         []*compute.Disk
 	Disk          *compute.Disk
 	AttachedDisks []*compute.AttachedDisk
+	Networks      []*compute.Network
+	Subnetworks   []*compute.Subnetwork
 }
 
 func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
@@ -258,9 +265,9 @@ func (rc *fakeConn) RemoveInstance(projectID, zone, id string) error {
 	return err
 }
 
-func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, error) {
+func (rc *fakeConn) GetFirewalls(projectID, name string) ([]*compute.Firewall, error) {
 	call := fakeCall{
-		FuncName:  "GetFirewall",
+		FuncName:  "GetFirewalls",
 		ProjectID: projectID,
 		Name:      name,
 	}
@@ -270,7 +277,7 @@ func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, erro
 	if len(rc.Calls) != rc.FailOnCall+1 {
 		err = nil
 	}
-	return rc.Firewall, err
+	return rc.Firewalls, err
 }
 
 func (rc *fakeConn) AddFirewall(projectID string, firewall *compute.Firewall) error {
@@ -479,4 +486,39 @@ func (rc *fakeConn) SetMetadata(projectID, zone, instanceID string, metadata *co
 		err = nil
 	}
 	return err
+}
+
+func (rc *fakeConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	call := fakeCall{
+		FuncName:  "ListNetworks",
+		ProjectID: projectID,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Networks, nil
+}
+
+func (rc *fakeConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	call := fakeCall{
+		FuncName:  "ListSubnetworks",
+		ProjectID: projectID,
+		Region:    region,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Subnetworks, nil
 }

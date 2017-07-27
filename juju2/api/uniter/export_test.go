@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/apiserver/params"
 )
 
 var (
@@ -42,3 +42,5 @@ func PatchUnitFacadeCall(p testing.Patcher, u *Unit, respFunc func(request strin
 func CreateUnit(st *State, tag names.UnitTag) *Unit {
 	return &Unit{st, tag, params.Alive}
 }
+
+var NewStateV4 = newStateForVersionFn(4)

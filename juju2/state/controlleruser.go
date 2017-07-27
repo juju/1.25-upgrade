@@ -13,7 +13,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/juju/permission"
 )
 
 const defaultControllerPermission = permission.LoginAccess
@@ -35,7 +35,7 @@ func (st *State) setControllerAccess(access permission.Access, userGlobalKey str
 // controllerUser a model userAccessDoc.
 func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	controllerUser := userAccessDoc{}
-	controllerUsers, closer := st.getCollection(controllerUsersC)
+	controllerUsers, closer := st.db().GetCollection(controllerUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Id())

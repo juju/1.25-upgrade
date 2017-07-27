@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/juju/juju/osenv"
 )
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
@@ -317,6 +317,7 @@ var defaultCloudDescription = map[string]string{
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",
 	"openstack":   "Openstack Cloud",
+	"oracle":      "Oracle Compute Cloud Service",
 }
 
 // WritePublicCloudMetadata marshals to YAML and writes the cloud metadata

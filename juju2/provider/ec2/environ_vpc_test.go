@@ -12,8 +12,8 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/network"
 )
 
 type vpcSuite struct {

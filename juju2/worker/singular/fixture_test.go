@@ -13,13 +13,13 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/singular"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/lease"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/singular"
 )
 
 type fixture struct {
@@ -110,6 +110,30 @@ func (facade *stubFacade) Wait() error {
 	facade.stub.AddCall("Wait")
 	<-facade.block
 	return facade.stub.NextErr()
+}
+
+type stubWorker struct {
+	stub *testing.Stub
+}
+
+func newStubWorker(stub *testing.Stub) *stubWorker {
+	return &stubWorker{
+		stub: stub,
+	}
+}
+
+func (w *stubWorker) Check() bool {
+	w.stub.MethodCall(w, "Check")
+	return true
+}
+
+func (w *stubWorker) Kill() {
+	w.stub.MethodCall(w, "Kill")
+}
+
+func (w *stubWorker) Wait() error {
+	w.stub.MethodCall(w, "Wait")
+	return w.stub.NextErr()
 }
 
 var errClaimDenied = errors.Trace(lease.ErrClaimDenied)

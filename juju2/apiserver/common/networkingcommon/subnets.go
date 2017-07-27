@@ -13,12 +13,12 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	providercommon "github.com/juju/juju/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
@@ -349,6 +349,7 @@ func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSub
 	// Try adding the subnet.
 	backingInfo := BackingSubnetInfo{
 		ProviderId:        subnetInfo.ProviderId,
+		ProviderNetworkId: subnetInfo.ProviderNetworkId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AvailabilityZones: zones,
@@ -414,14 +415,22 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 			)
 			continue
 		}
+		// TODO(babbageclunk): make the empty string a valid space
+		// name, rather than treating blank as "doesn't have a space".
+		// lp:1672888
+		var spaceTag string
+		if subnet.SpaceName() != "" {
+			spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
+		}
 		result := params.Subnet{
-			CIDR:       subnet.CIDR(),
-			ProviderId: string(subnet.ProviderId()),
-			VLANTag:    subnet.VLANTag(),
-			Life:       subnet.Life(),
-			SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),
-			Zones:      subnet.AvailabilityZones(),
-			Status:     subnet.Status(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			Life:              subnet.Life(),
+			SpaceTag:          spaceTag,
+			Zones:             subnet.AvailabilityZones(),
+			Status:            subnet.Status(),
 		}
 		results.Results = append(results.Results, result)
 	}

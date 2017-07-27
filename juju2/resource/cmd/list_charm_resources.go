@@ -11,8 +11,8 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // CharmResourceLister lists resources for the given charm ids.
@@ -64,7 +64,7 @@ func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resources",
 		Args:    "<charm>",
-		Purpose: "display the resources for a charm in the charm store",
+		Purpose: "Display the resources for a charm in the charm store.",
 		Doc:     listCharmResourcesDoc,
 		Aliases: []string{"list-resources"},
 	}

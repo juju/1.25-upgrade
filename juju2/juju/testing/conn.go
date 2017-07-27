@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,35 +26,35 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/cert"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	statestorage "github.com/juju/1.25-upgrade/juju2/state/storage"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const ControllerName = "kontroll"
@@ -321,7 +322,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value
@@ -726,6 +727,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

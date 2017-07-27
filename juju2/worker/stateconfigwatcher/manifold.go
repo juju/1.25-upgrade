@@ -8,11 +8,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/worker/dependency"
 )
 
 var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")

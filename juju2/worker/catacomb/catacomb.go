@@ -5,13 +5,14 @@ package catacomb
 
 import (
 	"fmt"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
-
-	"github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // Catacomb is a variant of tomb.Tomb with its own internal goroutine, designed
@@ -166,17 +167,23 @@ func (catacomb *Catacomb) add(w worker.Worker) {
 	// We must wait for _both_ goroutines to exit in
 	// arbitrary order depending on the order of the worker
 	// and the catacomb shutting down.
+	workerDone := make(chan struct{})
 	catacomb.wg.Add(2)
 	go func() {
 		defer catacomb.wg.Done()
+		defer close(workerDone)
 		if err := w.Wait(); err != nil {
 			catacomb.Kill(err)
 		}
 	}()
 	go func() {
 		defer catacomb.wg.Done()
-		<-catacomb.tomb.Dying()
-		worker.Stop(w)
+		select {
+		case <-catacomb.tomb.Dying():
+			worker.Stop(w)
+		case <-workerDone:
+			// Exit the go routine to release the worker's memory.
+		}
 	}()
 }
 
@@ -195,6 +202,12 @@ func (catacomb *Catacomb) Dead() <-chan struct{} {
 // non-tomb.ErrDying error passed to Kill before Invoke finished.
 func (catacomb *Catacomb) Wait() error {
 	return catacomb.tomb.Wait()
+}
+
+// Err returns the reason for the catacomb death provided via Kill
+// or Killf, or ErrStillAlive when the catacomb is still alive.
+func (catacomb *Catacomb) Err() error {
+	return catacomb.tomb.Err()
 }
 
 // Kill kills the Catacomb's internal tomb with the supplied error, or one
@@ -248,12 +261,29 @@ func (err dyingError) Error() string {
 	return fmt.Sprintf("catacomb %p is dying", err.catacomb)
 }
 
+// errWithStackTrace holds the runtime stack associated with an error.
+// This makes test failures under the gocheck framework easier to debug.
+type errWithStackTrace struct {
+	error
+	stackTrace string
+}
+
+// StackTrace implements checkers.ErrorStacker.
+func (e *errWithStackTrace) StackTrace() []string {
+	result := strings.Split(errors.ErrorStack(e), "\n")
+	if e.stackTrace != "" {
+		result = append(result, "stacktrace:", e.stackTrace)
+	}
+	return result
+}
+
 // runSafely will ensure that the function is run, and any error is returned.
 // If there is a panic, then that will be returned as an error.
 func runSafely(f func() error) (err error) {
 	defer func() {
 		if panicResult := recover(); panicResult != nil {
 			err = errors.Errorf("panic resulted in: %v", panicResult)
+			err = &errWithStackTrace{err, string(debug.Stack())}
 		}
 	}()
 	return f()

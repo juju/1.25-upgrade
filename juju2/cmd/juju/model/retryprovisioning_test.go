@@ -6,15 +6,16 @@ package model_test
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/testing"
 )
 
 type retryProvisioningSuite struct {
@@ -123,13 +124,13 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
 		command := model.NewRetryProvisioningCommandForTest(s.fake)
-		context, err := testing.RunCommand(c, command, t.args...)
+		context, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
-		output := testing.Stderr(context)
+		output := cmdtesting.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, gc.Equals, t.stdErr)
 		if t.args[0] == "0" {
@@ -142,11 +143,11 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 
 func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockRetryProvisioning")
-	command := model.NewRetryProvisioningCommandForTest(s.fake)
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		_, err := testing.RunCommand(c, command, t.args...)
+		command := model.NewRetryProvisioningCommandForTest(s.fake)
+		_, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/downloader"
+	"github.com/juju/juju/downloader"
 )
 
 // Download exposes the downloader.Download methods needed here.

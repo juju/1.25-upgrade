@@ -6,33 +6,30 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/api/charms"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewRemoveServiceCommand returns a command which removes an application.
-func NewRemoveServiceCommand() cmd.Command {
-	return modelcmd.Wrap(&removeServiceCommand{})
+// NewRemoveApplicationCommand returns a command which removes an application.
+func NewRemoveApplicationCommand() cmd.Command {
+	return modelcmd.Wrap(&removeApplicationCommand{})
 }
 
 // removeServiceCommand causes an existing application to be destroyed.
-type removeServiceCommand struct {
+type removeApplicationCommand struct {
 	modelcmd.ModelCommandBase
-	ApplicationName string
+	ApplicationNames []string
 }
 
-var helpSummaryRmSvc = `
-Remove an application from the model.`[1:]
+var helpSummaryRmApp = `
+Remove applications from the model.`[1:]
 
-var helpDetailsRmSvc = `
+var helpDetailsRmApp = `
 Removing an application will terminate any relations that application has, remove
 all units of the application, and in the case that this leaves machines with
 no running applications, Juju will also remove the machine. For this reason,
@@ -45,106 +42,119 @@ Examples:
     juju remove-application hadoop
     juju remove-application -m test-model mariadb`[1:]
 
-func (c *removeServiceCommand) Info() *cmd.Info {
+func (c *removeApplicationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-application",
-		Args:    "<application>",
-		Purpose: helpSummaryRmSvc,
-		Doc:     helpDetailsRmSvc,
+		Args:    "<application> [<application>...]",
+		Purpose: helpSummaryRmApp,
+		Doc:     helpDetailsRmApp,
 	}
 }
 
-func (c *removeServiceCommand) Init(args []string) error {
+func (c *removeApplicationCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no application specified")
 	}
-	if !names.IsValidApplication(args[0]) {
-		return errors.Errorf("invalid application name %q", args[0])
+	for _, arg := range args {
+		if !names.IsValidApplication(arg) {
+			return errors.Errorf("invalid application name %q", arg)
+		}
 	}
-	c.ApplicationName, args = args[0], args[1:]
-	return cmd.CheckEmpty(args)
+	c.ApplicationNames = args
+	return nil
 }
 
-type ServiceAPI interface {
+type removeApplicationAPI interface {
 	Close() error
-	Destroy(serviceName string) error
-	DestroyUnits(unitNames ...string) error
-	GetCharmURL(serviceName string) (*charm.URL, error)
+	DestroyApplications(appName ...string) ([]params.DestroyApplicationResult, error)
+	DestroyDeprecated(appName string) error
+	DestroyUnits(unitNames ...string) ([]params.DestroyUnitResult, error)
+	DestroyUnitsDeprecated(unitNames ...string) error
+	GetCharmURL(appName string) (*charm.URL, error)
 	ModelUUID() string
 }
 
-func (c *removeServiceCommand) getAPI() (ServiceAPI, error) {
+func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, int, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
-	return application.NewClient(root), nil
+	version := root.BestFacadeVersion("Application")
+	return application.NewClient(root), version, nil
 }
 
-func (c *removeServiceCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
+	client, apiVersion, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	err = block.ProcessBlockedError(client.Destroy(c.ApplicationName), block.BlockRemove)
-	if err != nil {
-		return err
+
+	if apiVersion < 4 {
+		return c.removeApplicationsDeprecated(ctx, client)
 	}
-	return c.removeAllocation(ctx)
+	return c.removeApplications(ctx, client)
 }
 
-func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
-	client, err := c.getAPI()
-	if err != nil {
-		return err
-	}
-	charmURL, err := client.GetCharmURL(c.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if charmURL.Schema == "local" {
-		return nil
-	}
-
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	charmsClient := charms.NewClient(root)
-	metered, err := charmsClient.IsMetered(charmURL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !metered {
-		return nil
-	}
-
-	modelUUID := client.ModelUUID()
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	budgetClient := getBudgetAPIClient(bakeryClient)
-
-	resp, err := budgetClient.DeleteAllocation(modelUUID, c.ApplicationName)
-	if wireformat.IsNotAvail(err) {
-		logger.Warningf("allocation not removed: %v", err)
-	} else if err != nil {
-		return err
-	}
-	if resp != "" {
-		logger.Infof(resp)
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (c *removeApplicationCommand) removeApplicationsDeprecated(
+	ctx *cmd.Context,
+	client removeApplicationAPI,
+) error {
+	for _, name := range c.ApplicationNames {
+		err := client.DestroyDeprecated(name)
+		if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
 
-var getBudgetAPIClient = getBudgetAPIClientImpl
-
-func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) budgetAPIClient {
-	return budget.NewClient(bakeryClient)
-}
-
-type budgetAPIClient interface {
-	DeleteAllocation(string, string) (string, error)
+func (c *removeApplicationCommand) removeApplications(
+	ctx *cmd.Context,
+	client removeApplicationAPI,
+) error {
+	results, err := client.DestroyApplications(c.ApplicationNames...)
+	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+		return errors.Trace(err)
+	}
+	anyFailed := false
+	for i, name := range c.ApplicationNames {
+		result := results[i]
+		if result.Error != nil {
+			ctx.Infof("removing application %s failed: %s", name, result.Error)
+			anyFailed = true
+			continue
+		}
+		ctx.Infof("removing application %s", name)
+		for _, entity := range result.Info.DestroyedUnits {
+			unitTag, err := names.ParseUnitTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Verbosef("- will remove %s", names.ReadableString(unitTag))
+		}
+		for _, entity := range result.Info.DestroyedStorage {
+			storageTag, err := names.ParseStorageTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will remove %s", names.ReadableString(storageTag))
+		}
+		for _, entity := range result.Info.DetachedStorage {
+			storageTag, err := names.ParseStorageTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will detach %s", names.ReadableString(storageTag))
+		}
+	}
+	if anyFailed {
+		return cmd.ErrSilent
+	}
+	return nil
 }

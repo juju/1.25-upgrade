@@ -6,6 +6,7 @@ package pubsub_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"time"
@@ -17,17 +18,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apipubsub "github.com/juju/1.25-upgrade/juju2/api/pubsub"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	apipubsub "github.com/juju/juju/api/pubsub"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type PubSubSuite struct {
@@ -118,14 +119,11 @@ func (s mockStream) ReadJSON(v interface{}) error {
 	return nil
 }
 
-func (s mockStream) Read([]byte) (int, error) {
-	s.conn.c.Errorf("Read called unexpectedly")
-	return 0, nil
-}
-
-func (s mockStream) Write([]byte) (int, error) {
-	s.conn.c.Errorf("Write called unexpectedly")
-	return 0, nil
+func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
+	// NextReader is now called by the read loop thread.
+	// So just wait a bit and return so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
+	return 0, nil, nil
 }
 
 func (s mockStream) Close() error {
@@ -156,16 +154,14 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.server, s.address = newServerWithHub(c, s.State, s.hub)
+
+	statePool := state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { statePool.Close() })
+	s.server, s.address = newServerWithHub(c, statePool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
 }
 
 func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
-	dialOpts := api.DialOpts{
-		DialAddressInterval: 20 * time.Millisecond,
-		Timeout:             50 * time.Millisecond,
-		RetryDelay:          50 * time.Millisecond,
-	}
 	info := &api.Info{
 		Addrs:    []string{s.address},
 		CACert:   coretesting.CACert,
@@ -174,7 +170,7 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 		Password: s.password,
 		Nonce:    s.nonce,
 	}
-	conn, err := api.Open(info, dialOpts)
+	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 
@@ -187,10 +183,10 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 
 func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	writer := s.connect(c)
-	var topic pubsub.Topic = "test.message"
+	topic := "test.message"
 	messages := []map[string]interface{}{}
 	done := make(chan struct{})
-	_, err := s.hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, payload map[string]interface{}) {
+	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(t string, payload map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		messages = append(messages, payload)
 		if len(messages) == 2 {
@@ -219,24 +215,24 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	select {
 	case <-done:
 		// messages received
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatal("messages not received")
 	}
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})
 }
 
-func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*apiserver.Server, string) {
+func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) (*apiserver.Server, string) {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		LogDir:      c.MkDir(),
-		Hub:         hub,
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		StatePool:   state.NewStatePool(st),
+	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             names.NewMachineTag("0"),
+		LogDir:          c.MkDir(),
+		Hub:             hub,
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	port := listener.Addr().(*net.TCPAddr).Port

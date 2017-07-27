@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var usageSummary = `
@@ -86,6 +86,10 @@ func (c *addCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *addCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	api := c.api
 	if api == nil {
 		var err error
@@ -115,7 +119,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Generate the base64-encoded string for the user to pass to
 	// "juju register". We marshal the information using ASN.1
 	// to keep the size down, since we need to encode binary data.
-	controllerDetails, err := c.ClientStore().ControllerByName(c.ControllerName())
+	controllerDetails, err := c.ClientStore().ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -123,7 +127,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		User:           c.User,
 		Addrs:          controllerDetails.APIEndpoints,
 		SecretKey:      secretKey,
-		ControllerName: c.ControllerName(),
+		ControllerName: controllerName,
 	}
 	registrationData, err := asn1.Marshal(registrationInfo)
 	if err != nil {
@@ -137,9 +141,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// The embedded ASN.1 data is length-encoded, so the
 	// padding will not complicate decoding.
 	remainder := len(registrationData) % 3
-	for remainder > 0 {
-		registrationData = append(registrationData, 0)
-		remainder--
+	if remainder != 0 {
+		var pad [3]byte
+		registrationData = append(registrationData, pad[:3-remainder]...)
 	}
 	base64RegistrationData := base64.URLEncoding.EncodeToString(
 		registrationData,

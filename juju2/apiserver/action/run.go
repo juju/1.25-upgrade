@@ -10,9 +10,9 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/actions"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/state"
 )
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any

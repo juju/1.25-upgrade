@@ -23,13 +23,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/migrationmaster"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/watcher"
 )
 
 type ClientSuite struct {
@@ -93,7 +93,6 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 					Password:      "secret",
 					Macaroons:     string(macsJSON),
 				},
-				ExternalControl: true,
 			},
 			MigrationId:      "id",
 			Phase:            "IMPORT",
@@ -109,7 +108,6 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 		ModelUUID:        modelUUID,
 		Phase:            migration.IMPORT,
 		PhaseChangedTime: timestamp,
-		ExternalControl:  true,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: controllerTag,
 			Addrs:         []string{"2.2.2.2:2"},
@@ -217,11 +215,9 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 
 	fpHash := charmresource.NewFingerprintHash()
 	appFp := fpHash.Fingerprint()
-	csFp := fpHash.Fingerprint()
 	unitFp := fpHash.Fingerprint()
 
 	appTs := time.Now()
-	csTs := appTs.Add(time.Hour)
 	unitTs := appTs.Add(time.Hour)
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -249,15 +245,15 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Username:       "bob",
 				},
 				CharmStoreRevision: params.SerializedModelResourceRevision{
-					Revision:       3,
-					Type:           "file",
-					Path:           "fink.tar.gz",
-					Description:    "knows who",
-					Origin:         "store",
-					FingerprintHex: csFp.Hex(),
-					Size:           321,
-					Timestamp:      csTs,
-					Username:       "xena",
+					// Imitate a placeholder for the test by having no Timestamp
+					// and an empty Fingerpritn
+					Revision:    3,
+					Type:        "file",
+					Path:        "fink.tar.gz",
+					Description: "knows who",
+					Origin:      "store",
+					Size:        321,
+					Username:    "xena",
 				},
 				UnitRevisions: map[string]params.SerializedModelResourceRevision{
 					"fooapp/0": params.SerializedModelResourceRevision{
@@ -314,14 +310,12 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 						Path:        "fink.tar.gz",
 						Description: "knows who",
 					},
-					Origin:      charmresource.OriginStore,
-					Revision:    3,
-					Fingerprint: csFp,
-					Size:        321,
+					Origin:   charmresource.OriginStore,
+					Revision: 3,
+					Size:     321,
 				},
 				ApplicationID: "fooapp",
 				Username:      "xena",
-				Timestamp:     csTs,
 			},
 			UnitRevisions: map[string]resource.Resource{
 				"fooapp/0": resource.Resource{

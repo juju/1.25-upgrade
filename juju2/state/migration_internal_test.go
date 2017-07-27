@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/testing"
 )
 
 type MigrationSuite struct{}
@@ -185,7 +185,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	todoCollections := set.NewStrings(
 		// uncategorised
 		//Cross Model Relations - TODO
-		localApplicationDirectoryC,
 		remoteApplicationsC,
 		applicationOffersC,
 		tokensC,
@@ -227,6 +226,9 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
+		"SLA",
+		"MeterStatus",
+		"EnvironVersion",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -322,7 +324,6 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"ModelUUID",
 
 		"InstanceId",
-		"Status",
 		"Arch",
 		"Mem",
 		"RootDisk",
@@ -575,6 +576,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"Label",
 		"UUID",
 		"HardwareId",
+		"WWN",
 		"BusAddress",
 		"Size",
 		"FilesystemType",
@@ -603,6 +605,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"SpaceName",
 		"ProviderId",
 		"AvailabilityZone",
+		"ProviderNetworkId",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }
@@ -677,19 +680,19 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"MachineId", // recreated from pool properties
 	)
 	migrated := set.NewStrings(
 		"Name",
 		"StorageId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)
 	s.AssertExportedFields(c, volumeDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeInfo{}, set.NewStrings(
-		"HardwareId", "Size", "Pool", "VolumeId", "Persistent"))
+		"HardwareId", "WWN", "Size", "Pool", "VolumeId", "Persistent"))
 	s.AssertExportedFields(c, VolumeParams{}, set.NewStrings(
 		"Size", "Pool"))
 }
@@ -719,13 +722,13 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"MachineId", // recreated from pool properties
 	)
 	migrated := set.NewStrings(
 		"FilesystemId",
 		"StorageId",
 		"VolumeId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)
@@ -769,6 +772,7 @@ func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
 		"Owner",
 		"StorageName",
 		"AttachmentCount", // through count of attachment instances
+		"Constraints",
 	)
 	s.AssertExportedFields(c, storageInstanceDoc{}, migrated.Union(ignored))
 }

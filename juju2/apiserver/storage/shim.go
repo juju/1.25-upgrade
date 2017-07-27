@@ -7,12 +7,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
@@ -20,11 +19,8 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-func init() {
-	common.RegisterStandardFacade("Storage", 3, newAPI)
-}
-
-func newAPI(
+// NewFacade provides the signature required for facade registration.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -113,6 +109,13 @@ type storageAccess interface {
 
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
+
+	// DetachStorage detaches the storage instance with the
+	// specified tag from the unit with the specified tag.
+	DetachStorage(names.StorageTag, names.UnitTag) error
+
+	// DestroyStorageInstance destroys the storage instance with the specified tag.
+	DestroyStorageInstance(names.StorageTag) error
 }
 
 var getState = func(st *state.State) storageAccess {

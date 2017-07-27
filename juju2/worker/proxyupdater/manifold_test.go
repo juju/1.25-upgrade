@@ -10,13 +10,13 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/proxyupdater"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/dependency"
+	dt "github.com/juju/juju/worker/dependency/testing"
+	"github.com/juju/juju/worker/proxyupdater"
 )
 
 type ManifoldSuite struct {
@@ -118,9 +118,9 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	dummy, ok := worker.(*dummyWorker)
 	c.Assert(ok, jc.IsTrue)
-	c.Check(dummy.config.Directory, gc.Equals, "/home/ubuntu")
+	c.Check(dummy.config.SystemdFiles, gc.DeepEquals, []string{"/etc/juju-proxy-systemd.conf"})
+	c.Check(dummy.config.EnvFiles, gc.DeepEquals, []string{"/etc/juju-proxy.conf"})
 	c.Check(dummy.config.RegistryPath, gc.Equals, `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`)
-	c.Check(dummy.config.Filename, gc.Equals, ".juju-proxy")
 	c.Check(dummy.config.API, gc.NotNil)
 	// Checking function equality is problematic, use the errors they
 	// return.

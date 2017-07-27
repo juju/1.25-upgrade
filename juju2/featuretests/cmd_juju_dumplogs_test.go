@@ -9,18 +9,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/dumplogs"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud/dumplogs"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type dumpLogsCommandSuite struct {
@@ -51,17 +51,25 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 
 	t := time.Date(2015, 11, 4, 3, 2, 1, 0, time.UTC)
 	for _, st := range states {
-		w := state.NewEntityDbLogger(st, names.NewMachineTag("42"), version.Current)
+		w := state.NewDbLogger(st)
 		defer w.Close()
 		for i := 0; i < 3; i++ {
-			err := w.Log(t, "module", "location", loggo.INFO, fmt.Sprintf("%d", i))
+			err := w.Log([]state.LogRecord{{
+				Time:     t,
+				Entity:   names.NewMachineTag("42"),
+				Version:  version.Current,
+				Module:   "module",
+				Location: "location",
+				Level:    loggo.INFO,
+				Message:  fmt.Sprintf("%d", i),
+			}})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 
 	// Run the juju-dumplogs command
 	command := dumplogs.NewCommand()
-	context, err := testing.RunCommand(c, command, "--data-dir", s.DataDir())
+	context, err := cmdtesting.RunCommand(c, command, "--data-dir", s.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the log file for each environment

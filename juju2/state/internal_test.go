@@ -14,16 +14,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&internalStateSuite{})
@@ -58,8 +58,9 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	// Copied from NewMongoInfo (due to import loops).
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{jujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 	modelCfg := testing.ModelConfig(c)
@@ -72,7 +73,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			CloudRegion:             "dummy-region",
 			Owner:                   s.owner,
 			Config:                  modelCfg,
-			StorageProviderRegistry: provider.CommonStorageProviders(),
+			StorageProviderRegistry: dummy.StorageProviders(),
 		},
 		Cloud: cloud.Cloud{
 			Name:      "dummy",
@@ -111,7 +112,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		CloudRegion: "dummy-region",
 		Config:      cfg,
 		Owner:       s.owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
+		StorageProviderRegistry: dummy.StorageProviders(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
@@ -137,7 +138,7 @@ func (internalStatePolicy) InstanceDistributor() (instance.Distributor, error) {
 }
 
 func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
-	return provider.CommonStorageProviders(), nil
+	return dummy.StorageProviders(), nil
 }
 
 func (internalStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {

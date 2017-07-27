@@ -9,25 +9,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/testing/factory"
 )
 
 type loginV3Suite struct {
 	loginSuite
 }
 
-var _ = gc.Suite(&loginV3Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminAPI: func(srv *apiserver.Server) {
-				apiserver.SetAdminAPIVersions(srv, 3)
-			},
-		},
-	},
-})
+var _ = gc.Suite(&loginV3Suite{})
 
 func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 	info := s.APIInfo(c)

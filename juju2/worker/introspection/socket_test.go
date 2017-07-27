@@ -17,13 +17,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/introspection"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	worker "gopkg.in/juju/worker.v1"
 
 	// Bring in the state package for the tracker profile.
-	_ "github.com/juju/1.25-upgrade/juju2/state"
+	_ "github.com/juju/juju/state"
+	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type suite struct {
@@ -108,7 +107,7 @@ func (s *introspectionSuite) TestCmdLine(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/goroutine")
+	buf := s.call(c, "/debug/pprof/goroutine?debug=1")
 	c.Assert(buf, gc.NotNil)
 	matches(c, buf, `^goroutine profile: total \d+`)
 }
@@ -126,7 +125,7 @@ func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/juju/state/tracker")
+	buf := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
 	matches(c, buf, "200 OK")
 	matches(c, buf, "juju/state/tracker profile: total")
 }

@@ -4,9 +4,8 @@
 package upgrades
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 )
 
 // Context provides the dependencies used when executing upgrade steps.
@@ -21,7 +20,7 @@ type Context interface {
 
 	// State returns a connection to state. This will be non-nil
 	// only in the context of a controller.
-	State() *state.State
+	State() StateBackend
 
 	// AgentConfig returns the agent config for the machine that is being
 	// upgraded.
@@ -37,7 +36,11 @@ type Context interface {
 }
 
 // NewContext returns a new upgrade context.
-func NewContext(agentConfig agent.ConfigSetter, api api.Connection, st *state.State) Context {
+func NewContext(
+	agentConfig agent.ConfigSetter,
+	api api.Connection,
+	st StateBackend,
+) Context {
 	return &upgradeContext{
 		agentConfig: agentConfig,
 		api:         api,
@@ -49,7 +52,7 @@ func NewContext(agentConfig agent.ConfigSetter, api api.Connection, st *state.St
 type upgradeContext struct {
 	agentConfig agent.ConfigSetter
 	api         api.Connection
-	st          *state.State
+	st          StateBackend
 }
 
 // APIState is defined on the Context interface.
@@ -65,7 +68,7 @@ func (c *upgradeContext) APIState() api.Connection {
 // State is defined on the Context interface.
 //
 // This will panic if called on a Context returned by APIContext.
-func (c *upgradeContext) State() *state.State {
+func (c *upgradeContext) State() StateBackend {
 	if c.st == nil {
 		panic("State not available from this context")
 	}

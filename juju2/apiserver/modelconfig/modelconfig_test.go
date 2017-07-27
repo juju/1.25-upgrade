@@ -10,14 +10,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/modelconfig"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type modelconfigSuite struct {
@@ -126,8 +126,57 @@ func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
+	args := params.ModelSet{
+		map[string]interface{}{"logging-config": "<root>=DEBUG;somepackage=TRACE"},
+	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config["logging-config"].Value, gc.Equals, "<root>=DEBUG;somepackage=TRACE")
+}
+
+func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
+	args := params.ModelSet{
+		map[string]interface{}{"logging-config": "<root>=DEBUG;somepackage=ERROR"},
+	}
+	apiUser := names.NewUserTag("fred")
+	s.authorizer.Tag = apiUser
+	s.authorizer.HasWriteTag = apiUser
+	err := s.api.ModelSet(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config["logging-config"].Value, gc.Equals, "<root>=DEBUG;somepackage=ERROR")
+}
+
+func (s *modelconfigSuite) TestUserReadAccess(c *gc.C) {
+	apiUser := names.NewUserTag("read")
+	s.authorizer.Tag = apiUser
+
+	_, err := s.api.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.api.ModelSet(params.ModelSet{})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "permission denied")
+}
+
+func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
+	args := params.ModelSet{
+		map[string]interface{}{"logging-config": "<root>=DEBUG;somepackage=TRACE"},
+	}
+	apiUser := names.NewUserTag("fred")
+	s.authorizer.Tag = apiUser
+	s.authorizer.HasWriteTag = apiUser
+	err := s.api.ModelSet(args)
+	c.Assert(err, gc.ErrorMatches, `only controller admins can set a model's logging level to TRACE`)
+}
+
 func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
-	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModelUnset{[]string{"abc"}}
@@ -137,7 +186,7 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
-	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	err := s.backend.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.blockAllChanges(c, "TestBlockModelUnset")
 
@@ -153,6 +202,11 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
+	err := s.api.SetSLALevel(params.ModelSLA{params.ModelSLAInfo{"level", "bob"}, []byte("foobar")})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockBackend struct {
 	cfg config.ConfigValues
 	old *config.Config
@@ -164,10 +218,9 @@ func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
 }
 
-func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate state.ValidateConfigFunc) error {
-	if validate != nil {
-		err := validate(update, remove, m.old)
-		if err != nil {
+func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc) error {
+	for _, validateFunc := range validate {
+		if err := validateFunc(update, remove, m.old); err != nil {
 			return err
 		}
 	}
@@ -194,6 +247,14 @@ func (m *mockBackend) ModelTag() names.ModelTag {
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
+}
+
+func (m *mockBackend) SetSLA(level, owner string, credentials []byte) error {
+	return nil
+}
+
+func (m *mockBackend) SLALevel() (string, error) {
+	return "mock-level", nil
 }
 
 type mockBlock struct {

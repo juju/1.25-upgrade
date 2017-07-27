@@ -5,33 +5,25 @@ package all
 
 import (
 	"os"
-	"reflect"
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/apihttp"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/charmcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/api"
-	"github.com/juju/1.25-upgrade/juju2/resource/api/client"
-	privateapi "github.com/juju/1.25-upgrade/juju2/resource/api/private"
-	internalclient "github.com/juju/1.25-upgrade/juju2/resource/api/private/client"
-	internalserver "github.com/juju/1.25-upgrade/juju2/resource/api/private/server"
-	"github.com/juju/1.25-upgrade/juju2/resource/api/server"
-	"github.com/juju/1.25-upgrade/juju2/resource/cmd"
-	"github.com/juju/1.25-upgrade/juju2/resource/context"
-	contextcmd "github.com/juju/1.25-upgrade/juju2/resource/context/cmd"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourceadapters"
-	corestate "github.com/juju/1.25-upgrade/juju2/state"
-	unitercontext "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/cmd/juju/charmcmd"
+	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api/client"
+	internalclient "github.com/juju/juju/resource/api/private/client"
+	"github.com/juju/juju/resource/cmd"
+	"github.com/juju/juju/resource/context"
+	contextcmd "github.com/juju/juju/resource/context/cmd"
+	"github.com/juju/juju/resource/resourceadapters"
+	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // resources exposes the registration methods needed
@@ -43,7 +35,6 @@ type resources struct{}
 func (r resources) registerForServer() error {
 	r.registerState()
 	r.registerAgentWorkers()
-	r.registerPublicFacade()
 	r.registerHookContext()
 	return nil
 }
@@ -56,30 +47,6 @@ func (r resources) registerForClient() error {
 	// needed for help-tool
 	r.registerHookContextCommands()
 	return nil
-}
-
-// registerPublicFacade adds the resources public API facade
-// to the API server.
-func (r resources) registerPublicFacade() {
-	if !markRegistered(resource.ComponentName, "public-facade") {
-		return
-	}
-
-	// NOTE: facade is also defined in api/facadeversions.go.
-	common.RegisterStandardFacade(
-		resource.FacadeName,
-		server.Version,
-		resourceadapters.NewPublicFacade,
-	)
-
-	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
-		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UserTagKind, names.MachineTagKind},
-			StrictValidation:    true,
-			ControllerModelOnly: false,
-		},
-		NewHandler: resourceadapters.NewApplicationHandler,
-	})
 }
 
 // resourcesAPIClient adds a Close() method to the resources public API client.
@@ -107,10 +74,6 @@ func (resources) registerState() {
 	if !markRegistered(resource.ComponentName, "state") {
 		return
 	}
-
-	corestate.SetResourcesComponent(resourceadapters.NewResourceState)
-	corestate.SetResourcesPersistence(resourceadapters.NewResourcePersistence)
-	corestate.RegisterCleanupHandler(corestate.CleanupKindResourceBlob, resourceadapters.CleanUpBlob)
 }
 
 // registerPublicCommands adds the resources-related commands
@@ -151,8 +114,6 @@ func (r resources) registerPublicCommands() {
 	})
 }
 
-// TODO(katco): This seems to be common across components. Pop up a
-// level and genericize?
 func (r resources) registerHookContext() {
 	if markRegistered(resource.ComponentName, "hook-context") == false {
 		return
@@ -172,8 +133,6 @@ func (r resources) registerHookContext() {
 	)
 
 	r.registerHookContextCommands()
-	r.registerHookContextFacade()
-	r.registerUnitDownloadEndpoint()
 }
 
 func (r resources) registerHookContextCommands() {
@@ -197,50 +156,9 @@ func (r resources) registerHookContextCommands() {
 	)
 }
 
-func (r resources) registerHookContextFacade() {
-	common.RegisterHookContextFacade(
-		context.HookContextFacade,
-		internalserver.FacadeVersion,
-		r.newHookContextFacade,
-		reflect.TypeOf(&internalserver.UnitFacade{}),
-	)
-
-}
-
-func (r resources) registerUnitDownloadEndpoint() {
-	common.RegisterAPIModelEndpoint(privateapi.HTTPEndpointPattern, apihttp.HandlerSpec{
-		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UnitTagKind},
-			StrictValidation:    true,
-			ControllerModelOnly: false,
-		},
-		NewHandler: resourceadapters.NewDownloadHandler,
-	})
-}
-
-// resourcesUnitDatastore is a shim to elide serviceName from
-// ListResources.
-type resourcesUnitDataStore struct {
-	resources corestate.Resources
-	unit      *corestate.Unit
-}
-
-// ListResources implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
-	return ds.resources.ListResources(ds.unit.ApplicationName())
-}
-
-func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
-	res, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return internalserver.NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
-}
-
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
 
-	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, internalserver.FacadeVersion)
+	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
 	httpClient, err := caller.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)

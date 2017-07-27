@@ -5,7 +5,7 @@ package crossmodel
 
 import (
 	"fmt"
-	gourl "net/url"
+	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
@@ -15,14 +15,17 @@ import (
 // ApplicationURL represents the location of an offered application and its
 // associated exported endpoints.
 type ApplicationURL struct {
-	// Directory represents where the offer is hosted.
-	Directory string // "local" or "<vendor>"
+	// Source represents where the offer is hosted.
+	// If empty, the model is another model in the same controller.
+	Source string // "<controller-name>" or "<jaas>" or ""
 
 	// User is the user whose namespace in which the offer is made.
+	// Where a model is specified, the user is the model owner.
 	User string
 
 	// ModelName is the name of the model providing the exported endpoints.
-	// It is only used for local URLs.
+	// It is only used for local URLs or for specifying models in the same
+	// controller.
 	ModelName string
 
 	// ApplicationName is the name of the application providing the exported endpoints.
@@ -33,156 +36,125 @@ type ApplicationURL struct {
 func (u *ApplicationURL) Path() string {
 	var parts []string
 	if u.User != "" {
-		parts = append(parts, "u", u.User)
+		parts = append(parts, u.User)
 	}
-	if u.Directory == "local" && u.ModelName != "" {
+	if u.ModelName != "" {
 		parts = append(parts, u.ModelName)
 	}
-	parts = append(parts, u.ApplicationName)
-	return strings.Join(parts, "/")
+	path := strings.Join(parts, "/")
+	path = fmt.Sprintf("%s.%s", path, u.ApplicationName)
+	if u.Source == "" {
+		return path
+	}
+	return fmt.Sprintf("%s:%s", u.Source, path)
 }
 
 func (u *ApplicationURL) String() string {
-	return fmt.Sprintf("%s:/%s", u.Directory, u.Path())
+	return u.Path()
 }
 
-var supportedURLDirectories = []string{
-	// TODO(wallyworld): just support local for now.
-	"local", // for applications hosted by a local application directory
+// HasEndpoint returns whether this application URL includes an
+// endpoint name in the application name.
+func (u *ApplicationURL) HasEndpoint() bool {
+	return strings.Contains(u.ApplicationName, ":")
 }
 
-// ParseApplicationURL parses the specified URL string into a ApplicationURL.
+// modelApplicationRegexp parses urls of the form controller:user/model.application[:relname]
+var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[^/]+)/)?(?P<model>[^.]*)(\.(?P<application>[^:]*(:.*)?))?)?`)
+
+//var modelApplicationRegexp = regexp.MustCompile(`(/?((?P<user>[a-zA-Z]+)/)?(?P<model>[a-zA-Z]+)?(\.(?P<application>[^:]*(:[a-zA-Z]+)?))?)?`)
+
+// ParseApplicationURL parses the specified URL string into an ApplicationURL.
 // The URL string is of one of the forms:
-//  local:/u/<user>/<applicationname>
-//  local:/u/<user>/<envname>/<applicationname>
-//  <vendor>:/u/<user>/<applicationname>
+//  <model-name>.<application-name>
+//  <model-name>.<application-name>:<relation-name>
+//  <user>/<model-name>.<application-name>
+//  <user>/<model-name>.<application-name>:<relation-name>
+//  <controller>:<user>/<model-name>.<application-name>
+//  <controller>:<user>/<model-name>.<application-name>:<relation-name>
 func ParseApplicationURL(urlStr string) (*ApplicationURL, error) {
-	url, err := gourl.Parse(urlStr)
-	if err != nil {
-		return nil, errors.Errorf("cannot parse application URL: %q", urlStr)
-	}
-	if url.RawQuery != "" || url.Fragment != "" || url.User != nil {
-		return nil, errors.Errorf("application URL %q has unrecognized parts", urlStr)
-	}
-
-	var result ApplicationURL
-	if url.Scheme == "" {
-		url.Scheme = "local"
-	}
-	if url.Scheme != "" {
-		result.Directory = url.Scheme
-	}
-	urlPath := strings.Trim(url.Path, "/")
-	parts := strings.Split(urlPath, "/")
-	if len(parts) < 1 || len(parts) > 4 {
-		return nil, fmt.Errorf("application URL has invalid form: %q", urlStr)
-	}
-
-	// User
-	if parts[0] != "u" {
-		return nil, fmt.Errorf("application URL has invalid form, missing %q: %q", "/u/<user>", urlStr)
-	}
-	if !names.IsValidUser(parts[1]) {
-		return nil, errors.NotValidf("user name %q", parts[1])
-	}
-	result.User = parts[1]
-
-	// Application name
-	if len(parts) < 3 {
-		return nil, fmt.Errorf("application URL has invalid form, missing application name: %q", urlStr)
-	}
-
-	// Figure out what URL parts we have.
-	envPart := -1
-	applicationPart := 2
-	if len(parts) == 4 {
-		envPart = 2
-		applicationPart = 3
-	}
-
-	if envPart > 0 {
-		result.ModelName = parts[envPart]
-	}
-
-	if !names.IsValidApplication(parts[applicationPart]) {
-		return nil, errors.NotValidf("application name %q", parts[applicationPart])
-	}
-	result.ApplicationName = parts[applicationPart]
-	return &result, nil
+	return parseApplicationURL(urlStr)
 }
 
-// ApplicationDirectoryForURL returns a application directory name, used to look up applications,
-// based on the specified URL.
-func ApplicationDirectoryForURL(urlStr string) (string, error) {
-	url, err := ParseApplicationURL(urlStr)
+// parseApplicationURL parses the specified URL string into an ApplicationURL.
+func parseApplicationURL(urlStr string) (*ApplicationURL, error) {
+	urlParts, err := parseApplicationURLParts(urlStr, false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return url.Directory, nil
+	url := ApplicationURL(*urlParts)
+	return &url, nil
 }
 
 // ApplicationURLParts contains various attributes of a URL.
 type ApplicationURLParts ApplicationURL
 
 // ParseApplicationURLParts parses a partial URL, filling out what parts are supplied.
-// TODO(wallyworld) update ParseApplicationURL to use this method and perform additional validation on top.
+// This method is used to generate a filter used to query matching application URLs.
 func ParseApplicationURLParts(urlStr string) (*ApplicationURLParts, error) {
-	url, err := gourl.Parse(urlStr)
-	if err != nil {
-		return nil, errors.Errorf("cannot parse application URL: %q", urlStr)
-	}
-	if url.RawQuery != "" || url.Fragment != "" || url.User != nil {
-		return nil, errors.Errorf("application URL %q has unrecognized parts", urlStr)
-	}
+	return parseApplicationURLParts(urlStr, true)
+}
 
+var endpointRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+
+func maybeParseSource(urlStr string) (source, rest string) {
+	parts := strings.Split(urlStr, ":")
+	switch len(parts) {
+	case 3:
+		return parts[0], parts[1] + ":" + parts[2]
+	case 2:
+		if endpointRegexp.MatchString(parts[1]) {
+			return "", urlStr
+		}
+		return parts[0], parts[1]
+	}
+	return "", urlStr
+}
+
+func parseApplicationURLParts(urlStr string, allowIncomplete bool) (*ApplicationURLParts, error) {
 	var result ApplicationURLParts
-	if url.Scheme != "" {
-		result.Directory = url.Scheme
-	}
-	urlPath := strings.Trim(url.Path, "/")
-	parts := strings.Split(urlPath, "/")
+	source, urlParts := maybeParseSource(urlStr)
 
-	if len(parts) < 2 {
-		switch len(parts) {
-		case 1:
-			result.ApplicationName = parts[0]
-		}
-		return &result, nil
+	valid := !strings.HasPrefix(urlStr, ":")
+	valid = valid && modelApplicationRegexp.MatchString(urlParts)
+	if valid {
+		result.Source = source
+		result.User = modelApplicationRegexp.ReplaceAllString(urlParts, "$user")
+		result.ModelName = modelApplicationRegexp.ReplaceAllString(urlParts, "$model")
+		result.ApplicationName = modelApplicationRegexp.ReplaceAllString(urlParts, "$application")
 	}
-
-	if parts[0] == "u" {
-		if !names.IsValidUser(parts[1]) {
-			return nil, errors.NotValidf("user name %q", parts[1])
-		}
-		result.User = parts[1]
-	} else {
-		if len(parts) > 2 {
-			return nil, fmt.Errorf("application URL has too many parts: %q", urlStr)
-		}
-		result.ModelName = parts[0]
-		result.ApplicationName = parts[1]
-		return &result, nil
+	if !valid || strings.Contains(result.ModelName, "/") || strings.Contains(result.ApplicationName, "/") {
+		// TODO(wallyworld) - update error message when we support multi-controller and JAAS CMR
+		return nil, errors.Errorf("application offer URL has invalid form, must be [<user/]<model>.<appname>: %q", urlStr)
+	}
+	if !allowIncomplete && result.ModelName == "" {
+		return nil, errors.Errorf("application offer URL is missing model")
+	}
+	if !allowIncomplete && result.ApplicationName == "" {
+		return nil, errors.Errorf("application offer URL is missing application")
 	}
 
-	if len(parts) == 2 {
-		return &result, nil
+	// Application name part may contain a relation name part, so strip that bit out
+	// before validating the name.
+	appName := strings.Split(result.ApplicationName, ":")[0]
+	// Validate the resulting URL part values.
+	if result.User != "" && !names.IsValidUser(result.User) {
+		return nil, errors.NotValidf("user name %q", result.User)
 	}
-
-	// Figure out what other URL parts we have.
-	envPart := -1
-	applicationPart := 2
-	if len(parts) == 4 {
-		envPart = 2
-		applicationPart = 3
+	if result.ModelName != "" && !names.IsValidModelName(result.ModelName) {
+		return nil, errors.NotValidf("model name %q", result.ModelName)
 	}
-
-	if envPart > 0 {
-		result.ModelName = parts[envPart]
+	if appName != "" && !names.IsValidApplication(appName) {
+		return nil, errors.NotValidf("application name %q", appName)
 	}
-
-	if !names.IsValidApplication(parts[applicationPart]) {
-		return nil, errors.NotValidf("application name %q", parts[applicationPart])
-	}
-	result.ApplicationName = parts[applicationPart]
 	return &result, nil
+}
+
+// MakeURL constructs an application URL from the specified components.
+func MakeURL(user, model, application, controller string) string {
+	base := fmt.Sprintf("%s/%s.%s", user, model, application)
+	if controller == "" {
+		return base
+	}
+	return fmt.Sprintf("%s:%s", controller, base)
 }

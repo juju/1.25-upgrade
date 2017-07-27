@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // ErrNoOperation is used to indicate that there are no

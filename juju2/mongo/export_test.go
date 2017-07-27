@@ -4,8 +4,8 @@
 package mongo
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
+	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 )
 
 var (
@@ -17,11 +17,11 @@ var (
 
 	NewConf = newConf
 
-	HostWordSize   = &hostWordSize
-	RuntimeGOOS    = &runtimeGOOS
-	AvailSpace     = &availSpace
-	MinOplogSizeMB = &minOplogSizeMB
-	PreallocFile   = &preallocFile
+	HostWordSize     = &hostWordSize
+	RuntimeGOOS      = &runtimeGOOS
+	AvailSpace       = &availSpace
+	SmallOplogSizeMB = &smallOplogSizeMB
+	PreallocFile     = &preallocFile
 
 	DefaultOplogSize  = defaultOplogSize
 	FsAvailSpace      = fsAvailSpace

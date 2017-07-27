@@ -8,12 +8,12 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")

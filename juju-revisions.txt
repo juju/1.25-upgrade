@@ -3,4 +3,4 @@ juju1
  for migration
 
 juju2
- - coppied from 53789527c5223644aa0c618bfa885a4da72b7d7d
+ - copied from 2bd12246271899c9dc69aa684b46064d83be0308 (juju-2.2.2)

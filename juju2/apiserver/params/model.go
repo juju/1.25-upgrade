@@ -72,6 +72,13 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// ModelSLA contains the arguments for the SetSLALevel client API
+// call.
+type ModelSLA struct {
+	ModelSLAInfo
+	Credentials []byte `json:"creds"`
+}
+
 // SetModelDefaults contains the arguments for SetModelDefaults
 // client API call.
 type SetModelDefaults struct {
@@ -119,8 +126,8 @@ type ModelInfo struct {
 	Name               string `json:"name"`
 	UUID               string `json:"uuid"`
 	ControllerUUID     string `json:"controller-uuid"`
-	ProviderType       string `json:"provider-type"`
-	DefaultSeries      string `json:"default-series"`
+	ProviderType       string `json:"provider-type,omitempty"`
+	DefaultSeries      string `json:"default-series,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
@@ -132,7 +139,7 @@ type ModelInfo struct {
 	Life Life `json:"life"`
 
 	// Status is the current status of the model.
-	Status EntityStatus `json:"status"`
+	Status EntityStatus `json:"status,omitempty"`
 
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users
@@ -147,6 +154,18 @@ type ModelInfo struct {
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.
 	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+
+	// SLA contains the information about the SLA for the model, if set.
+	SLA *ModelSLAInfo `json:"sla"`
+
+	// AgentVersion is the agent version for this model.
+	AgentVersion *version.Number `json:"agent-version"`
+}
+
+// ModelSLAInfo describes the SLA info for a model.
+type ModelSLAInfo struct {
+	Level string `json:"level"`
+	Owner string `json:"owner"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.

@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/action"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/api/action"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // type APIClient represents the action API functionality.
@@ -39,7 +39,7 @@ type APIClient interface {
 	ListCompleted(params.Entities) (params.ActionsByReceivers, error)
 
 	// Cancel attempts to cancel a queued up Action from running.
-	Cancel(params.Actions) (params.ActionResults, error)
+	Cancel(params.Entities) (params.ActionResults, error)
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single Service by tag.

@@ -9,13 +9,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/machine"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/gate"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 )
 
 type ManifoldsSuite struct {
@@ -46,9 +46,9 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"api-address-updater",
 		"api-caller",
 		"api-config-watcher",
+		"central-hub",
 		"disk-manager",
 		"host-key-reporter",
-		"log-forwarder",
 		"log-sender",
 		"logging-config-updater",
 		"machine-action-runner",
@@ -94,6 +94,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"central-hub",
 		"log-forwarder",
 		"state",
 		"state-config-watcher",

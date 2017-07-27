@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type storageGetSuite struct {
@@ -40,7 +40,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 		hctx, _ := s.newHookContext()
 		com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -65,7 +65,7 @@ func (s *storageGetSuite) TestHelp(c *gc.C) {
 	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-get [options] [<key>]
@@ -91,7 +91,7 @@ func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")

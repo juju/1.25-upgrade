@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 type volumeAlreadyProvisionedError struct {
@@ -115,6 +115,7 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 	}
 	return volumeTag, state.VolumeInfo{
 		v.Info.HardwareId,
+		v.Info.WWN,
 		v.Info.Size,
 		"", // pool is set by state
 		v.Info.VolumeId,
@@ -139,6 +140,8 @@ func VolumeInfoFromState(info state.VolumeInfo) params.VolumeInfo {
 	return params.VolumeInfo{
 		info.VolumeId,
 		info.HardwareId,
+		info.WWN,
+		info.Pool,
 		info.Size,
 		info.Persistent,
 	}

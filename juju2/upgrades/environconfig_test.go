@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/upgrades"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 type upgradeModelConfigSuite struct {
@@ -43,7 +43,7 @@ func (s *upgradeModelConfigSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.updater = updateModelConfigFunc(func(
-		update map[string]interface{}, remove []string, validate state.ValidateConfigFunc,
+		update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc,
 	) error {
 		s.stub.AddCall("UpdateModelConfig", update, remove, validate)
 		return s.stub.NextErr()
@@ -132,12 +132,12 @@ func (f environConfigFunc) ModelConfig() (*config.Config, error) {
 	return f()
 }
 
-type updateModelConfigFunc func(map[string]interface{}, []string, state.ValidateConfigFunc) error
+type updateModelConfigFunc func(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 
 func (f updateModelConfigFunc) UpdateModelConfig(
-	update map[string]interface{}, remove []string, validate state.ValidateConfigFunc,
+	update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc,
 ) error {
-	return f(update, remove, validate)
+	return f(update, remove, validate...)
 }
 
 type mockProviderRegistry struct {

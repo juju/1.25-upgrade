@@ -4,11 +4,12 @@
 package model_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/testing"
 )
 
 type ModelConstraintsCommandsSuite struct {
@@ -32,7 +33,7 @@ func (s *ModelConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 			args: []string{"cpu-power=250"},
 		},
 	} {
-		err := testing.InitCommand(model.NewModelSetConstraintsCommand(), test.args)
+		err := cmdtesting.InitCommand(model.NewModelSetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -56,7 +57,7 @@ func (s *ModelConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{},
 		},
 	} {
-		err := testing.InitCommand(model.NewModelGetConstraintsCommand(), test.args)
+		err := cmdtesting.InitCommand(model.NewModelGetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

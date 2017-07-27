@@ -5,102 +5,117 @@ package modelcmd_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/permission"
 )
 
 type ModelCommandSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
-	store *jujuclienttesting.MemStore
+	testing.IsolationSuite
+	store *jujuclient.MemStore
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 
-	s.store = jujuclienttesting.NewMemStore()
-	s.store.CurrentControllerName = "foo"
-	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
-	}
+	s.store = jujuclient.NewMemStore()
 }
 
 var _ = gc.Suite(&ModelCommandSuite{})
 
-func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
-	s.store.CurrentControllerName = ""
-	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "")
-	c.Assert(err, jc.ErrorIsNil)
-}
+var modelCommandModelTests = []struct {
+	about            string
+	args             []string
+	modelEnvVar      string
+	expectController string
+	expectModel      string
+}{{
+	about:            "explicit controller and model, long form",
+	args:             []string{"--model", "bar:noncurrentbar"},
+	expectController: "bar",
+	expectModel:      "noncurrentbar",
+}, {
+	about:            "explicit controller and model, short form",
+	args:             []string{"-m", "bar:noncurrentbar"},
+	expectController: "bar",
+	expectModel:      "noncurrentbar",
+}, {
+	about:            "implicit controller, explicit model, short form",
+	args:             []string{"-m", "explicit"},
+	expectController: "foo",
+	expectModel:      "explicit",
+}, {
+	about:            "implicit controller, explicit model, long form",
+	args:             []string{"--model", "explicit"},
+	expectController: "foo",
+	expectModel:      "explicit",
+}, {
+	about:            "explicit controller, implicit model",
+	args:             []string{"--model", "bar:"},
+	expectController: "bar",
+	expectModel:      "adminbar/currentbar",
+}, {
+	about:            "controller and model in env var",
+	modelEnvVar:      "bar:noncurrentbar",
+	expectController: "bar",
+	expectModel:      "noncurrentbar",
+}, {
+	about:            "model only in env var",
+	modelEnvVar:      "noncurrentfoo",
+	expectController: "foo",
+	expectModel:      "noncurrentfoo",
+}, {
+	about:            "controller only in env var",
+	modelEnvVar:      "bar:",
+	expectController: "bar",
+	expectModel:      "adminbar/currentbar",
+}, {
+	about:            "explicit overrides env var",
+	modelEnvVar:      "bar:noncurrentbar",
+	args:             []string{"-m", "noncurrentfoo"},
+	expectController: "foo",
+	expectModel:      "noncurrentfoo",
+}}
 
-func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentModel(c *gc.C) {
-	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "foo:")
+func (s *ModelCommandSuite) TestModelName(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["bar"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "adminfoo/currentfoo", jujuclient.ModelDetails{"uuidfoo1"})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerModel(c *gc.C) {
-	err := s.store.UpdateModel("foo", "admin/mymodel", jujuclient.ModelDetails{"uuid"})
+	err = s.store.UpdateModel("foo", "adminfoo/oncurrentfoo", jujuclient.ModelDetails{"uuidfoo2"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "admin/mymodel")
+	err = s.store.UpdateModel("bar", "adminbar/currentbar", jujuclient.ModelDetails{"uuidbar1"})
 	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := modelcmd.GetCurrentModel(s.store)
+	err = s.store.UpdateModel("bar", "adminbar/noncurrentbar", jujuclient.ModelDetails{"uuidbar2"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "foo:admin/mymodel")
-}
-
-func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
-	os.Setenv(osenv.JujuModelEnvKey, "admin/magic")
-	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "admin/magic")
+	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
-	os.Setenv(osenv.JujuModelEnvKey, "admin/magic")
-
-	err := s.store.UpdateModel("foo", "admin/mymodel", jujuclient.ModelDetails{"uuid"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "admin/mymodel")
+	err = s.store.SetCurrentModel("bar", "adminbar/currentbar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "admin/magic")
-}
-
-func (s *ModelCommandSuite) TestModelCommandInitExplicit(c *gc.C) {
-	// Take model name from command line arg.
-	s.testEnsureModelName(c, "explicit", "-m", "explicit")
-}
-
-func (s *ModelCommandSuite) TestModelCommandInitExplicitLongForm(c *gc.C) {
-	// Take model name from command line arg.
-	s.testEnsureModelName(c, "explicit", "--model", "explicit")
-}
-
-func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
-	err := s.store.UpdateModel("foo", "admin/mymodel", jujuclient.ModelDetails{"uuid"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "admin/mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	s.testEnsureModelName(c, "admin/mymodel")
+	for i, test := range modelCommandModelTests {
+		c.Logf("test %d: %v", i, test.about)
+		os.Setenv(osenv.JujuModelEnvKey, test.modelEnvVar)
+		s.assertRunHasModel(c, test.expectController, test.expectModel, test.args...)
+	}
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
@@ -121,6 +136,12 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	// 1st position is always the flag
 	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])
 	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *ModelCommandSuite) TestInnerCommand(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := modelcmd.Wrap(cmd)
+	c.Assert(modelcmd.InnerCommand(wrapped), gc.Equals, cmd)
 }
 
 func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
@@ -145,10 +166,24 @@ func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
 	assert("ctrl", "model", "ctrl:model")
 }
 
-func (s *ModelCommandSuite) testEnsureModelName(c *gc.C, expect string, args ...string) {
-	cmd, err := initTestCommand(c, s.store, args...)
+// assertRunHasModel asserts that a command, when run with the given arguments,
+// ends up with the given controller and model names.
+func (s *ModelCommandSuite) assertRunHasModel(c *gc.C, expectControllerName, expectModelName string, args ...string) {
+	cmd, err := runTestCommand(c, s.store, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
+	controllerName, err := cmd.ControllerName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerName, gc.Equals, expectControllerName)
+	modelName, err := cmd.ModelName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelName, gc.Equals, expectModelName)
+}
+
+func runTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
+	cmd := modelcmd.Wrap(new(testCommand))
+	cmd.SetClientStore(store)
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmd, errors.Trace(err)
 }
 
 type testCommand struct {
@@ -160,14 +195,7 @@ func (c *testCommand) Info() *cmd.Info {
 }
 
 func (c *testCommand) Run(ctx *cmd.Context) error {
-	panic("should not be called")
-}
-
-func initTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testCommand, error) {
-	cmd := new(testCommand)
-	cmd.SetClientStore(store)
-	wrapped := modelcmd.Wrap(cmd)
-	return cmd, cmdtesting.InitCommand(wrapped, args)
+	return nil
 }
 
 type closer struct{}
@@ -180,7 +208,7 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
-	store          *jujuclienttesting.MemStore
+	store          *jujuclient.MemStore
 	controllerName string
 	modelName      string
 }
@@ -197,7 +225,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	modelTag := names.NewModelTag(s.State.ModelUUID())
 	apiInfo := s.APIInfo(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
 		APIEndpoints:   apiInfo.Addrs,
 		ControllerUUID: s.State.ControllerUUID(),
@@ -214,12 +242,24 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *macaroonLoginSuite) newModelCommandBase() *modelcmd.ModelCommandBase {
+	var c modelcmd.ModelCommandBase
+	c.SetClientStore(s.store)
+	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, &c)
+	modelcmd.SetRunStarted(&c)
+	err := c.SetModelName(s.controllerName+":"+s.modelName, false)
+	if err != nil {
+		panic(err)
+	}
+	return &c
+}
+
 func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return testUser
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := s.newModelCommandBase()
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -229,9 +269,9 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := s.newModelCommandBase()
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*")
+	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*", gc.Commentf("%s", errors.Details(err)))
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -239,7 +279,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := s.newModelCommandBase()
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)", gc.Commentf("details: %s", errors.Details(err)))
 }

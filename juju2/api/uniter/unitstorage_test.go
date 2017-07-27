@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type unitStorageSuite struct {
@@ -20,6 +20,8 @@ type unitStorageSuite struct {
 }
 
 var _ = gc.Suite(&unitStorageSuite{})
+
+const expectedAPIVersion = 6
 
 func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
 	tag := names.NewUnitTag(t)
@@ -42,7 +44,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 4)
+		c.Assert(version, gc.Equals, expectedAPIVersion)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "AddUnitStorage")
 		c.Assert(arg, gc.DeepEquals, expected)
@@ -75,7 +77,7 @@ func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 	msg := "yoink"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 4)
+		c.Assert(version, gc.Equals, expectedAPIVersion)
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "AddUnitStorage")
 		c.Assert(arg, gc.DeepEquals, expected)

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
 )
 
 var usageListCredentialsSummary = `

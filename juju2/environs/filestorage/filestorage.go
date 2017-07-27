@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	"github.com/juju/juju/environs/storage"
 )
 
 // fileStorageReader implements StorageReader backed

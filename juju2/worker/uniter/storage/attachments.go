@@ -15,10 +15,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.storage")

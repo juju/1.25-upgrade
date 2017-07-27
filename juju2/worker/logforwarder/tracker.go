@@ -7,17 +7,14 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	logfwdapi "github.com/juju/1.25-upgrade/juju2/api/logfwd"
-	"github.com/juju/1.25-upgrade/juju2/logfwd"
-	"github.com/juju/1.25-upgrade/juju2/logfwd/syslog"
+	"github.com/juju/juju/api/base"
+	logfwdapi "github.com/juju/juju/api/logfwd"
+	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/logfwd/syslog"
 )
 
 // TrackingSinkArgs holds the args to OpenTrackingSender.
 type TrackingSinkArgs struct {
-	// AllModels indicates that the tracker is handling all models.
-	AllModels bool
-
 	// Config is the logging config that will be used.
 	Config *syslog.RawConfig
 
@@ -50,8 +47,7 @@ func OpenTrackingSink(args TrackingSinkArgs) (*LogSink, error) {
 
 type trackingSender struct {
 	SendCloser
-	tracker   *lastSentTracker
-	allModels bool
+	tracker *lastSentTracker
 }
 
 // Send implements Sender.
@@ -59,7 +55,7 @@ func (s *trackingSender) Send(records []logfwd.Record) error {
 	if err := s.SendCloser.Send(records); err != nil {
 		return errors.Trace(err)
 	}
-	if err := s.tracker.setLastSent(s.allModels, records); err != nil {
+	if err := s.tracker.setLastSent(records); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -80,7 +76,7 @@ func newLastSentTracker(sink string, caller base.APICaller) *lastSentTracker {
 	}
 }
 
-func (lst lastSentTracker) setLastSent(allModels bool, records []logfwd.Record) error {
+func (lst lastSentTracker) setLastSent(records []logfwd.Record) error {
 	// The records are received and sent in order, so we only need to
 	// call SetLastSent for the last record.
 	if len(records) == 0 {
@@ -88,16 +84,10 @@ func (lst lastSentTracker) setLastSent(allModels bool, records []logfwd.Record) 
 	}
 	rec := records[len(records)-1]
 	model := rec.Origin.ModelUUID
-	if allModels {
-		model = ""
+	if !names.IsValidModel(model) {
+		return errors.Errorf("bad model UUID %q", model)
 	}
-	var modelTag names.ModelTag
-	if model != "" {
-		if !names.IsValidModel(model) {
-			return errors.Errorf("bad model UUID %q", model)
-		}
-		modelTag = names.NewModelTag(model)
-	}
+	modelTag := names.NewModelTag(model)
 	results, err := lst.client.SetLastSent([]logfwdapi.LastSentInfo{{
 		LastSentID: logfwdapi.LastSentID{
 			Model: modelTag,

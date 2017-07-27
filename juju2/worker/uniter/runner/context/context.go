@@ -18,12 +18,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // Paths exposes the paths needed by Context.
@@ -105,6 +105,9 @@ type HookContext struct {
 
 	// LeadershipContext supplies several jujuc.Context methods.
 	LeadershipContext
+
+	// principal is the unitName of the principal charm.
+	principal string
 
 	// privateAddress is the cached value of the unit's private
 	// address.
@@ -207,6 +210,9 @@ type HookContext struct {
 
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
+
+	//  slaLevel contains the current SLA level.
+	slaLevel string
 }
 
 // Component implements jujuc.Context.
@@ -579,7 +585,9 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,
+		"JUJU_SLA="+context.slaLevel,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
+		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 	)
 	if r, err := context.HookRelation(); err == nil {
@@ -827,4 +835,9 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 		return err
 	}
 	return result.OneError()
+}
+
+// NetworkInfo returns the network info for the given bindingNames.
+func (ctx *HookContext) NetworkInfo(bindingNames []string) (map[string]params.NetworkInfoResult, error) {
+	return ctx.unit.NetworkInfo(bindingNames)
 }

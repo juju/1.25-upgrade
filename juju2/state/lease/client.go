@@ -14,8 +14,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/mongo"
 )
 
 // NewClient returns a new Client using the supplied config, or an error. Any

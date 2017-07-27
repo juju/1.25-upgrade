@@ -6,8 +6,8 @@ package instancepoller
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 func NewMachine(caller base.APICaller, tag names.MachineTag, life params.Life) *Machine {

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/upgrades"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 var v200 = version.MustParse("2.0.0")

@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/service"
-	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/service/systemd"
-	"github.com/juju/1.25-upgrade/juju2/service/upstart"
-	"github.com/juju/1.25-upgrade/juju2/service/windows"
+	"github.com/juju/juju/service"
+	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/windows"
 )
 
 type serviceSuite struct {
@@ -104,7 +104,7 @@ func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
 	err := service.InstallAndStart(s.Service)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Service.CheckCallNames(c, "Install", "Start")
+	s.Service.CheckCallNames(c, "Install", "Stop", "Start")
 }
 
 func (s *serviceSuite) TestInstallAndStartRetry(c *gc.C) {
@@ -114,17 +114,17 @@ func (s *serviceSuite) TestInstallAndStartRetry(c *gc.C) {
 	err := service.InstallAndStart(s.Service)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Service.CheckCallNames(c, "Install", "Start", "Start", "Start")
+	s.Service.CheckCallNames(c, "Install", "Stop", "Start", "Stop", "Start")
 }
 
 func (s *serviceSuite) TestInstallAndStartFail(c *gc.C) {
 	s.PatchAttempts(3)
-	s.Service.SetErrors(nil, s.Failure, s.Failure, s.Failure)
+	s.Service.SetErrors(nil, s.Failure, s.Failure, s.Failure, s.Failure, s.Failure, s.Failure)
 
 	err := service.InstallAndStart(s.Service)
 
 	s.CheckFailure(c, err)
-	s.Service.CheckCallNames(c, "Install", "Start", "Start", "Start")
+	s.Service.CheckCallNames(c, "Install", "Stop", "Start", "Stop", "Start", "Stop", "Start")
 }
 
 type restartSuite struct {

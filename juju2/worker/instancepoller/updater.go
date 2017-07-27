@@ -11,11 +11,11 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.instancepoller")
@@ -127,12 +127,23 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			// We don't poll manual machines.
+			// We don't poll manual machines, instead we're setting the status to 'running'
+			// as we don't have any better information from the provider, see lp:1678981
 			isManual, err := m.IsManual()
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if isManual {
+				statusInfo, err := m.Status()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				machineStatus := status.Status(statusInfo.Status)
+				if machineStatus != status.Running {
+					if err = m.SetInstanceStatus(status.Running, "Manually provisioned machine", nil); err != nil {
+						logger.Errorf("cannot set instance status on %q: %v", m, err)
+					}
+				}
 				continue
 			}
 			c = make(chan struct{})

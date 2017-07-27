@@ -13,13 +13,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/logstream"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/logfwd"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/api/base"
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/logstream"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/logfwd"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type LogReaderSuite struct {
@@ -35,8 +35,7 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 	stream := mockStream{stub: stub}
 	conn.ReturnConnectStream = stream
 	cfg := params.LogStreamConfig{
-		AllModels: true,
-		Sink:      "spam",
+		Sink: "spam",
 	}
 
 	_, err := logstream.Open(conn, cfg, cUUID)
@@ -44,7 +43,6 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 
 	stub.CheckCallNames(c, "ConnectStream")
 	stub.CheckCall(c, 0, "ConnectStream", `/logstream`, url.Values{
-		"all":  []string{"true"},
 		"sink": []string{"spam"},
 	})
 }

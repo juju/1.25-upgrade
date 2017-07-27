@@ -6,6 +6,7 @@ package cloud
 import (
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
@@ -13,9 +14,9 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.cloud")
@@ -203,10 +204,18 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	printClouds(clouds.builtin, nil)
 	printClouds(clouds.personal, ansiterm.Foreground(ansiterm.BrightBlue))
 
+	// Get other provider types supported by add-cloud.
+	// These will typically be for private clouds like maas etc.
+	providers, _, err := addableCloudProviders()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	w.Println("\nTry 'list-regions <cloud>' to see available regions.")
 	w.Println("'show-cloud <cloud>' or 'regions --format yaml <cloud>' can be used to see region endpoints.")
-	w.Println("'add-cloud' can add private clouds or private infrastructure.")
 	w.Println("Update the known public clouds with 'update-clouds'.")
+	w.Println("'add-cloud' can add private or custom clouds / infrastructure built for the following provider types:")
+	w.Printf("  - %s\n", strings.Join(providers, ", "))
 	tw.Flush()
 	return nil
 }

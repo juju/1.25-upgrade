@@ -4,7 +4,7 @@
 package meterstatus
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/juju/api/base/testing"
 )
 
 // PatchFacadeCall patches the State's facade such that

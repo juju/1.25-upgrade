@@ -7,18 +7,18 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/state"
 )
 
 // debugLogHandler takes requests to watch the debug log.
@@ -33,7 +33,7 @@ type debugLogHandler struct {
 
 type debugLogHandlerFunc func(
 	state.LogTailerState,
-	*debugLogParams,
+	debugLogParams,
 	debugLogSocket,
 	<-chan struct{},
 ) error
@@ -69,39 +69,40 @@ func newDebugLogHandler(
 //   noTail -> string - one of [true, false], if true, existing logs are sent back,
 //      - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	server := websocket.Server{
-		Handler: func(conn *websocket.Conn) {
-			socket := &debugLogSocketImpl{conn}
-			defer conn.Close()
+	handler := func(conn *websocket.Conn) {
+		socket := &debugLogSocketImpl{conn}
+		defer conn.Close()
 
-			st, releaser, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
-			if err != nil {
-				socket.sendError(err)
-				return
-			}
-			defer releaser()
+		st, releaser, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
+		if err != nil {
+			socket.sendError(err)
+			return
+		}
+		defer releaser()
 
-			params, err := readDebugLogParams(req.URL.Query())
-			if err != nil {
-				socket.sendError(err)
-				return
-			}
+		params, err := readDebugLogParams(req.URL.Query())
+		if err != nil {
+			socket.sendError(err)
+			return
+		}
 
-			if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
-				if isBrokenPipe(err) {
-					logger.Tracef("debug-log handler stopped (client disconnected)")
-				} else {
-					logger.Errorf("debug-log handler error: %v", err)
-				}
+		if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
+			if isBrokenPipe(err) {
+				logger.Tracef("debug-log handler stopped (client disconnected)")
+			} else {
+				logger.Errorf("debug-log handler error: %v", err)
 			}
-		},
+		}
 	}
-	server.ServeHTTP(w, req)
+	websocket.Serve(w, req, handler)
 }
 
 func isBrokenPipe(err error) bool {
 	err = errors.Cause(err)
 	if opErr, ok := err.(*net.OpError); ok {
+		if sysCallErr, ok := opErr.Err.(*os.SyscallError); ok {
+			return sysCallErr.Err == syscall.EPIPE
+		}
 		return opErr.Err == syscall.EPIPE
 	}
 	return false
@@ -134,13 +135,15 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	sendJSON(s.conn, &params.ErrorResult{
-		Error: common.ServerError(err),
-	})
+	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
+		logger.Errorf("closing websocket, %v", err)
+		s.conn.Close()
+		return
+	}
 }
 
 func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
-	return sendJSON(s.conn, record)
+	return s.conn.WriteJSON(record)
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.
@@ -157,13 +160,13 @@ type debugLogParams struct {
 	excludeModule []string
 }
 
-func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
-	params := new(debugLogParams)
+func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
+	var params debugLogParams
 
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
 		params.maxLines = uint(num)
 	}
@@ -171,7 +174,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("replay"); value != "" {
 		replay, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
+			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
 	}
@@ -179,7 +182,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("noTail"); value != "" {
 		noTail, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
+			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
 	}
@@ -187,7 +190,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("backlog"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
 		}
 		params.backlog = uint(num)
 	}
@@ -196,7 +199,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 		var ok bool
 		level, ok := loggo.ParseLevel(value)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+			return params, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
 				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		params.filterLevel = level
@@ -205,7 +208,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("startTime"); value != "" {
 		startTime, err := time.Parse(time.RFC3339Nano, value)
 		if err != nil {
-			return nil, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
+			return params, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
 		}
 		params.startTime = startTime
 	}

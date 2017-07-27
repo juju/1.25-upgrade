@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type serviceSuite struct {
@@ -21,7 +21,7 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestNewConf(c *gc.C) {
+func (s *serviceSuite) TestNewConf24(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	dbDir := dataDir + "/db"
 	mongodPath := "/mgo/bin/mongod"
@@ -49,7 +49,6 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 		Timeout: 300,
 		ExecStart: "/mgo/bin/mongod" +
 			" --dbpath '/var/lib/juju/db'" +
-			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
 			" --sslPEMKeyPassword=ignored" +
 			" --port 12345" +
@@ -61,8 +60,56 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 			" --ipv6" +
 			" --auth" +
 			" --keyFile '/var/lib/juju/shared-secret'" +
+			" --sslOnNormalPorts" +
 			" --noprealloc" +
 			" --smallfiles",
+	}
+
+	c.Check(conf, jc.DeepEquals, expected)
+	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
+}
+
+func (s *serviceSuite) TestNewConf32(c *gc.C) {
+	dataDir := "/var/lib/juju"
+	dbDir := dataDir + "/db"
+	mongodPath := "/mgo/bin/mongod"
+	mongodVersion := mongo.Mongo32wt
+	port := 12345
+	oplogSizeMB := 10
+	conf := mongo.NewConf(mongo.ConfigArgs{
+		DataDir:     dataDir,
+		DBDir:       dbDir,
+		MongoPath:   mongodPath,
+		Port:        port,
+		OplogSizeMB: oplogSizeMB,
+		WantNUMACtl: false,
+		Version:     mongodVersion,
+		Auth:        true,
+		IPv6:        true,
+	})
+
+	expected := common.Conf{
+		Desc: "juju state database",
+		Limit: map[string]int{
+			"nofile": 65000,
+			"nproc":  20000,
+		},
+		Timeout: 300,
+		ExecStart: "/mgo/bin/mongod" +
+			" --dbpath '/var/lib/juju/db'" +
+			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
+			" --sslPEMKeyPassword=ignored" +
+			" --port 12345" +
+			" --syslog" +
+			" --journal" +
+			" --replSet juju" +
+			" --quiet" +
+			" --oplogSize 10" +
+			" --ipv6" +
+			" --auth" +
+			" --keyFile '/var/lib/juju/shared-secret'" +
+			" --sslMode requireSSL" +
+			" --storageEngine wiredTiger",
 	}
 
 	c.Check(conf, jc.DeepEquals, expected)

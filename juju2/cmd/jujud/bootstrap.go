@@ -23,28 +23,28 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/agent/agentbootstrap"
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 var (
@@ -151,7 +151,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
-		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
+		logger.Infof("newer agent binaries requested, looking for %v in stream %v", desiredVersion, stream)
 		hostSeries, err := series.HostSeries()
 		if err != nil {
 			return errors.Trace(err)
@@ -163,12 +163,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
-			logger.Infof("tools are available, upgrade will occur after bootstrap")
+			logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 		}
 		if errors.IsNotFound(toolsErr) {
 			// Newer tools not available, so revert to using the tools
 			// matching the current agent version.
-			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+			logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
 			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
 			logger.Errorf("cannot find newer tools: %v", toolsErr)
@@ -215,6 +215,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
+		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
+		if err != nil {
+			logger.Errorf("could not set requested memory profile: %v", err)
+		} else {
+			agentConfig.SetMongoMemoryProfile(mmprof)
+		}
 		return nil
 	})
 	if err != nil {
@@ -279,6 +285,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
+
+	// Fetch spaces from substrate
+	if err = st.ReloadSpaces(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return err
+		}
+	}
 
 	// Populate the tools catalogue.
 	if err := c.populateTools(st, env); err != nil {
@@ -417,7 +432,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 			Size:    tools.Size,
 			SHA256:  tools.SHA256,
 		}
-		logger.Debugf("Adding tools: %v", toolsVersion)
+		logger.Debugf("Adding agent binaries: %v", toolsVersion)
 		if err := toolstorage.Add(bytes.NewReader(data), metadata); err != nil {
 			return errors.Trace(err)
 		}

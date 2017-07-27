@@ -10,7 +10,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/payload"
 )
 
 type helpersSuite struct {
@@ -34,7 +35,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		Machine: "1",
 	})
 
-	c.Check(apiPayload, jc.DeepEquals, Payload{
+	c.Check(apiPayload, jc.DeepEquals, params.Payload{
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
@@ -46,7 +47,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 }
 
 func (helpersSuite) TestAPI2Payload(c *gc.C) {
-	pl, err := API2Payload(Payload{
+	pl, err := API2Payload(params.Payload{
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",

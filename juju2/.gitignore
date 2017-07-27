@@ -15,4 +15,7 @@ stage/
 .emacs.desktop
 .emacs.desktop.lock
 *.test
+*.test.exe
 *.sw[nop]
+.idea/
+*.pyc

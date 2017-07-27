@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/juju/service/common"
 )
 
 var limitMap = map[string]string{
@@ -46,6 +46,8 @@ func syslogUserGroup() (string, string) {
 	switch os.HostOS() {
 	case os.CentOS:
 		return "root", "adm"
+	case os.OpenSUSE:
+		return "root", "root"
 	default:
 		return "syslog", "syslog"
 	}

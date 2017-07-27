@@ -8,15 +8,15 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourceadapters"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/resource/resourceadapters"
 )
 
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
-	apiOpener modelcmd.APIOpener,
+	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
@@ -35,15 +35,8 @@ func NewUpgradeCharmCommandForTest(
 		NewResourceLister:     newResourceLister,
 	}
 	cmd.SetClientStore(store)
-	cmd.SetAPIOpener(apiOpener)
+	cmd.SetAPIOpen(apiOpen)
 	return modelcmd.Wrap(cmd)
-}
-
-// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
-	return modelcmd.Wrap(&configCommand{
-		api: api,
-	})
 }
 
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
@@ -54,7 +47,7 @@ func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 }
 
 // NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
-func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) cmd.Command {
+func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) modelcmd.ModelCommand {
 	cmd := &addRelationCommand{newAPIFunc: func() (ApplicationAddRelationAPI, error) {
 		return api, nil
 	}}
@@ -62,11 +55,18 @@ func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) cmd.Command {
 }
 
 // NewRemoveRelationCommandForTest returns an RemoveRelationCommand with the api provided as specified.
-func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Command {
+func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) modelcmd.ModelCommand {
 	cmd := &removeRelationCommand{newAPIFunc: func() (ApplicationDestroyRelationAPI, error) {
 		return api, nil
 	}}
 	return modelcmd.Wrap(cmd)
+}
+
+// NewConsumeCommandForTest returns a ConsumeCommand with the specified api.
+func NewConsumeCommandForTest(store jujuclient.ClientStore, api applicationConsumeAPI) cmd.Command {
+	c := &consumeCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c)
 }
 
 type Patcher interface {

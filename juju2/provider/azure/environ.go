@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
@@ -20,29 +21,31 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	jujunetwork "github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/armtemplates"
-	internalazurestorage "github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azurestorage"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/errorutils"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/tracing"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	jujunetwork "github.com/juju/juju/network"
+	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/provider/azure/internal/tracing"
+	"github.com/juju/juju/provider/azure/internal/useragent"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 const (
@@ -99,11 +102,12 @@ type azureEnviron struct {
 	storageClient      azurestorage.Client
 	storageAccountName string
 
-	mu                sync.Mutex
-	config            *azureModelConfig
-	instanceTypes     map[string]instances.InstanceType
-	storageAccount    *storage.Account
-	storageAccountKey *storage.AccountKey
+	mu                     sync.Mutex
+	config                 *azureModelConfig
+	instanceTypes          map[string]instances.InstanceType
+	storageAccount         *storage.Account
+	storageAccountKey      *storage.AccountKey
+	commonResourcesCreated bool
 }
 
 var _ environs.Environ = (*azureEnviron)(nil)
@@ -174,6 +178,7 @@ func (env *azureEnviron) initEnviron() error {
 		"azure.network":   &env.network.Client,
 	}
 	for id, client := range clients {
+		useragent.UpdateClient(client)
 		client.Authorizer = env.authorizer
 		logger := loggo.GetLogger(id)
 		if env.provider.config.Sender != nil {
@@ -209,7 +214,7 @@ func (env *azureEnviron) Create(args environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.initResourceGroup(args.ControllerUUID))
+	return errors.Trace(env.initResourceGroup(args.ControllerUUID, false))
 }
 
 // Bootstrap is part of the Environ interface.
@@ -217,7 +222,7 @@ func (env *azureEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	if err := env.initResourceGroup(args.ControllerConfig.ControllerUUID()); err != nil {
+	if err := env.initResourceGroup(args.ControllerConfig.ControllerUUID(), true); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
 	result, err := common.Bootstrap(ctx, env, args)
@@ -231,14 +236,8 @@ func (env *azureEnviron) Bootstrap(
 	return result, nil
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (env *azureEnviron) BootstrapMessage() string {
-	return ""
-}
-
 // initResourceGroup creates a resource group for this environment.
-func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
-	location := env.location
+func (env *azureEnviron) initResourceGroup(controllerUUID string, controller bool) error {
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 
 	env.mu.Lock()
@@ -247,17 +246,72 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string) error {
 		names.NewControllerTag(controllerUUID),
 		env.config,
 	)
+	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
 	err := env.callAPI(func() (autorest.Response, error) {
 		group, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.ResourceGroup{
-			Location: to.StringPtr(location),
+			Location: to.StringPtr(env.location),
 			Tags:     to.StringMapPtr(tags),
 		})
 		return group.Response, err
 	})
-	return errors.Annotate(err, "creating resource group")
+	if err != nil {
+		return errors.Annotate(err, "creating resource group")
+	}
+
+	if !controller {
+		// When we create a resource group for a non-controller model,
+		// we must create the common resources up-front. This is so
+		// that parallel deployments do not affect dynamic changes,
+		// e.g. those made by the firewaller. For the controller model,
+		// we fold the creation of these resources into the bootstrap
+		// machine's deployment.
+		if err := env.createCommonResourceDeployment(
+			tags, storageAccountType, nil,
+		); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (env *azureEnviron) createCommonResourceDeployment(
+	tags map[string]string,
+	storageAccountType string,
+	rules []network.SecurityRule,
+) error {
+	const apiPort = -1
+	commonResources := networkTemplateResources(
+		env.location, tags, apiPort, rules,
+	)
+	commonResources = append(commonResources, storageAccountTemplateResource(
+		env.location, tags,
+		env.storageAccountName,
+		storageAccountType,
+	))
+
+	// We perform this deployment asynchronously, to avoid blocking
+	// the "juju add-model" command; Create is called synchronously.
+	// Eventually we should have Create called asynchronously, but
+	// until then we do this, and ensure that the deployment has
+	// completed before we schedule additional deployments.
+	deploymentsClient := resources.DeploymentsClient{env.resources}
+	deploymentsClient.ResponseInspector = asyncCreationRespondDecorator(
+		deploymentsClient.ResponseInspector,
+	)
+	template := armtemplates.Template{Resources: commonResources}
+	if err := createDeployment(
+		env.callAPI,
+		deploymentsClient,
+		env.resourceGroup,
+		"common", // deployment name
+		template,
+	); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ControllerInstances is specified in the Environ interface.
@@ -443,7 +497,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("picked tools %q", selectedTools[0].Version)
+	logger.Infof("picked agent binaries %q", selectedTools[0].Version)
 
 	// Finalize the instance config, which we'll render to CustomData below.
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
@@ -520,11 +574,35 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 		apiPort = apiPorts[0]
 	}
-	resources := networkTemplateResources(env.location, envTags, apiPort)
-	resources = append(resources, storageAccountTemplateResource(
-		env.location, envTags,
-		env.storageAccountName, storageAccountType,
-	))
+
+	var nicDependsOn, vmDependsOn []string
+	var resources []armtemplates.Resource
+	createCommonResources := instanceConfig.Bootstrap != nil
+	if createCommonResources {
+		// We're starting the bootstrap machine, so we will create the
+		// common resources in the same deployment.
+		commonResources := networkTemplateResources(env.location, envTags, apiPort, nil)
+		commonResources = append(commonResources, storageAccountTemplateResource(
+			env.location, envTags,
+			env.storageAccountName, storageAccountType,
+		))
+		resources = append(resources, commonResources...)
+		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
+			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
+			internalNetworkName,
+		))
+		vmDependsOn = append(vmDependsOn, fmt.Sprintf(
+			`[resourceId('Microsoft.Storage/storageAccounts', '%s')]`,
+			env.storageAccountName,
+		))
+	} else {
+		// Wait for the common resource deployment to complete.
+		if err := env.waitCommonResourcesCreated(); err != nil {
+			return errors.Annotate(
+				err, "waiting for common resources to be created",
+			)
+		}
+	}
 
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
@@ -539,7 +617,6 @@ func (env *azureEnviron) createVirtualMachine(
 		return errors.Annotate(err, "creating storage profile")
 	}
 
-	var vmDependsOn []string
 	var availabilitySetSubResource *compute.SubResource
 	availabilitySetName, err := availabilitySetName(
 		vmName, vmTags, instanceConfig.Controller != nil,
@@ -598,6 +675,7 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 	nicName := vmName + "-primary"
 	nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
+	nicDependsOn = append(nicDependsOn, publicIPAddressId)
 	ipConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
@@ -619,13 +697,7 @@ func (env *azureEnviron) createVirtualMachine(
 		Properties: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
 		},
-		DependsOn: []string{
-			publicIPAddressId,
-			fmt.Sprintf(
-				`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
-				internalNetworkName,
-			),
-		},
+		DependsOn: nicDependsOn,
 	})
 
 	nics := []compute.NetworkInterfaceReference{{
@@ -635,10 +707,6 @@ func (env *azureEnviron) createVirtualMachine(
 		},
 	}}
 	vmDependsOn = append(vmDependsOn, nicId)
-	vmDependsOn = append(vmDependsOn, fmt.Sprintf(
-		`[resourceId('Microsoft.Storage/storageAccounts', '%s')]`,
-		env.storageAccountName,
-	))
 	resources = append(resources, armtemplates.Resource{
 		APIVersion: compute.APIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
@@ -701,6 +769,83 @@ func (env *azureEnviron) createVirtualMachine(
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// waitCommonResourcesCreated waits for the "common" deployment to complete.
+func (env *azureEnviron) waitCommonResourcesCreated() error {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+	if env.commonResourcesCreated {
+		return nil
+	}
+	if err := env.waitCommonResourcesCreatedLocked(); err != nil {
+		return errors.Trace(err)
+	}
+	env.commonResourcesCreated = true
+	return nil
+}
+
+type deploymentIncompleteError struct {
+	error
+}
+
+func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
+	deploymentsClient := resources.DeploymentsClient{env.resources}
+
+	// Release the lock while we're waiting, to avoid blocking others.
+	env.mu.Unlock()
+	defer env.mu.Lock()
+
+	// Wait for up to 5 minutes, with a 5 second polling interval,
+	// for the "common" deployment to be in one of the terminal
+	// states. The deployment typically takes only around 30 seconds,
+	// but we allow for a longer duration to be defensive.
+	waitDeployment := func() error {
+		var result resources.DeploymentExtended
+		if err := env.callAPI(func() (autorest.Response, error) {
+			var err error
+			result, err = deploymentsClient.Get(env.resourceGroup, "common")
+			return result.Response, err
+		}); err != nil {
+			if result.StatusCode == http.StatusNotFound {
+				// The controller model does not have a "common"
+				// deployment, as its common resources are created
+				// in the machine-0 deployment to keep bootstrap times
+				// optimal. Treat lack of a common deployment as an
+				// indication that the model is the controller model.
+				return nil
+			}
+			return errors.Annotate(err, "querying common deployment")
+		}
+		if result.Properties == nil {
+			return deploymentIncompleteError{errors.New("deployment incomplete")}
+		}
+
+		state := to.String(result.Properties.ProvisioningState)
+		if state == "Succeeded" {
+			// The deployment has succeeded, so the resources are
+			// ready for use.
+			return nil
+		}
+		err := errors.Errorf("common resource deployment status is %q", state)
+		switch state {
+		case "Canceled", "Failed", "Deleted":
+		default:
+			err = deploymentIncompleteError{err}
+		}
+		return err
+	}
+	return retry.Call(retry.CallArgs{
+		Func: waitDeployment,
+		IsFatalError: func(err error) bool {
+			_, ok := err.(deploymentIncompleteError)
+			return !ok
+		},
+		Attempts:    -1,
+		Delay:       5 * time.Second,
+		MaxDuration: 5 * time.Minute,
+		Clock:       env.provider.config.RetryClock,
+	})
 }
 
 // createAvailabilitySet creates the availability set for a machine to use
@@ -1430,18 +1575,18 @@ var errNoFwGlobal = errors.New("global firewall mode is not supported")
 
 // OpenPorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []jujunetwork.PortRange) error {
+func (env *azureEnviron) OpenPorts(ports []jujunetwork.IngressRule) error {
 	return errNoFwGlobal
 }
 
 // ClosePorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []jujunetwork.PortRange) error {
+func (env *azureEnviron) ClosePorts(ports []jujunetwork.IngressRule) error {
 	return errNoFwGlobal
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]jujunetwork.PortRange, error) {
+func (env *azureEnviron) IngressRules() ([]jujunetwork.IngressRule, error) {
 	return nil, errNoFwGlobal
 }
 

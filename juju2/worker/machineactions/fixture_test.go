@@ -7,13 +7,14 @@ package machineactions_test
 import (
 	"errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/machineactions"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/api/machineactions"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var actionNotFoundErr = errors.New("action not found")

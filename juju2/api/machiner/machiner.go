@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
 )
 
 const machinerFacade = "Machiner"
@@ -27,7 +27,6 @@ func NewState(caller base.APICaller) *State {
 		facade:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
-
 }
 
 // machineLife requests the lifecycle of the given machine from the server.

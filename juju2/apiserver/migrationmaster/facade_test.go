@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,16 +17,15 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/migrationmaster"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/migration"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/migrationmaster"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type Suite struct {
@@ -112,13 +112,6 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 		Phase:            "IMPORT",
 		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
-}
-
-func (s *Suite) TestMigrationStatusExternalControl(c *gc.C) {
-	s.backend.migration.externalControl = true
-	status, err := s.mustMakeAPI(c).MigrationStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.Spec.ExternalControl, jc.IsTrue)
 }
 
 func (s *Suite) TestModelInfo(c *gc.C) {
@@ -480,10 +473,6 @@ func (m *stubMigration) PhaseChangedTime() time.Time {
 
 func (m *stubMigration) ModelUUID() string {
 	return modelUUID
-}
-
-func (m *stubMigration) ExternalControl() bool {
-	return m.externalControl
 }
 
 func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {

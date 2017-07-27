@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -22,23 +23,23 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/state/presence"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	coreversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	coreversion "github.com/juju/juju/version"
 )
 
 var (
@@ -47,7 +48,7 @@ var (
 )
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code = cmd.Main(NewStatusCommand(), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
@@ -164,6 +165,11 @@ var (
 		"cloud":      "dummy",
 		"region":     "dummy-region",
 		"version":    "1.2.3",
+		"model-status": M{
+			"current": "available",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"sla": "unsupported",
 	}
 
 	machine0 = M{
@@ -178,7 +184,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":                   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.0.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 		"controller-member-status": "adding-vote",
 	}
@@ -194,7 +207,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.1.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
@@ -209,7 +229,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.2.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
@@ -221,10 +248,18 @@ var (
 		"ip-addresses": []string{"10.0.3.1"},
 		"instance-id":  "controller-3",
 		"machine-status": M{
-			"current": "pending",
+			"current": "started",
+			"message": "I am number three",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.3.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
@@ -239,7 +274,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.4.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainers = M{
@@ -267,6 +309,13 @@ var (
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.3.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 					},
 				},
 				"dns-name":     "10.0.2.1",
@@ -277,6 +326,13 @@ var (
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
+				"network-interfaces": M{
+					"eth0": M{
+						"ip-addresses": []string{"10.0.2.1"},
+						"mac-address":  "aa:bb:cc:dd:ee:ff",
+						"is-up":        true,
+					},
+				},
 			},
 			"1/lxd/1": M{
 				"juju-status": M{
@@ -298,8 +354,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.1.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = dummyCharm(M{
@@ -384,8 +446,8 @@ var statusTests = []testCase{
 
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.2"),
 			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
+			network.NewAddress("10.0.0.2"),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
@@ -404,7 +466,19 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -431,7 +505,19 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -459,7 +545,19 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 							"version": "1.2.3",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -472,8 +570,8 @@ var statusTests = []testCase{
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.2"),
 			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
+			network.NewAddress("10.0.0.2"),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -494,7 +592,19 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -761,7 +871,14 @@ var statusTests = []testCase{
 							"message": "Really?",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.3.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
@@ -777,7 +894,14 @@ var statusTests = []testCase{
 							"message": "Beware the red toys",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.4.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
@@ -1371,6 +1495,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 		addAliveUnit{"varnish", "3"},
 
 		addService{name: "private", charm: "wordpress"},
@@ -1537,6 +1662,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 		addAliveUnit{"riak", "3"},
 		setAgentStatus{"riak/2", status.Idle, "", nil},
 		setUnitStatus{"riak/2", status.Active, "", nil},
@@ -2017,6 +2143,13 @@ var statusTests = []testCase{
 								},
 
 								"series": "quantal",
+								"network-interfaces": M{
+									"eth0": M{
+										"ip-addresses": []string{"10.0.2.1"},
+										"mac-address":  "aa:bb:cc:dd:ee:ff",
+										"is-up":        true,
+									},
+								},
 							},
 						},
 						"dns-name":     "10.0.1.1",
@@ -2027,7 +2160,14 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 
-						"series":   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.1.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -2299,6 +2439,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("10.0.4.1")},
@@ -2434,6 +2575,11 @@ var statusTests = []testCase{
 					"region":            "dummy-region",
 					"version":           "1.2.3",
 					"upgrade-available": "1.2.4",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2569,11 +2715,14 @@ var statusTests = []testCase{
 	),
 	test( // 21
 		"instance with localhost addresses",
-		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
+			network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedAddress("::1", network.ScopeMachineLocal),
-			network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal),
+			// TODO(macgreagoir) setAddresses step method needs to
+			// set netmask correctly before we can test IPv6
+			// loopback.
+			// network.NewScopedAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -2582,23 +2731,7 @@ var statusTests = []testCase{
 			M{
 				"model": model,
 				"machines": M{
-					"0": M{
-						"juju-status": M{
-							"current": "started",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"dns-name":     "10.0.0.2",
-						"ip-addresses": []string{"10.0.0.2"},
-						"instance-id":  "controller-0",
-						"machine-status": M{
-							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"series":                   "quantal",
-						"constraints":              "cores=2 mem=8192M root-disk=8192M",
-						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
-						"controller-member-status": "adding-vote",
-					},
+					"0": machine0,
 				},
 				"applications": M{},
 			},
@@ -2608,8 +2741,11 @@ var statusTests = []testCase{
 		"instance with IPv6 addresses",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
-			network.NewScopedAddress("::1", network.ScopeMachineLocal),
-			network.NewScopedAddress("2001:db8::0:1", network.ScopeCloudLocal),
+			network.NewScopedAddress("2001:db8::1", network.ScopeCloudLocal),
+			// TODO(macgreagoir) setAddresses step method needs to
+			// set netmask correctly before we can test IPv6
+			// loopback.
+			// network.NewScopedAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -2623,14 +2759,21 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":     "2001:db8::0:1",
-						"ip-addresses": []string{"2001:db8::0:1"},
+						"dns-name":     "2001:db8::1",
+						"ip-addresses": []string{"2001:db8::1"},
 						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"2001:db8::1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -2656,7 +2799,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addRemoteApplication{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
 		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
@@ -2669,7 +2812,7 @@ var statusTests = []testCase{
 				},
 				"application-endpoints": M{
 					"hosted-mysql": M{
-						"url": "local:/u/me/mysql",
+						"url": "me/model.mysql",
 						"endpoints": M{
 							"server": M{
 								"interface": "mysql",
@@ -2713,6 +2856,56 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+			},
+		},
+	),
+	test( // 24
+		"set meter status on the model",
+		setModelMeterStatus{"RED", "status message"},
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"meter-status": M{
+						"color":   "red",
+						"message": "status message",
+					},
+					"sla": "unsupported",
+				},
+				"machines":     M{},
+				"applications": M{},
+			},
+		},
+	),
+	test( // 25
+		"set sla on the model",
+		setSLA{"advanced"},
+		expect{
+			"set sla on the model",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla": "advanced",
+				},
+				"machines":     M{},
+				"applications": M{},
 			},
 		},
 	),
@@ -2783,6 +2976,15 @@ func wordpressCharm(extras M) M {
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
+
+type setSLA struct {
+	level string
+}
+
+func (s setSLA) step(c *gc.C, ctx *context) {
+	err := ctx.st.SetSLA(s.level, "test-user", []byte(""))
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 type addMachine struct {
 	machineId string
@@ -2894,6 +3096,25 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	ctx.pingers[m.Id()] = pinger
 }
 
+type setMachineInstanceStatus struct {
+	machineId string
+	Status    status.Status
+	Message   string
+}
+
+func (sm setMachineInstanceStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  sm.Status,
+		Message: sm.Message,
+		Since:   &now,
+	}
+	err = m.SetInstanceStatus(s)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type setAddresses struct {
 	machineId string
 	addresses []network.Address
@@ -2904,6 +3125,41 @@ func (sa setAddresses) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProviderAddresses(sa.addresses...)
 	c.Assert(err, jc.ErrorIsNil)
+	addrs := make([]state.LinkLayerDeviceAddress, len(sa.addresses))
+	lldevs := make([]state.LinkLayerDeviceArgs, len(sa.addresses))
+	for i, address := range sa.addresses {
+		devName := fmt.Sprintf("eth%d", i)
+		macAddr := "aa:bb:cc:dd:ee:ff"
+		configMethod := state.StaticAddress
+		devType := state.EthernetDevice
+		if address.Scope == network.ScopeMachineLocal ||
+			address.Value == "localhost" {
+			devName = "lo"
+			macAddr = "00:00:00:00:00:00"
+			configMethod = state.LoopbackAddress
+			devType = state.LoopbackDevice
+		}
+		lldevs[i] = state.LinkLayerDeviceArgs{
+			Name:       devName,
+			MACAddress: macAddr, // TODO(macgreagoir) Enough for first pass
+			IsUp:       true,
+			Type:       devType,
+		}
+		addrs[i] = state.LinkLayerDeviceAddress{
+			DeviceName:   devName,
+			ConfigMethod: configMethod,
+			// TODO(macgreagoir) Enough for first pass, but
+			// incorrect for IPv4 loopback, and breaks IPv6
+			// loopback.
+			CIDRAddress: fmt.Sprintf("%s/24", address.Value)}
+	}
+	// TODO(macgreagoir) Let these go for now, before this turns into a test for setting lldevs and addrs.
+	// err = m.SetLinkLayerDevices(lldevs...)
+	// c.Assert(err, jc.ErrorIsNil)
+	_ = m.SetLinkLayerDevices(lldevs...)
+	// err = m.SetDevicesAddresses(addrs...)
+	// c.Assert(err, jc.ErrorIsNil)
+	_ = m.SetDevicesAddresses(addrs...)
 }
 
 type setTools struct {
@@ -3111,6 +3367,18 @@ func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setModelMeterStatus struct {
+	color   string
+	message string
+}
+
+func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMeterStatus(s.color, s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3422,7 +3690,12 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 			"cloud":      "dummy",
 			"region":     "dummy-region",
 			"version":    "1.2.3",
-			"migration":  "foo bar",
+			"model-status": M{
+				"current": "busy",
+				"since":   "01 Apr 15 01:23+10:00",
+				"message": "migrating: foo bar",
+			},
+			"sla": "unsupported",
 		},
 		"machines":     M{},
 		"applications": M{},
@@ -3432,6 +3705,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
 		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+
+		stdout = substituteFakeSinceTime(c, stdout, false)
 
 		// Roundtrip expected through format so that types will match.
 		buf, err := format.marshal(expected)
@@ -3448,14 +3723,14 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
 Unit  Workload  Agent  Machine  Public address  Ports  Message
 
-Machine  State  DNS  Inst id  Series  AZ
+Machine  State  DNS  Inst id  Series  AZ  Message
 
 `[1:]
 
@@ -3469,14 +3744,14 @@ Machine  State  DNS  Inst id  Series  AZ
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
 Unit  Workload  Agent  Machine  Public address  Ports  Message
 
-Machine  State  DNS  Inst id  Series  AZ
+Machine  State  DNS  Inst id  Series  AZ  Message
 
 `[1:]
 
@@ -3548,7 +3823,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3561,7 +3836,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.0.2")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3586,7 +3861,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
-Running on subnets:  127.0.0.1/8, 10.0.0.2/8  
+Running on subnets:  127.0.0.1/8, 10.0.2.1/8  
  Utilizing ports:                             
       # Machines:  (3)
          started:   3 
@@ -3601,7 +3876,7 @@ Running on subnets:  127.0.0.1/8, 10.0.0.2/8
         wordpress  1/1  exposed
                  
         # Remote:  (1)
-      hosted-riak       local:/u/me/riak
+      hosted-riak       me/model.riak
 
 `[1:])
 }
@@ -3695,7 +3970,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3736,6 +4011,11 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitAsLeader{"mysql/0"},
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
+		addMachine{machineId: "3", job: state.JobHostUnits},
+		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3754,11 +4034,11 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-Model       Controller  Cloud/Region        Version  Notes
-controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
+Model       Controller  Cloud/Region        Version  Notes                     SLA
+controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported
 
-SAAS name    Status   Store  URL        Interfaces
-hosted-riak  unknown  local  u/me/riak  http:endpoint
+SAAS name    Status   Store  URL
+hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
@@ -3771,10 +4051,11 @@ mysql/0*      maintenance  idle   2        10.0.2.1               installing all
 wordpress/0*  active       idle   1        10.0.1.1               
   logging/0   active       idle            10.0.1.1               
 
-Machine  State    DNS       Inst id       Series   AZ
-0        started  10.0.0.1  controller-0  quantal  us-east-1a
-1        started  10.0.1.1  controller-1  quantal  
-2        started  10.0.2.1  controller-2  quantal  
+Machine  State    DNS       Inst id       Series   AZ          Message
+0        started  10.0.0.1  controller-0  quantal  us-east-1a  
+1        started  10.0.1.1  controller-1  quantal              
+2        started  10.0.2.1  controller-2  quantal              
+3        started  10.0.3.1  controller-3  quantal              I am number three
 
 Relation           Provides   Consumes   Type
 juju-info          logging    mysql      regular
@@ -3834,7 +4115,7 @@ Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
 
-Machine  State  DNS  Inst id  Series  AZ
+Machine  State  DNS  Inst id  Series  AZ  Message
 `[1:])
 }
 
@@ -3890,7 +4171,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 
 	code, _, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
-	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+	c.Check(string(stderr), gc.Equals, "ERROR unable to obtain the current status\n")
 }
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
@@ -3928,11 +4209,11 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		"foo/0                                                   \n"+
 		"foo/1                                                   \n"+
 		"\n"+
-		"Meter  Status   Message\n"+
-		"foo/0  strange  warning: stable strangelets  \n"+
-		"foo/1  up       things are looking up        \n"+
+		"Entity  Meter status  Message\n"+
+		"foo/0   strange       warning: stable strangelets  \n"+
+		"foo/1   up            things are looking up        \n"+
 		"\n"+
-		"Machine  State  DNS  Inst id  Series  AZ\n")
+		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
 }
 
 //
@@ -4083,6 +4364,10 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
 		"  version: 1.2.3\n" +
+		"  model-status:\n" +
+		"    current: available\n" +
+		"    since: 01 Apr 15 01:23+10:00\n" +
+		"  sla: unsupported\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4096,6 +4381,12 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      current: pending\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
+		"    network-interfaces:\n" +
+		"      eth0:\n" +
+		"        ip-addresses:\n" +
+		"        - 10.0.0.1\n" +
+		"        mac-address: aa:bb:cc:dd:ee:ff\n" +
+		"        is-up: true\n" +
 		"    containers:\n" +
 		"      0/lxd/0:\n" +
 		"        juju-status:\n" +
@@ -4198,8 +4489,8 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", network.NewAddresses("localhost", "127.0.0.1")}.step(c, ctx)
-	// And the address for machine "2" is "10.0.0.2"
-	setAddresses{"2", network.NewAddresses("10.0.0.2")}.step(c, ctx)
+	// And the address for machine "2" is "10.0.2.1"
+	setAddresses{"2", network.NewAddresses("10.0.2.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
@@ -4219,8 +4510,8 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
-	// And the address for machine "2" is "10.0.0.2"
-	setAddresses{"2", network.NewAddresses("10.0.0.2")}.step(c, ctx)
+	// And the address for machine "2" is "10.0.2.1"
+	setAddresses{"2", network.NewAddresses("10.0.2.1")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
@@ -4315,7 +4606,7 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
 	com := &statusCommand{}
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 var statusInitTests = []struct {
@@ -4378,6 +4669,11 @@ var statusTimeTest = test(
 				"cloud":      "dummy",
 				"region":     "dummy-region",
 				"version":    "1.2.3",
+				"model-status": M{
+					"current": "available",
+					"since":   "01 Apr 15 01:23+10:00",
+				},
+				"sla": "unsupported",
 			},
 			"machines": M{
 				"0": machine0,
@@ -4450,11 +4746,12 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Machines: map[string]machineStatus{
 			"1": {
-				JujuStatus: statusInfoContents{Current: "error", Message: "<error while provisioning>"},
-				InstanceId: "pending",
-				Series:     "trusty",
-				Id:         "1",
-				Containers: map[string]machineStatus{},
+				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
+				InstanceId:        "pending",
+				Series:            "trusty",
+				Id:                "1",
+				Containers:        map[string]machineStatus{},
+				NetworkInterfaces: map[string]networkInterface{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},

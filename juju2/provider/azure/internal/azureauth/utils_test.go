@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 )
 
 type TokenResourceSuite struct {

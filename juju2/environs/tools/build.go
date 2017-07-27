@@ -19,8 +19,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/juju/names"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Archive writes the executable files found in the given directory in
@@ -111,17 +111,6 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-func setenv(env []string, val string) []string {
-	prefix := val[0 : strings.Index(val, "=")+1]
-	for i, eval := range env {
-		if strings.HasPrefix(eval, prefix) {
-			env[i] = val
-			return env
-		}
-	}
-	return append(env, val)
-}
-
 func findExecutable(execFile string) (string, error) {
 	logger.Debugf("looking for: %s", execFile)
 	if filepath.IsAbs(execFile) {
@@ -195,7 +184,7 @@ func copyExistingJujud(dir string) error {
 func buildJujud(dir string) error {
 	logger.Infof("building jujud")
 	cmds := [][]string{
-		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/1.25-upgrade/juju2/cmd/jujud"},
+		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)

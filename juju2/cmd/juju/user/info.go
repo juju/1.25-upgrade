@@ -10,11 +10,11 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/usermanager"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 var helpSummary = `
@@ -117,7 +117,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	username := c.Username
 	if username == "" {
-		accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+		accountDetails, err := c.CurrentAccountDetails()
 		if err != nil {
 			return err
 		}

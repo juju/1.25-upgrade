@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
 )
 
 // EnvironConfigGetter implements environs.EnvironConfigGetter

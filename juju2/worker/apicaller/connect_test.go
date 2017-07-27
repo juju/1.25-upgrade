@@ -11,12 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/apicaller"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/apicaller"
 )
 
 // ScaryConnectSuite should cover all the *lines* where we get a connection

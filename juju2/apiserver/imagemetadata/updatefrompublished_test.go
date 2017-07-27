@@ -12,16 +12,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	imagetesting "github.com/juju/1.25-upgrade/juju2/environs/imagemetadata/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/testing"
 )
 
 // useTestImageData causes the given content to be served when published metadata is requested.
