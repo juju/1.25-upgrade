@@ -36,12 +36,12 @@ addersses of the controller.
 `
 
 func newUpgradeAgentsCommand() cmd.Command {
-	return &upgradeAgentsCommand{
+	return wrap(&upgradeAgentsCommand{
 		baseClientCommand{
 			needsController: true,
 			remoteCommand:   "upgrade-agents-impl",
 		},
-	}
+	})
 }
 
 type upgradeAgentsCommand struct {

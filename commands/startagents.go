@@ -16,7 +16,7 @@ environment. The agents may be running the 1.25 binary, or a 2.x binary.
 func newStartAgentsCommand() cmd.Command {
 	command := &startAgentsCommand{}
 	command.remoteCommand = "start-agents-impl"
-	return command
+	return wrap(command)
 }
 
 type startAgentsCommand struct {

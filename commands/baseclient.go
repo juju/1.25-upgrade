@@ -19,11 +19,14 @@ import (
 	"github.com/juju/1.25-upgrade/juju1/environs/configstore"
 	"github.com/juju/1.25-upgrade/juju2/api"
 	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
+func wrap(c modelcmd.ControllerCommand) modelcmd.ControllerCommand {
+	return modelcmd.WrapController(c, modelcmd.WrapControllerSkipControllerFlags)
+}
+
 type baseClientCommand struct {
-	cmd.CommandBase
+	modelcmd.ControllerCommandBase
 
 	needsController bool
 
@@ -32,8 +35,6 @@ type baseClientCommand struct {
 	name    string
 	address string
 	plugin  string
-
-	controller modelcmd.ControllerCommandBase
 
 	remoteCommand string
 	remoteArgs    string
@@ -58,11 +59,7 @@ func (c *baseClientCommand) init(args []string) ([]string, error) {
 		if len(args) == 0 {
 			return args, errors.Errorf("no controller name specified")
 		}
-		c.controller.SetClientStore(jujuclient.NewFileClientStore())
-		if err := c.controller.SetControllerName(args[0], false); err != nil {
-			return args, errors.Trace(err)
-		}
-		if err := c.setRemoteControllerInfo(); err != nil {
+		if err := c.SetControllerName(args[0], false); err != nil {
 			return args, errors.Trace(err)
 		}
 		args = args[1:]
@@ -103,19 +100,19 @@ func (c *baseClientCommand) setRemoteControllerInfo() error {
 }
 
 func (c *baseClientCommand) GetControllerAPIInfo() (*api.Info, error) {
-	name, err := c.controller.ControllerName()
+	name, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := c.controller.GetControllerAPIInfo(
-		c.controller.ClientStore(),
+	info, err := c.ControllerCommandBase.GetControllerAPIInfo(
+		c.ClientStore(),
 		name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Put the macaroons in.
-	jar, err := c.controller.CommandBase.CookieJar(c.controller.ClientStore(), name)
+	jar, err := c.ControllerCommandBase.CookieJar()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -125,7 +122,7 @@ func (c *baseClientCommand) GetControllerAPIInfo() (*api.Info, error) {
 	//
 	// TODO(axw,mjs) add a controller API that returns a macaroon that
 	// may be used for the sole purpose of migration.
-	api, err := c.controller.NewAPIRoot()
+	api, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Annotate(err, "connecting to target controller")
 	}
@@ -161,6 +158,11 @@ func (c *baseClientCommand) loadInfo() error {
 }
 
 func (c *baseClientCommand) Run(ctx *cmd.Context) error {
+	if c.needsController {
+		if err := c.setRemoteControllerInfo(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	if err := checkUpdatePlugin(ctx, c.plugin, c.address); err != nil {
 		return errors.Annotate(err, "checking remote plugin")
 	}

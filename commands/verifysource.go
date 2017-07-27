@@ -18,7 +18,7 @@ viability of a 1.25 juju environment for migration into a Juju 2.x controller.
 func newVerifySourceCommand() cmd.Command {
 	command := &verifySourceCommand{}
 	command.remoteCommand = "verify-source-impl"
-	return command
+	return wrap(command)
 }
 
 type verifySourceCommand struct {
