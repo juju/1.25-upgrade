@@ -4,8 +4,6 @@
 package state
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
@@ -55,12 +53,7 @@ func (st *State) MaybePruneTransactions() error {
 	runner, closer := st.database.TransactionRunner()
 	defer closer()
 	// Prune txns when txn count has increased by 10% since last prune.
-	return runner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor:        1.1,
-		MinNewTransactions: 1000,
-		MaxNewTransactions: 100000,
-		MaxTime:            time.Now().Add(-time.Hour),
-	})
+	return runner.MaybePruneTransactions(1.1)
 }
 
 type multiModelRunner struct {
@@ -106,8 +99,8 @@ func (r *multiModelRunner) ResumeTransactions() error {
 }
 
 // MaybePruneTransactions is part of the jujutxn.Runner interface.
-func (r *multiModelRunner) MaybePruneTransactions(opts jujutxn.PruneOptions) error {
-	return r.rawRunner.MaybePruneTransactions(opts)
+func (r *multiModelRunner) MaybePruneTransactions(pruneFactor float32) error {
+	return r.rawRunner.MaybePruneTransactions(pruneFactor)
 }
 
 // updateOps modifies the Insert and Update fields in a slice of
