@@ -150,6 +150,40 @@ func (c *CommandBase) NewAPIRoot(
 	return conn, err
 }
 
+// NewAPIRoot returns a new connection to the API server for the given
+// model or controller.
+func (c *CommandBase) GetControllerAPIInfo(store jujuclient.ClientStore, controllerName string) (*api.Info, error) {
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	// If there are no account details or there's no logged-in
+	// user or the user is external, then trigger macaroon authentication
+	// by using an empty AccountDetails.
+	if accountDetails == nil || accountDetails.User == "" {
+		accountDetails = &jujuclient.AccountDetails{}
+	} else {
+		u := names.NewUserTag(accountDetails.User)
+		if !u.IsLocal() {
+			accountDetails = &jujuclient.AccountDetails{}
+		}
+	}
+	modelName := "" // maybe controller?
+	param, err := c.NewAPIConnectionParams(
+		store, controllerName, modelName, accountDetails,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info, _, err := juju.ConnectionInfo(param)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return info, nil
+}
+
 func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controllerName, modelName string) error {
 	// First, we'll try and clean up the missing model from the local cache.
 	err := store.RemoveModel(controllerName, modelName)

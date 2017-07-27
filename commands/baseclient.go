@@ -59,7 +59,7 @@ func (c *baseClientCommand) init(args []string) ([]string, error) {
 			return args, errors.Errorf("no controller name specified")
 		}
 		c.controller.SetClientStore(jujuclient.NewFileClientStore())
-		if err := c.controller.SetControllerName(args[0]); err != nil {
+		if err := c.controller.SetControllerName(args[0], false); err != nil {
 			return args, errors.Trace(err)
 		}
 		if err := c.setRemoteControllerInfo(); err != nil {
@@ -103,15 +103,19 @@ func (c *baseClientCommand) setRemoteControllerInfo() error {
 }
 
 func (c *baseClientCommand) GetControllerAPIInfo() (*api.Info, error) {
+	name, err := c.controller.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	info, err := c.controller.GetControllerAPIInfo(
 		c.controller.ClientStore(),
-		c.controller.ControllerName())
+		name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Put the macaroons in.
-	apiContext, err := c.controller.APIContext()
+	jar, err := c.controller.CommandBase.CookieJar(c.controller.ClientStore(), name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -126,7 +130,7 @@ func (c *baseClientCommand) GetControllerAPIInfo() (*api.Info, error) {
 		return nil, errors.Annotate(err, "connecting to target controller")
 	}
 	defer api.Close()
-	info.Macaroons = httpbakery.MacaroonsForURL(apiContext.Jar, api.CookieURL())
+	info.Macaroons = httpbakery.MacaroonsForURL(jar, api.CookieURL())
 	return info, nil
 }
 
