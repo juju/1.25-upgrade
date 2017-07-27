@@ -90,6 +90,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
@@ -284,6 +287,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	// No model status in 1.25 - fake an entry, since it's required in 2.2.2.
+	args := description.StatusArgs{
+		Value:   "available",
+		Updated: time.Now(),
+	}
+	e.model.SetStatus(args)
+	e.model.SetStatusHistory([]description.StatusArgs{args})
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
