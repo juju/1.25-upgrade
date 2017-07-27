@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/1.25-upgrade/juju2/api"
 )
 
 var _ api.IPAddrResolver = IPAddrResolverMap(nil)

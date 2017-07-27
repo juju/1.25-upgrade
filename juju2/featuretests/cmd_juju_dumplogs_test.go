@@ -15,12 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/dumplogs"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type dumpLogsCommandSuite struct {

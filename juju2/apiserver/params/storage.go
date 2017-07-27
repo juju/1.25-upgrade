@@ -3,7 +3,7 @@
 
 package params
 
-import "github.com/juju/juju/storage"
+import "github.com/juju/1.25-upgrade/juju2/storage"
 
 // MachineBlockDevices holds a machine tag and the block devices present
 // on that machine.

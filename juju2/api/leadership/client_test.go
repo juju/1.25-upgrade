@@ -12,11 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/leadership"
-	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/leadership"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	coreleadership "github.com/juju/1.25-upgrade/juju2/core/leadership"
 )
 
 /*

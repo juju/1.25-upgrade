@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
 )
 
 // rawState is a wrapper around state.State that supports the needs

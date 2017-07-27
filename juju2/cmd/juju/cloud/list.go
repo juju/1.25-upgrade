@@ -14,9 +14,9 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/output"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.cloud")

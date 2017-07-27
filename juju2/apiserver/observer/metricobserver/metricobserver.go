@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/rpc"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
 )
 
 const (

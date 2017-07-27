@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/network/debinterfaces"
+	"github.com/juju/1.25-upgrade/juju2/network/debinterfaces"
 	"github.com/juju/utils/clock"
 )
 

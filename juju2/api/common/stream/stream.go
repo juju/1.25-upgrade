@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-querystring/query"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
 )
 
 // Open opens a streaming connection to the endpoint path that conforms

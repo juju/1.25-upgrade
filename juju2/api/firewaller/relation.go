@@ -6,7 +6,7 @@ package firewaller
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // Relation represents a juju relation as seen by the firewaller worker.

@@ -24,9 +24,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/constraints"
-	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	jujuworker "github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 // CreateVirtualMachineParams contains the parameters required for creating

@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
-	. "github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/environs/imagedownloads"
-	"github.com/juju/juju/environs/simplestreams"
-	coretesting "github.com/juju/juju/testing"
+	. "github.com/juju/1.25-upgrade/juju2/container/kvm"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagedownloads"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type LibVertSuite struct {

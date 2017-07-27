@@ -4,8 +4,8 @@
 package kvm
 
 import (
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // StartParams is a simple parameter struct for Container.Start.

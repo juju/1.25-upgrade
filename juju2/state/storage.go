@@ -16,10 +16,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
 )
 
 // StorageInstance represents the state of a unit or application-wide storage

@@ -8,9 +8,9 @@ import (
 
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
 )
 
 // StatusAndErr pairs a StatusInfo with an error associated with

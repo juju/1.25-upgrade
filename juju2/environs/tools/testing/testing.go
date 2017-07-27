@@ -24,17 +24,17 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/sync"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/names"
-	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	"github.com/juju/1.25-upgrade/juju2/environs/sync"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/juju/names"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {

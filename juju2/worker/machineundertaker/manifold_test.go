@@ -11,12 +11,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/machineundertaker"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/machineundertaker"
 )
 
 type manifoldSuite struct {

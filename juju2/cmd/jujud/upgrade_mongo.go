@@ -26,12 +26,12 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/juju/paths"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
 )
 
 // KeyUpgradeBackup is the config key used to store information about

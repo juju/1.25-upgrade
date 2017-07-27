@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/watcher"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/lease"
+	"github.com/juju/1.25-upgrade/juju2/state/presence"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/lease"
 )
 
 const (

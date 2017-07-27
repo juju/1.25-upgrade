@@ -3,7 +3,7 @@
 
 package manual
 
-import "github.com/juju/juju/environs"
+import "github.com/juju/1.25-upgrade/juju2/environs"
 
 const (
 	providerType = "manual"

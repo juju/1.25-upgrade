@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs"
 )
 
 // defaultEndpointName is the key in the bindings map that stores the

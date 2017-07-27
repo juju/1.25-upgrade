@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
 
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 // checksumFormat identifies how to interpret the checksum for a backup

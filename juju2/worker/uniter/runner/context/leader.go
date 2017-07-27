@@ -6,7 +6,7 @@ package context
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/leadership"
+	"github.com/juju/1.25-upgrade/juju2/core/leadership"
 )
 
 var (

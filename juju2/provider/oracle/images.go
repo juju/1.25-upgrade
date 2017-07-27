@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
 )
 
 var windowsServerMap = map[string]string{

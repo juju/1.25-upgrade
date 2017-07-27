@@ -9,8 +9,8 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 type formattedStatus struct {

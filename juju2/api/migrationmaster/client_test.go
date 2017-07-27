@@ -23,13 +23,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/migrationmaster"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/migrationmaster"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 type ClientSuite struct {

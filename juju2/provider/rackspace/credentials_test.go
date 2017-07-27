@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
+	"github.com/juju/1.25-upgrade/juju2/provider/rackspace"
 )
 
 var _ = gc.Suite(&CredentialSuite{})

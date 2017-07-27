@@ -15,8 +15,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func Test(t *stdtesting.T) {

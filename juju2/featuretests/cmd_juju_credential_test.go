@@ -11,12 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	apicloud "github.com/juju/juju/api/cloud"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/commands"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient"
+	apicloud "github.com/juju/1.25-upgrade/juju2/api/cloud"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 type cmdCredentialSuite struct {

@@ -15,8 +15,8 @@ import (
 	"github.com/lxc/lxd/shared/osarch"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools/lxdclient"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 type instanceSuite struct {

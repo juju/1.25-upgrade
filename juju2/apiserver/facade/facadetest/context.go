@@ -4,8 +4,8 @@
 package facadetest
 
 import (
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // Context implements facade.Context in the simplest possible way.

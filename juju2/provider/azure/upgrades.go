@@ -10,8 +10,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.

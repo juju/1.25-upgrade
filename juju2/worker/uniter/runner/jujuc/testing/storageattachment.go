@@ -6,7 +6,7 @@ package testing
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // StorageAttachment holds the data for the test double.

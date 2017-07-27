@@ -19,7 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagedownloads"
 )
 
 // syncInternalSuite is gocheck boilerplate.

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // StorageInterface is an interface for obtaining information about storage

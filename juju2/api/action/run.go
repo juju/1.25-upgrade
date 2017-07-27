@@ -6,7 +6,7 @@ package action
 import (
 	"time"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // RunOnAllMachines runs the command on all the machines with the specified

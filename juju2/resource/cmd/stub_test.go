@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
 )
 
 type stubCharmStore struct {

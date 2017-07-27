@@ -12,11 +12,11 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
-	apilogger "github.com/juju/juju/api/logger"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/logger"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	apilogger "github.com/juju/1.25-upgrade/juju2/api/logger"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker/logger"
 )
 
 // worstCase is used for timeouts when timing out

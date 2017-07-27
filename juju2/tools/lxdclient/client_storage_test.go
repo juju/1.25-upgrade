@@ -12,7 +12,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 type StorageClientSuite struct {

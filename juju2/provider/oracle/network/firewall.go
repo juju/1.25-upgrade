@@ -18,11 +18,11 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
-	commonProvider "github.com/juju/juju/provider/oracle/common"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	commonProvider "github.com/juju/1.25-upgrade/juju2/provider/oracle/common"
 )
 
 // Firewaller exposes methods for managing network ports.

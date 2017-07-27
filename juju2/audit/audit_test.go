@@ -13,7 +13,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/audit"
+	"github.com/juju/1.25-upgrade/juju2/audit"
 )
 
 type auditSuite struct {

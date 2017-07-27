@@ -19,16 +19,16 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/cmd/jujud/agent/unit"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/introspection"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/uniter"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/unit"
+	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/introspection"
+	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
 )
 
 var (

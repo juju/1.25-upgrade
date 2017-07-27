@@ -9,8 +9,8 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/metricsmanager"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")

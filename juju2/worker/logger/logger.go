@@ -8,9 +8,9 @@ import (
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/logger"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/logger"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 var log = loggo.GetLogger("juju.worker.logger")

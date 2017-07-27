@@ -11,9 +11,9 @@ import (
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // StopMongo represents a function that can issue a stop

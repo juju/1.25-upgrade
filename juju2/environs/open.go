@@ -6,7 +6,7 @@ package environs
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 // AdminUser is the initial admin user created for all controllers.

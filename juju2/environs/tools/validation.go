@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/version"
 
-	"github.com/juju/juju/environs/simplestreams"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 // ToolsMetadataLookupParams is used to query metadata for matching tools.

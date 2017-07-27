@@ -18,7 +18,7 @@ import (
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 var (

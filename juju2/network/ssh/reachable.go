@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 var logger = loggo.GetLogger("juju.network.ssh")

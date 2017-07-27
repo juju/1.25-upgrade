@@ -14,13 +14,13 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/api"
-	apilogsender "github.com/juju/juju/api/logsender"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	apilogsender "github.com/juju/1.25-upgrade/juju2/api/logsender"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
 )
 
 type workerSuite struct {

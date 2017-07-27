@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 // EnvironConfigGetter exposes a model configuration to its clients.

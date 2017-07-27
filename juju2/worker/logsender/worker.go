@@ -10,9 +10,9 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/logsender"
-	"github.com/juju/juju/apiserver/params"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/logsender"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 const loggerName = "juju.worker.logsender"

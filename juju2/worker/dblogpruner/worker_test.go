@@ -16,11 +16,11 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/dblogpruner"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/1.25-upgrade/juju2/worker/dblogpruner"
 )
 
 func TestPackage(t *stdtesting.T) {

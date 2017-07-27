@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
 )
 
 // Customers and stakeholders want to be able to prevent accidental damage to their Juju deployments.

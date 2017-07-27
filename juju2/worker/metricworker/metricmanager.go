@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/metricsmanager"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // NewMetricsManager creates a runner that will run the metricsmanagement workers.

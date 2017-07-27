@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // Config holds configuration and dependencies for a storageprovisioner worker.

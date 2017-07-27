@@ -19,7 +19,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
 )
 
 type CharmStoreSuite struct {

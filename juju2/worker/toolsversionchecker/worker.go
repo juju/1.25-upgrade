@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // VersionCheckerParams holds params for the version checker worker..

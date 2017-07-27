@@ -8,8 +8,8 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/blobstore.v2"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/state/binarystorage"
 )
 
 var binarystorageNew = binarystorage.New

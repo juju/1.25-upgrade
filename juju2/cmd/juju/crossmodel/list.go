@@ -11,9 +11,9 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 const listCommandDoc = `

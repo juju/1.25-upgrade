@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.

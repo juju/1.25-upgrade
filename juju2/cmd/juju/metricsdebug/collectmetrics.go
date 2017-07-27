@@ -14,13 +14,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	actionapi "github.com/juju/1.25-upgrade/juju2/api/action"
+	"github.com/juju/1.25-upgrade/juju2/api/application"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/action"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/sender"
 )
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.

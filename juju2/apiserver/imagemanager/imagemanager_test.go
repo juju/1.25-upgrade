@@ -12,13 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/imagemanager"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/imagestorage"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/imagemanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/imagestorage"
 )
 
 type imageManagerSuite struct {

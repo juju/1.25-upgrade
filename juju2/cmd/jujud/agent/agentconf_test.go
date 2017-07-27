@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ = gc.Suite(&agentConfSuite{})

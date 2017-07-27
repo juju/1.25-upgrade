@@ -15,14 +15,14 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/charmstore"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type charmVersionSuite struct {

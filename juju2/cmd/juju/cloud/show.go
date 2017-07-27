@@ -9,7 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
-	jujucloud "github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
 )
 
 type showCloudCommand struct {

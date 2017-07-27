@@ -15,9 +15,9 @@ import (
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // oracleVolumeSource implements the storage.VolumeSource interface

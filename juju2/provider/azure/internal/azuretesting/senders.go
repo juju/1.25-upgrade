@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")

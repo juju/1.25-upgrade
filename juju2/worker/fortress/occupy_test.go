@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/workertest"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type OccupySuite struct {

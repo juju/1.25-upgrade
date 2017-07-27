@@ -8,8 +8,8 @@ package metricsender
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // ModelBackend contains methods that are used by the metrics sender.

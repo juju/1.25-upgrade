@@ -16,8 +16,8 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {

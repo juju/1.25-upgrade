@@ -12,8 +12,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 type listRegionsCommand struct {

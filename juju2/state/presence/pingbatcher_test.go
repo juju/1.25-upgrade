@@ -15,8 +15,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/presence"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type PingBatcherSuite struct {

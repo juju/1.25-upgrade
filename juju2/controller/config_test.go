@@ -13,9 +13,9 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cert"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cert"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func Test(t *stdtesting.T) {

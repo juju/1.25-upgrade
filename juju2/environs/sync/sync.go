@@ -16,13 +16,13 @@ import (
 	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/keys"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")

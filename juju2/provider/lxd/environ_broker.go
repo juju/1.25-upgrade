@@ -11,16 +11,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 func isController(icfg *instancecfg.InstanceConfig) bool {

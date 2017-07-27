@@ -11,7 +11,7 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 // FormatCharmTabular returns a tabular summary of charm resources.

@@ -7,7 +7,7 @@ import (
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/1.25-upgrade/juju2/provider/ec2"
 )
 
 type subnetMatcherSuite struct{}

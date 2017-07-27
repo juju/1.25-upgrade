@@ -14,11 +14,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	"github.com/juju/juju/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/armtemplates"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azuretesting"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type environUpgradeSuite struct {

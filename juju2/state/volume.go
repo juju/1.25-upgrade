@@ -15,8 +15,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // Volume describes a volume (disk, logical volume, etc.) in the model.

@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/juju/subnet"
-	"github.com/juju/juju/feature"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/subnet"
+	"github.com/juju/1.25-upgrade/juju2/feature"
 )
 
 type CreateSuite struct {

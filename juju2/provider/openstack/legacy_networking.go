@@ -8,8 +8,8 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 // LegacyNovaNetworking is an implementation of Networking that uses the legacy

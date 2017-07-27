@@ -21,9 +21,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/azure/internal/ad"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
-	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/ad"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azuretesting"
 )
 
 func clockStartTime() time.Time {

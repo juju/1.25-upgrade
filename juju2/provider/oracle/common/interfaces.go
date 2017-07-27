@@ -8,8 +8,8 @@ import (
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
 )
 
 type OracleInstancer interface {

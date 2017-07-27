@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
 )
 
 // Sender maintains a Source and delivers its hooks via a channel.

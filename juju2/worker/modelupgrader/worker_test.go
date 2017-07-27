@@ -13,12 +13,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	tomb "gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/status"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/modelupgrader"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/modelupgrader"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type WorkerSuite struct {

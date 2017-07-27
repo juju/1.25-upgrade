@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
+	"github.com/juju/1.25-upgrade/juju2/juju/paths"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/1.25-upgrade/juju2/service/systemd"
+	"github.com/juju/1.25-upgrade/juju2/service/upstart"
+	"github.com/juju/1.25-upgrade/juju2/service/windows"
 )
 
 var (

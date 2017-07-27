@@ -8,11 +8,11 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload/api"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.payloadshookcontext")

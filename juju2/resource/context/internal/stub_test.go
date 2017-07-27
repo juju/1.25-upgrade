@@ -11,8 +11,8 @@ import (
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/context/internal"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/context/internal"
 )
 
 type internalStub struct {

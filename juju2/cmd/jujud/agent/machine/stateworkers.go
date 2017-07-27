@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/dependency"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	workerstate "github.com/juju/1.25-upgrade/juju2/worker/state"
 )
 
 // StateWorkersConfig provides the dependencies for the

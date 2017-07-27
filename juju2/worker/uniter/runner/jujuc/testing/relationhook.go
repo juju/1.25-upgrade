@@ -6,7 +6,7 @@ package testing
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 )
 
 // RelationHook holds the values for the hook context.

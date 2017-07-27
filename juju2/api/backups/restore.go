@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/rpc"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
 )
 
 // TODO: There are no unit tests for this file.

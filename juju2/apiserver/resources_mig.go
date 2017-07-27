@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.

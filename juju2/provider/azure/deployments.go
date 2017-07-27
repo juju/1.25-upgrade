@@ -8,7 +8,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/armtemplates"
 )
 
 func createDeployment(

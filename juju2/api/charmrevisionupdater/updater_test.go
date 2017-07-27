@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/api/charmrevisionupdater"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater/testing"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type versionUpdaterSuite struct {

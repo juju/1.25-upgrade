@@ -20,9 +20,9 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/juju/romulus/sla"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/sla"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 func TestPackage(t *stdtesting.T) {

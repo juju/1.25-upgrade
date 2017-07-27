@@ -16,11 +16,11 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 const (

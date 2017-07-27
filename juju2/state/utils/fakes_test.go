@@ -6,9 +6,9 @@ package utils_test
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
 )
 
 // fakeZonedEnv wraps an Environ (e.g. dummy) and implements ZonedEnviron.

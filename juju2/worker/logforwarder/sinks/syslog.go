@@ -6,9 +6,9 @@ package sinks
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/logfwd/syslog"
-	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/1.25-upgrade/juju2/logfwd"
+	"github.com/juju/1.25-upgrade/juju2/logfwd/syslog"
+	"github.com/juju/1.25-upgrade/juju2/worker/logforwarder"
 )
 
 // OpenSyslog returns a sink used to receive log messages to be forwarded.

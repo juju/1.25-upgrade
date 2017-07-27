@@ -10,12 +10,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/applicationoffers"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/testing"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/permission"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/applicationoffers"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 const (

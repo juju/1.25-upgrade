@@ -33,12 +33,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner/internal/schedule"
 )
 
 var logger = loggo.GetLogger("juju.worker.storageprovisioner")

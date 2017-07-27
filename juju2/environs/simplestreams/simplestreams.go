@@ -24,7 +24,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/1.25-upgrade/juju2/agent"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")

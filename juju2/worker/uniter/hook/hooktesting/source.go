@@ -7,7 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
 )
 
 func HookList(kinds ...hooks.Kind) []hook.Info {

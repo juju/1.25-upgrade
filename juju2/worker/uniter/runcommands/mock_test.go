@@ -7,9 +7,9 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 type mockRunnerFactory struct {

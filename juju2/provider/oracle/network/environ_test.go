@@ -14,13 +14,13 @@ import (
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	networkenv "github.com/juju/juju/network"
-	"github.com/juju/juju/provider/oracle"
-	"github.com/juju/juju/provider/oracle/network"
-	oracletesting "github.com/juju/juju/provider/oracle/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	networkenv "github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle/network"
+	oracletesting "github.com/juju/1.25-upgrade/juju2/provider/oracle/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type environSuite struct {

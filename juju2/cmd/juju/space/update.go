@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // NewUpdateCommand returns a command used to update subnets in a space.

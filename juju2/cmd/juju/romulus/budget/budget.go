@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 type budgetCommand struct {

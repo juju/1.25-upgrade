@@ -6,8 +6,8 @@ package crossmodel_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type funcSuite struct {

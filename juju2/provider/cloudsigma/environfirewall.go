@@ -3,7 +3,7 @@
 
 package cloudsigma
 
-import "github.com/juju/juju/network"
+import "github.com/juju/1.25-upgrade/juju2/network"
 
 // Implementing the methods below (to do something other than return nil) will
 // cause `juju expose` to work when the firewall-mode is "global". If you

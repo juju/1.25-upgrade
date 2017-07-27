@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.singular")

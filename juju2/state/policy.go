@@ -6,11 +6,11 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // NewPolicyFunc is the type of a function that,

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 // The vmware-specific config keys.

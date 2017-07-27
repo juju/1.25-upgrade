@@ -15,9 +15,9 @@ import (
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 const (

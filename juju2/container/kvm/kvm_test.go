@@ -13,13 +13,13 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/kvm"
-	kvmtesting "github.com/juju/juju/container/kvm/testing"
-	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/instance"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/container/kvm"
+	kvmtesting "github.com/juju/1.25-upgrade/juju2/container/kvm/testing"
+	containertesting "github.com/juju/1.25-upgrade/juju2/container/testing"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type KVMSuite struct {

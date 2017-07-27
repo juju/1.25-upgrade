@@ -10,13 +10,13 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // A EnvironProvider represents a computing and storage provider.

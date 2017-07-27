@@ -8,14 +8,14 @@ import (
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
 )
 
 var logger = loggo.GetLogger("juju.worker.migrationminion")

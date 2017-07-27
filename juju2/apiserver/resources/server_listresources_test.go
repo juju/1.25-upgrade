@@ -10,9 +10,9 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/resources"
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/resources"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 var _ = gc.Suite(&ListResourcesSuite{})

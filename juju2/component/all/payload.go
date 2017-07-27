@@ -7,16 +7,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api/client"
-	internalclient "github.com/juju/juju/payload/api/private/client"
-	"github.com/juju/juju/payload/context"
-	"github.com/juju/juju/payload/status"
-	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload/api/client"
+	internalclient "github.com/juju/1.25-upgrade/juju2/payload/api/private/client"
+	"github.com/juju/1.25-upgrade/juju2/payload/context"
+	"github.com/juju/1.25-upgrade/juju2/payload/status"
+	unitercontext "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 )
 
 type payloads struct{}

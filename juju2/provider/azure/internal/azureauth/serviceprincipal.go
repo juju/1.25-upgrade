@@ -21,10 +21,10 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/provider/azure/internal/ad"
-	"github.com/juju/juju/provider/azure/internal/errorutils"
-	"github.com/juju/juju/provider/azure/internal/tracing"
-	"github.com/juju/juju/provider/azure/internal/useragent"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/ad"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/errorutils"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/tracing"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/useragent"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azureauth")

@@ -19,9 +19,9 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/environs/imagedownloads"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagedownloads"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/juju/paths"
 )
 
 // BIOSFType is the file type we want to fetch and use for kvm instances which

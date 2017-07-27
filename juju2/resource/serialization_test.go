@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 type SerializationSuite struct {

@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/subnet"
 )
 
 type ListSuite struct {

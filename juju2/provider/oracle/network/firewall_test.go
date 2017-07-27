@@ -13,11 +13,11 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/config"
-	jujunetwork "github.com/juju/juju/network"
-	"github.com/juju/juju/provider/oracle/network"
-	providertest "github.com/juju/juju/provider/oracle/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	jujunetwork "github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle/network"
+	providertest "github.com/juju/1.25-upgrade/juju2/provider/oracle/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type firewallSuite struct{}

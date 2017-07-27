@@ -6,8 +6,8 @@ package backups
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // This file contains untested shims to let us wrap state in a sensible

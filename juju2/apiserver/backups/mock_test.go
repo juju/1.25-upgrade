@@ -3,7 +3,7 @@
 
 package backups_test
 
-import "github.com/juju/juju/state"
+import "github.com/juju/1.25-upgrade/juju2/state"
 
 type stateShim struct {
 	*state.State

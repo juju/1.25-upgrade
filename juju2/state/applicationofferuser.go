@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/permission"
+	"github.com/juju/1.25-upgrade/juju2/permission"
 )
 
 // GetOfferAccess gets the access permission for the specifed user on an offer.

@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/worker/migrationmaster"
 )
 
 type ManifoldConfigSuite struct {

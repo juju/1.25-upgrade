@@ -8,8 +8,8 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
 )
 
 // globalFirewallName returns the name to use for the global firewall.

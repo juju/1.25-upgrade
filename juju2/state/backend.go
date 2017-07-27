@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
 )
 
 // modelBackend collects together some useful internal state methods for

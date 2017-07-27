@@ -10,13 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	apiapplication "github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/application"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/constraints"
-	jujutesting "github.com/juju/juju/juju/testing"
+	apiapplication "github.com/juju/1.25-upgrade/juju2/api/application"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/application"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 type getSuite struct {

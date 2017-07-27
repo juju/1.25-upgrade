@@ -11,13 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
+	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
+	imagetesting "github.com/juju/1.25-upgrade/juju2/environs/imagemetadata/testing"
+	"github.com/juju/1.25-upgrade/juju2/juju/paths"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/worker/proxyupdater"
 )
 
 type acCreator func() (cmd.Command, AgentConf)

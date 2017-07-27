@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/charmstore"
-	resourcecmd "github.com/juju/juju/resource/cmd"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	resourcecmd "github.com/juju/1.25-upgrade/juju2/resource/cmd"
 )
 
 var _ = gc.Suite(&ListCharmSuite{})

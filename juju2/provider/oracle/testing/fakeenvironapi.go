@@ -8,7 +8,7 @@ import (
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 
-	"github.com/juju/juju/provider/oracle"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle"
 )
 
 type FakeInstancer struct {

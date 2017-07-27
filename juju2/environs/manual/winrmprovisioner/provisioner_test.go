@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/environs/manual/winrmprovisioner"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs/manual"
+	"github.com/juju/1.25-upgrade/juju2/environs/manual/winrmprovisioner"
 )
 
 type TestClientAPI struct{}

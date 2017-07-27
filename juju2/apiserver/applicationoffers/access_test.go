@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/applicationoffers"
-	"github.com/juju/juju/apiserver/params"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/permission"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/applicationoffers"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/permission"
 )
 
 type offerAccessSuite struct {

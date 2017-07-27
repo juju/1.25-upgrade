@@ -7,8 +7,8 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/state/bakerystorage"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.

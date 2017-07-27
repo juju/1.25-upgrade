@@ -16,7 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource"
 )
 
 type resourcePersistence interface {

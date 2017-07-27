@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
 )
 
 type WindowsHookSuite struct{}

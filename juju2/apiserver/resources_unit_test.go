@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type UnitResourcesHandlerSuite struct {

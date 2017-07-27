@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
 )
 
 func updateLXDCloudCredentials(st StateBackend) error {

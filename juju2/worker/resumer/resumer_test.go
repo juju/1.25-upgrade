@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/workertest"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/resumer"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type ResumerSuite struct {

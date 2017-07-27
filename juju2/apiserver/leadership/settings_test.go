@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/leadership"
-	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/leadership"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	coreleadership "github.com/juju/1.25-upgrade/juju2/core/leadership"
 )
 
 // TODO(fwereade): this is *severely* undertested.

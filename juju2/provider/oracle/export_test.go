@@ -3,7 +3,7 @@
 
 package oracle
 
-import "github.com/juju/juju/storage"
+import "github.com/juju/1.25-upgrade/juju2/storage"
 
 var (
 	DefaultTypes               = []storage.ProviderType{oracleStorageProvideType}

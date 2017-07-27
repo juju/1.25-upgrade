@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/crossmodel"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/crossmodel"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
 )
 
 type findSuite struct {

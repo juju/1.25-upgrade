@@ -7,8 +7,8 @@ import (
 	"gopkg.in/goose.v2/client"
 	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
 )
 
 const (

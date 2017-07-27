@@ -19,13 +19,13 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/1.25-upgrade/juju2/service/systemd"
+	"github.com/juju/1.25-upgrade/juju2/service/upstart"
+	"github.com/juju/1.25-upgrade/juju2/service/windows"
 )
 
 var maybeSystemd = service.InitSystemSystemd

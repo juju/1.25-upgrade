@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
 )
 
 // HookRunner implements the functionality necessary to run a meter-status-changed hook.

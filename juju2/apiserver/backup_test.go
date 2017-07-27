@@ -20,12 +20,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/apiserver"
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
-	backupstesting "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver"
+	apiserverbackups "github.com/juju/1.25-upgrade/juju2/apiserver/backups"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/backups"
+	backupstesting "github.com/juju/1.25-upgrade/juju2/state/backups/testing"
 )
 
 type backupsCommonSuite struct {

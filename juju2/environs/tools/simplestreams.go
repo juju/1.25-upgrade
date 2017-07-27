@@ -25,9 +25,9 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 func init() {

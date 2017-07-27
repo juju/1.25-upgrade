@@ -8,7 +8,7 @@ import (
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 type poolType string

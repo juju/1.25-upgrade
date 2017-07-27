@@ -15,12 +15,12 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/maas"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
+	"github.com/juju/1.25-upgrade/juju2/provider/maas"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type environSuite struct {

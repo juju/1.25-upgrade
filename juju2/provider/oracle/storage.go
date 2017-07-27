@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 
-	"github.com/juju/juju/provider/oracle/common"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle/common"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 const (

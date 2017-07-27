@@ -17,9 +17,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // RemoteApplication represents the state of an application hosted

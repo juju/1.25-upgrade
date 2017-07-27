@@ -11,8 +11,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
 )
 
 // constraintsDoc is the mongodb representation of a constraints.Value.

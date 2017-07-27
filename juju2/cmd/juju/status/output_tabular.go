@@ -16,10 +16,10 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 type statusRelation struct {

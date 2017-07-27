@@ -8,12 +8,12 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/backups"
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
-	stbackups "github.com/juju/juju/state/backups"
-	backupstesting "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/backups"
+	apiserverbackups "github.com/juju/1.25-upgrade/juju2/apiserver/backups"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	stbackups "github.com/juju/1.25-upgrade/juju2/state/backups"
+	backupstesting "github.com/juju/1.25-upgrade/juju2/state/backups/testing"
 )
 
 type baseSuite struct {

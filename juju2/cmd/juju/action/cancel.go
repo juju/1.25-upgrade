@@ -10,9 +10,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"fmt"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 func NewCancelCommand() cmd.Command {

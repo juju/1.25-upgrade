@@ -17,8 +17,8 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/cert"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/cert"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
 )
 
 const (

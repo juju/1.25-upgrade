@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // NewBody returns an HTTP request body and content type

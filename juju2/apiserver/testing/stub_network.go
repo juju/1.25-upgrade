@@ -14,14 +14,14 @@ import (
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	providercommon "github.com/juju/juju/provider/common"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common/networkingcommon"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type StubNetwork struct {

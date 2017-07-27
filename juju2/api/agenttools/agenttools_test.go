@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agenttools"
-	"github.com/juju/juju/api/base/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/agenttools"
+	"github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type AgentToolsSuite struct {

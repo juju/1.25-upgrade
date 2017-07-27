@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/version"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type BSInteractSuite struct {
