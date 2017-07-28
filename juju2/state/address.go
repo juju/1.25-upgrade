@@ -4,8 +4,10 @@
 package state
 
 import (
+	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -13,7 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/network"
 )
 
 // controllerAddresses returns the list of internal addresses of the state
@@ -40,7 +42,7 @@ func (st *State) controllerAddresses() ([]string, error) {
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	machines, closer := ssState.getCollection(machinesC)
+	machines, closer := ssState.db().GetCollection(machinesC)
 	defer closer()
 	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
 	if err != nil {
@@ -85,22 +87,6 @@ func (st *State) Addresses() ([]string, error) {
 	return appendPort(addrs, config.StatePort()), nil
 }
 
-// APIAddressesFromMachines returns the list of cloud-internal addresses that
-// can be used to connect to the state API server.
-// This method will be deprecated when API addresses are
-// stored independently in their own document.
-func (st *State) APIAddressesFromMachines() ([]string, error) {
-	addrs, err := st.controllerAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return appendPort(addrs, config.APIPort()), nil
-}
-
 const apiHostPortsKey = "apiHostPorts"
 
 type apiHostPortsDoc struct {
@@ -111,7 +97,7 @@ type apiHostPortsDoc struct {
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 	doc := apiHostPortsDoc{
 		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
@@ -149,7 +135,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 	err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
@@ -299,7 +285,46 @@ func addressesEqual(a, b []network.Address) bool {
 	return reflect.DeepEqual(a, b)
 }
 
+func dupeAndSort(a [][]network.HostPort) [][]network.HostPort {
+	var result [][]network.HostPort
+
+	for _, val := range a {
+		var inner []network.HostPort
+		for _, hp := range val {
+			inner = append(inner, hp)
+		}
+		network.SortHostPorts(inner)
+		result = append(result, inner)
+	}
+	sort.Sort(hostsPortsSlice(result))
+	return result
+}
+
+type hostsPortsSlice [][]network.HostPort
+
+func (hp hostsPortsSlice) Len() int      { return len(hp) }
+func (hp hostsPortsSlice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
+func (hp hostsPortsSlice) Less(i, j int) bool {
+	lhs := (hostPortsSlice)(hp[i]).String()
+	rhs := (hostPortsSlice)(hp[j]).String()
+	return lhs < rhs
+}
+
+type hostPortsSlice []network.HostPort
+
+func (hp hostPortsSlice) String() string {
+	var result string
+	for _, val := range hp {
+		result += fmt.Sprintf("%s-%d ", val.Address, val.Port)
+	}
+	return result
+}
+
 // hostsPortsEqual checks that two arrays of network hostports are equal.
 func hostsPortsEqual(a, b [][]network.HostPort) bool {
-	return reflect.DeepEqual(a, b)
+	// Make a copy of all the values so we don't mutate the args in order
+	// to determine if they are the same while we mutate the slice to order them.
+	aPrime := dupeAndSort(a)
+	bPrime := dupeAndSort(b)
+	return reflect.DeepEqual(aPrime, bPrime)
 }

@@ -14,12 +14,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type errorsSuite struct {
@@ -266,10 +266,10 @@ func (s *errorsSuite) TestUnknownModel(c *gc.C) {
 }
 
 func (s *errorsSuite) TestDestroyErr(c *gc.C) {
-	errs := []string{
-		"error one",
-		"error two",
-		"error three",
+	errs := []error{
+		errors.New("error one"),
+		errors.New("error two"),
+		errors.New("error three"),
 	}
 	ids := []string{
 		"id1",

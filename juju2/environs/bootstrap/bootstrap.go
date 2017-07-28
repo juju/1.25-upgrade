@@ -24,23 +24,23 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/gui"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	"github.com/juju/1.25-upgrade/juju2/environs/sync"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/mongo"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no agent binaries are available for your model.
@@ -411,7 +411,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	cfg = environ.Config()
-	if err := finalizeInstanceBootstrapConfig(ctx, instanceConfig, args, cfg, customImageMetadata); err != nil {
+	environVersion := environ.Provider().Version()
+	if err := finalizeInstanceBootstrapConfig(
+		ctx, instanceConfig, args, cfg, environVersion, customImageMetadata,
+	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
 	if err := result.Finalize(ctx, instanceConfig, args.DialOpts); err != nil {
@@ -426,6 +429,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg *instancecfg.InstanceConfig,
 	args BootstrapParams,
 	cfg *config.Config,
+	environVersion int,
 	customImageMetadata []*imagemetadata.ImageMetadata,
 ) error {
 	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
@@ -466,6 +470,7 @@ func finalizeInstanceBootstrapConfig(
 	}
 
 	icfg.Bootstrap.ControllerModelConfig = cfg
+	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
 	icfg.Bootstrap.ControllerCloud = args.Cloud
 	icfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
@@ -613,7 +618,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 			bootstrapVersion, toolsList = compatibleVersion, compatibleTools
 		}
 	}
-	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
+	logger.Infof("picked bootstrap agent binary version: %s", bootstrapVersion)
 	return toolsList, nil
 }
 
@@ -655,19 +660,54 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 	return v1.Compare(v2) == 0
 }
 
-// setPrivateMetadataSources sets the default tools metadata source
-// for tools syncing, and adds an image metadata source after verifying
-// the contents.
+// setPrivateMetadataSources verifies the specified metadataDir exists,
+// uses it to set the default agent binary metadata source for agent binaries,
+// and adds an image metadata source after verifying the contents. If the
+// directory ends in tools, only the default tools metadata source will be
+// set. Same for images.
 func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
-	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
-	tools.DefaultBaseURL = metadataDir
+	if _, err := os.Stat(metadataDir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Annotate(err, "cannot access simplestreams metadata directory")
+		}
+		return nil, errors.NotFoundf("simplestreams metadata source: %s", metadataDir)
+	}
 
-	imageMetadataDir := filepath.Join(metadataDir, storage.BaseImagesPath)
+	agentBinaryMetadataDir := metadataDir
+	ending := filepath.Base(agentBinaryMetadataDir)
+	if ending != storage.BaseToolsPath {
+		agentBinaryMetadataDir = filepath.Join(metadataDir, storage.BaseToolsPath)
+	}
+	if _, err := os.Stat(agentBinaryMetadataDir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Annotate(err, "cannot access agent binary metadata")
+		}
+		logger.Debugf("no agent directory found, using default agent binary metadata source: %s", tools.DefaultBaseURL)
+	} else {
+		if ending == storage.BaseToolsPath {
+			// As the specified metadataDir ended in 'tools'
+			// assume that is the only metadata to find and return.
+			tools.DefaultBaseURL = filepath.Dir(metadataDir)
+			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
+			return nil, nil
+		} else {
+			tools.DefaultBaseURL = metadataDir
+			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
+		}
+	}
+
+	imageMetadataDir := metadataDir
+	ending = filepath.Base(imageMetadataDir)
+	if ending != storage.BaseImagesPath {
+		imageMetadataDir = filepath.Join(metadataDir, storage.BaseImagesPath)
+	}
 	if _, err := os.Stat(imageMetadataDir); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Annotate(err, "cannot access image metadata")
 		}
 		return nil, nil
+	} else {
+		logger.Debugf("setting default image metadata source: %s", imageMetadataDir)
 	}
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))

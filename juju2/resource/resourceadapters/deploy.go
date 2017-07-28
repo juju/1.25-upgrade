@@ -10,10 +10,10 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/resource/api/client"
-	"github.com/juju/1.25-upgrade/juju2/resource/cmd"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/resource/api/client"
+	"github.com/juju/juju/resource/cmd"
 )
 
 // DeployResourcesFunc is the function type of DeployResources.

@@ -15,12 +15,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/authentication"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/juju"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/authentication"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 )
 
 const userChangePasswordDoc = `
@@ -59,7 +59,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-user-password",
 		Args:    "[username]",
-		Purpose: "Changes the password for the current or specified Juju user",
+		Purpose: "Changes the password for the current or specified Juju user.",
 		Doc:     userChangePasswordDoc,
 	}
 }
@@ -97,7 +97,10 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {
@@ -154,9 +157,13 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *changePasswordCommand) recordMacaroon(user, password string) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	accountDetails := &jujuclient.AccountDetails{User: user}
 	args, err := c.NewAPIConnectionParams(
-		c.ClientStore(), c.ControllerName(), "", accountDetails,
+		c.ClientStore(), controllerName, "", accountDetails,
 	)
 	if err != nil {
 		return errors.Trace(err)

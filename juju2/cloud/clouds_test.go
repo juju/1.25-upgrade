@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/testing"
 )
 
 type cloudSuite struct {
@@ -21,7 +21,7 @@ type cloudSuite struct {
 var _ = gc.Suite(&cloudSuite{})
 
 var publicCloudNames = []string{
-	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma",
+	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma", "oracle",
 }
 
 func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {

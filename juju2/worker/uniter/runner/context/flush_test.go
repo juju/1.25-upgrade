@@ -10,11 +10,11 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
-	runnertesting "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/uniter/runner/context"
+	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
 type FlushContextSuite struct {

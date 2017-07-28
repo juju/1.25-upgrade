@@ -8,13 +8,12 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/mongo"
 )
 
 // getRawCollection returns the named mgo Collection. As no automatic
 // model filtering is performed by the returned collection it
-// should be rarely used. getCollection() should be used in almost all
-// cases.
+// should be rarely used.
 func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
 	collection, closer := st.database.GetCollection(name)
 	return collection.Writeable().Underlying(), closer

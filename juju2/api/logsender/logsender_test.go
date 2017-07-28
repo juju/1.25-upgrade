@@ -5,16 +5,18 @@ package logsender_test
 
 import (
 	"errors"
+	"io"
 	"net/url"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/logsender"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/logsender"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type LogSenderSuite struct {
@@ -82,6 +84,7 @@ func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stre
 	c.c.Assert(path, gc.Equals, "/logsink")
 	c.c.Assert(values, jc.DeepEquals, url.Values{
 		"jujuclientversion": []string{version.Current.String()},
+		"version":           []string{"1"},
 	})
 	if c.connectError != nil {
 		return nil, c.connectError
@@ -106,14 +109,11 @@ func (s mockStream) ReadJSON(v interface{}) error {
 	return nil
 }
 
-func (s mockStream) Read([]byte) (int, error) {
-	s.conn.c.Errorf("Read called unexpectedly")
-	return 0, nil
-}
-
-func (s mockStream) Write([]byte) (int, error) {
-	s.conn.c.Errorf("Write called unexpectedly")
-	return 0, nil
+func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
+	// NextReader is now called by the read loop thread.
+	// So just wait a bit and return so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
+	return 0, nil, nil
 }
 
 func (s mockStream) Close() error {

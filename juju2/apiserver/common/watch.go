@@ -11,10 +11,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // AgentEntityWatcher implements a common Watch method for use by
@@ -128,7 +128,7 @@ func NewMultiNotifyWatcher(w ...state.NotifyWatcher) *MultiNotifyWatcher {
 // sending.
 func (w *MultiNotifyWatcher) loop(in <-chan struct{}) {
 	defer close(w.changes)
-	// out is initialised to m.changes to send the inital event.
+	// out is initialised to m.changes to send the initial event.
 	out := w.changes
 	var timer <-chan time.Time
 	for {

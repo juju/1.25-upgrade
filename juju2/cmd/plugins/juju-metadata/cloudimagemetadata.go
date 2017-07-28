@@ -6,7 +6,7 @@ package main
 import (
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
+	"github.com/juju/juju/api/imagemetadata"
 )
 
 type cloudImageMetadataCommandBase struct {

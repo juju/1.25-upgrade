@@ -6,16 +6,15 @@ package common
 import (
 	"time"
 
+	"github.com/juju/description"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // ModelManagerBackend defines methods provided by a state
@@ -26,7 +25,6 @@ type ModelManagerBackend interface {
 	APIHostPortsGetter
 	ToolsStorageGetter
 	BlockGetter
-	metricsender.MetricsSenderBackend
 	state.CloudAccessor
 
 	ModelUUID() string
@@ -55,11 +53,22 @@ type ModelManagerBackend interface {
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
+	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
+	SetModelMeterStatus(string, string) error
+	ReloadSpaces(environ environs.Environ) error
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
+
+	// Methods required by the metricsender package.
+	MetricsManager() (*state.MetricsManager, error)
+	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
+	SetMetricBatchesSent(batchUUIDs []string) error
+	CountOfUnsentMetrics() (int, error)
+	CountOfSentMetrics() (int, error)
+	CleanupOldMetrics() error
 }
 
 // Model defines methods provided by a state.Model instance.
@@ -77,6 +86,12 @@ type Model interface {
 	Users() ([]permission.UserAccess, error)
 	Destroy() error
 	DestroyIncludingHosted() error
+	SLALevel() string
+	SLAOwner() string
+	MigrationMode() state.MigrationMode
+	Name() string
+	UUID() string
+	ControllerUUID() string
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
@@ -199,4 +214,27 @@ func (st modelManagerStateShim) AllApplications() ([]Application, error) {
 		all[i] = applicationShim{a}
 	}
 	return all, nil
+}
+
+// BackendPool provides access to a pool of ModelManagerBackends.
+type BackendPool interface {
+	Get(modelUUID string) (ModelManagerBackend, func(), error)
+}
+
+// NewBackendPool returns a BackendPool wrapping the passed StatePool.
+func NewBackendPool(pool *state.StatePool) BackendPool {
+	return &statePoolShim{pool: pool}
+}
+
+type statePoolShim struct {
+	pool *state.StatePool
+}
+
+// Get implements BackendPool.
+func (p *statePoolShim) Get(modelUUID string) (ModelManagerBackend, func(), error) {
+	st, releaser, err := p.pool.Get(modelUUID)
+	closer := func() {
+		releaser()
+	}
+	return NewModelManagerBackend(st), closer, err
 }

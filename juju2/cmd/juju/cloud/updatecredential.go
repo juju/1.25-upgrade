@@ -9,10 +9,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	apicloud "github.com/juju/1.25-upgrade/juju2/api/cloud"
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	apicloud "github.com/juju/juju/api/cloud"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var usageUpdateCredentialSummary = `
@@ -99,7 +99,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)
 	}

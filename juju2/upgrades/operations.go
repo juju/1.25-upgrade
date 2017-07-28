@@ -4,8 +4,9 @@
 package upgrades
 
 import (
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 	"github.com/juju/version"
+
+	jujuversion "github.com/juju/juju/version"
 )
 
 // stateUpgradeOperations returns an ordered slice of sets of
@@ -20,6 +21,8 @@ var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("2.0.0"), stateStepsFor20()},
 		upgradeToVersion{version.MustParse("2.1.0"), stateStepsFor21()},
+		upgradeToVersion{version.MustParse("2.2.0"), stateStepsFor22()},
+		upgradeToVersion{version.MustParse("2.2.1"), stateStepsFor221()},
 	}
 	return steps
 }
@@ -30,6 +33,7 @@ var stateUpgradeOperations = func() []Operation {
 var upgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("2.0.0"), stepsFor20()},
+		upgradeToVersion{version.MustParse("2.2.0"), stepsFor22()},
 	}
 	return steps
 }

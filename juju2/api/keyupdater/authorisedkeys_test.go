@@ -8,11 +8,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/keyupdater"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/watcher/watchertest"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/keyupdater"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type keyupdaterSuite struct {
@@ -56,7 +56,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 }
 
 func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

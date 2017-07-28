@@ -13,7 +13,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	utilscert "github.com/juju/utils/cert"
 
-	"github.com/juju/1.25-upgrade/juju2/cert"
+	"github.com/juju/juju/cert"
 )
 
 func init() {

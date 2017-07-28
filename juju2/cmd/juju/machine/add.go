@@ -5,26 +5,31 @@ package machine
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/winrm"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/machinemanager"
-	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/environs/manual/winrmprovisioner"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 )
 
 var addMachineDoc = `
@@ -56,7 +61,6 @@ It is possible to override or augment constraints by passing provider-specific
 "placement directives" as an argument; these give the provider additional
 information about how to allocate the machine. For example, one can direct the
 MAAS provider to acquire a particular node by specifying its hostname.
-For more information on placement directives, see "juju help placement".
 
 Examples:
    juju add-machine                      (starts a new machine)
@@ -66,6 +70,7 @@ Examples:
    juju add-machine lxd:4                (starts a new lxd container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju add-machine ssh:user@10.10.0.3   (manually provisions machine with ssh)
+   juju add-machine winrm:user@10.10.0.3 (manually provisions machine with winrm)
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
@@ -114,7 +119,7 @@ type addCommand struct {
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
+		Args:    "[<container>:machine | <container> | ssh:[user@]host | winrm:[user@]host | placement]",
 		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
 	}
@@ -334,8 +339,10 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 var (
 	sshProvisioner    = sshprovisioner.ProvisionMachine
+	winrmProvisioner  = winrmprovisioner.ProvisionMachine
 	errNonManualScope = errors.New("non-manual scope")
 	sshScope          = "ssh"
+	winrmScope        = "winrm"
 )
 
 func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Config, ctx *cmd.Context) error {
@@ -344,13 +351,15 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 	switch c.Placement.Scope {
 	case sshScope:
 		provisionMachine = sshProvisioner
+	case winrmScope:
+		provisionMachine = winrmProvisioner
 	default:
 		return errNonManualScope
 	}
 
 	authKeys, err := common.ReadAuthorizedKeys(ctx, "")
 	if err != nil {
-		return errors.Annotate(err, "cannot reading authorized-keys")
+		return errors.Annotatef(err, "cannot reading authorized-keys")
 	}
 
 	user, host := splitUserHost(c.Placement.Directive)
@@ -366,6 +375,42 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 			EnableOSRefreshUpdate: config.EnableOSRefreshUpdate(),
 			EnableOSUpgrade:       config.EnableOSUpgrade(),
 		},
+	}
+
+	base := osenv.JujuXDGDataHomePath("x509")
+	keyPath := filepath.Join(base, "winrmkey.pem")
+	certPath := filepath.Join(base, "winrmcert.crt")
+	cert := winrm.NewX509()
+	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
+		return errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
+	}
+	if err = cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
+		logger.Infof("cannot not find any CA cert to load")
+	}
+
+	cfg := winrm.ClientConfig{
+		User:    args.User,
+		Host:    args.Host,
+		Key:     cert.ClientKey(),
+		Cert:    cert.ClientCert(),
+		Timeout: 25 * time.Second,
+		Secure:  true,
+	}
+
+	caCert := cert.CACert()
+	if caCert == nil {
+		logger.Infof("Skipping winrm CA validation")
+		cfg.Insecure = true
+
+	} else {
+		cfg.CACert = caCert
+	}
+
+	args.WinRM = manual.WinRMArgs{}
+	args.WinRM.Keys = cert
+	args.WinRM.Client, err = winrm.NewClient(cfg)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create secure winrm client conn")
 	}
 
 	machineId, err := provisionMachine(args)

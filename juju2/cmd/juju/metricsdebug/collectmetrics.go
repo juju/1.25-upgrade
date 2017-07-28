@@ -14,12 +14,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	actionapi "github.com/juju/1.25-upgrade/juju2/api/action"
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/action"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/api"
+	actionapi "github.com/juju/juju/api/action"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/worker/metrics/sender"
 )
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.
@@ -28,7 +29,7 @@ Trigger metrics collection
 
 This command waits for the metric collection to finish before returning.
 You may abort this command and it will continue to run asynchronously.
-Results may be checked by 'juju action status'.
+Results may be checked by 'juju show-action-status'.
 `
 
 const (
@@ -230,7 +231,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 			sendParams := params.RunParams{
 				Timeout:  commandTimeout,
 				Units:    []string{unitId},
-				Commands: "nc -U ../metrics-send.socket",
+				Commands: "nc -U ../" + sender.DefaultMetricsSendSocketName,
 			}
 			sendResults, err := runnerClient.Run(sendParams)
 			if err != nil {

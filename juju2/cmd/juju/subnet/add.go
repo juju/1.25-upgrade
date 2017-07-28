@@ -6,23 +6,23 @@ package subnet
 import (
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network"
 )
 
 // NewAddCommand returns a command used to add an existing subnet to Juju.
-func NewAddCommand() cmd.Command {
-	return modelcmd.Wrap(&addCommand{})
+func NewAddCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&AddCommand{})
 }
 
-// addCommand calls the API to add an existing subnet to Juju.
-type addCommand struct {
+// AddCommand calls the API to add an existing subnet to Juju.
+type AddCommand struct {
 	SubnetCommandBase
 
 	CIDR       names.SubnetTag
@@ -34,7 +34,7 @@ type addCommand struct {
 
 const addCommandDoc = `
 Adds an existing subnet to Juju, making it available for use. Unlike
-"juju create-subnet", this command does not create a new subnet, so it
+"juju add-subnet", this command does not create a new subnet, so it
 is supported on a wider variety of clouds (where SDN features are not
 available, e.g. MAAS). The subnet will be associated with the given
 existing Juju network space.
@@ -51,7 +51,7 @@ zone(s) is required.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *addCommand) Info() *cmd.Info {
+func (c *AddCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-subnet",
 		Args:    "<CIDR>|<provider-id> <space> [<zone1> <zone2> ...]",
@@ -62,7 +62,7 @@ func (c *addCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *addCommand) Init(args []string) (err error) {
+func (c *AddCommand) Init(args []string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
 
 	// Ensure we have 2 or more arguments.
@@ -97,7 +97,7 @@ func (c *addCommand) Init(args []string) (err error) {
 }
 
 // Run implements Command.Run.
-func (c *addCommand) Run(ctx *cmd.Context) error {
+func (c *AddCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		if c.CIDR.Id() != "" && c.RawCIDR != c.CIDR.Id() {
 			ctx.Infof(

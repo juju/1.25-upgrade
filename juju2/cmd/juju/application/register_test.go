@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,9 +16,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	apicharms "github.com/juju/1.25-upgrade/juju2/api/charms"
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/charmstore"
 )
 
 var _ = gc.Suite(&registrationSuite{})
@@ -45,9 +45,9 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		Plan:           "someplan",
 		RegisterURL:    s.server.URL,
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 	}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *registrationSuite) TearDownTest(c *gc.C) {
@@ -83,8 +83,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}, {
 		"SetMetricCredentials", []interface{}{
@@ -122,8 +121,7 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}, {
 		"SetMetricCredentials", []interface{}{
@@ -161,8 +159,7 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}, {
 		"SetMetricCredentials", []interface{}{
@@ -197,8 +194,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}})
 }
@@ -220,12 +216,51 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		Plan:           "someplan",
 		RegisterURL:    s.server.URL,
-		AllocationSpec: "invalid allocation",
+		IncreaseBudget: -1000,
 	}
 
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `invalid allocation, expecting <budget>:<limit>`)
+	c.Assert(err, gc.ErrorMatches, `invalid budget increase -1000`)
 	s.stub.CheckNoCalls(c)
+}
+
+func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	s.register = &RegisterMeteredCharm{
+		Plan:           "someplan",
+		RegisterURL:    s.server.URL,
+		IncreaseBudget: 20,
+	}
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "IsMetered",
+		Args:     []interface{}{"cs:quantal/metered-1"},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
+			CharmURL:        "cs:quantal/metered-1",
+			ApplicationName: "application name",
+			PlanURL:         "someplan",
+			IncreaseBudget:  20,
+		},
+		},
+	},
+	})
 }
 
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
@@ -258,8 +293,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}})
 }
@@ -292,8 +326,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 			CharmURL:        "local:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}, {
 		"SetMetricCredentials", []interface{}{
@@ -307,7 +340,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		RegisterURL:    s.server.URL,
 		QueryURL:       s.server.URL,
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 	}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
@@ -336,8 +369,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 			CharmURL:        "local:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}, {
 		"SetMetricCredentials", []interface{}{
@@ -349,7 +381,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 
 func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 		RegisterURL:    s.server.URL,
 		QueryURL:       s.server.URL}
 	client := httpbakery.NewClient()
@@ -382,8 +414,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "thisplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}, {
 		"SetMetricCredentials", []interface{}{
@@ -396,7 +427,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
 	s.register = &RegisterMeteredCharm{
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 		RegisterURL:    s.server.URL,
 		QueryURL:       s.server.URL}
 	client := httpbakery.NewClient()
@@ -427,7 +458,7 @@ func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
 	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
 	s.handler.availablePlans = []availablePlanURL{}
 	s.register = &RegisterMeteredCharm{
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 		RegisterURL:    s.server.URL,
 		QueryURL:       s.server.URL}
 	client := httpbakery.NewClient()
@@ -457,7 +488,7 @@ func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("something failed"))
 	s.register = &RegisterMeteredCharm{
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 		RegisterURL:    s.server.URL,
 		QueryURL:       s.server.URL}
 	client := httpbakery.NewClient()
@@ -535,8 +566,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
-			Budget:          "personal",
-			Limit:           "100",
+			IncreaseBudget:  100,
 		}},
 	}})
 }
@@ -595,7 +625,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		}
 		s.register = &RegisterMeteredCharm{
 			Plan:           test.planArgument,
-			AllocationSpec: "personal:100",
+			IncreaseBudget: 100,
 			RegisterURL:    s.server.URL,
 			QueryURL:       s.server.URL,
 		}
@@ -719,9 +749,9 @@ func (s *noPlanRegistrationSuite) SetUpTest(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		Plan:           "",
 		RegisterURL:    s.server.URL,
-		AllocationSpec: "personal:100",
+		IncreaseBudget: 100,
 	}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *noPlanRegistrationSuite) TearDownTest(c *gc.C) {

@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	testing "github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/state"
+	testing "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type metricsManagerSuite struct {
@@ -21,6 +21,18 @@ type metricsManagerSuite struct {
 var _ = gc.Suite(&metricsManagerSuite{})
 
 func (s *metricsManagerSuite) TestDefaultsWritten(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, time.Time{})
+	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
+	c.Assert(mm.GracePeriod(), gc.Equals, 24*7*time.Hour)
+}
+
+func (s *metricsManagerSuite) TestNewMetricsManager(c *gc.C) {
+	state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.MetricsManager()
+		c.Assert(err, jc.ErrorIsNil)
+	})
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, time.Time{})

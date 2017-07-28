@@ -6,8 +6,8 @@ package model
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/lifeflag"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/lifeflag"
 )
 
 // ErrRemoved may be returned by some worker started from Manifolds to

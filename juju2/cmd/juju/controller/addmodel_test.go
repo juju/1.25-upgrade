@@ -9,24 +9,25 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/ec2"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/testing"
 )
 
 type AddModelSuite struct {
@@ -35,18 +36,22 @@ type AddModelSuite struct {
 	fakeCloudAPI         *fakeCloudAPI
 	fakeProvider         *fakeProvider
 	fakeProviderRegistry *fakeProviderRegistry
-	store                *jujuclienttesting.MemStore
+	store                *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&AddModelSuite{})
 
 func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+
+	agentVersion, err := version.Parse("2.55.5")
+	c.Assert(err, jc.ErrorIsNil)
 	s.fakeAddModelAPI = &fakeAddClient{
 		model: base.ModelInfo{
-			Name:  "test",
-			UUID:  "fake-model-uuid",
-			Owner: "ignored-for-now",
+			Name:         "test",
+			UUID:         "fake-model-uuid",
+			Owner:        "ignored-for-now",
+			AgentVersion: &agentVersion,
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{
@@ -69,7 +74,7 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{
@@ -101,7 +106,7 @@ func (s *AddModelSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 		s.store,
 		s.fakeProviderRegistry,
 	)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *AddModelSuite) TestInit(c *gc.C) {
@@ -156,7 +161,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		wrappedCommand, command := controller.NewAddModelCommandForTest(nil, nil, nil, s.store, nil)
-		err := testing.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 			continue
@@ -200,7 +205,7 @@ func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := s.run(c, "test")
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
@@ -365,12 +370,50 @@ lxd
 	})
 }
 
-func (s *AddModelSuite) TestCloudDefaultRegionPassedThrough(c *gc.C) {
+func (s *AddModelSuite) TestCloudUnspecifiedRegionPassedThrough(c *gc.C) {
+	// Use a cloud that doesn't support empty authorization.
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
 	_, err := s.run(c, "test", "aws")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
-	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-east-1")
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "")
+}
+
+func (s *AddModelSuite) TestCloudDefaultRegionUsedIfSet(c *gc.C) {
+	// Overwrite the credentials with a default region.
+	s.store.Credentials["aws"] = cloud.CloudCredential{
+		DefaultRegion: "us-west-1",
+		AuthCredentials: map[string]cloud.Credential{
+			"secrets": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+				"access-key": "key",
+				"secret-key": "sekret",
+			}),
+		},
+	}
+	// Use a cloud that doesn't support empty authorization.
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
+	_, err := s.run(c, "test", "aws")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
 func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {
@@ -499,10 +542,36 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
+	const controllerName = "test-master"
+
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.store.ModelByName("test-master", "bob/test")
+	c.Check(s.store.CurrentControllerName, gc.Equals, controllerName)
+	modelName, err := s.store.CurrentModel(controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelName, gc.Equals, "bob/test")
+
+	model, err := s.store.ModelByName(controllerName, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+}
+
+func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
+	const controllerName = "test-master"
+	checkNoModelSelected := func() {
+		_, err := s.store.CurrentModel(controllerName)
+		c.Check(err, jc.Satisfies, errors.IsNotFound)
+	}
+	checkNoModelSelected()
+
+	_, err := s.run(c, "test", "--no-switch")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// New model should not be selected by should still exist in the
+	// store.
+	checkNoModelSelected()
+	model, err := s.store.ModelByName(controllerName, "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }

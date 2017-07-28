@@ -4,10 +4,10 @@
 package dummy
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/storage"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 )
 
 func StorageProviders() storage.ProviderRegistry {
-	return testing.StorageProviders()
+	return dummystorage.StorageProviders()
 }

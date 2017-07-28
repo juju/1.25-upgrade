@@ -16,13 +16,13 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/api/upgrader"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
-	"github.com/juju/1.25-upgrade/juju2/worker/gate"
+	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api/upgrader"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/gate"
 )
 
 // retryAfter returns a channel that receives a value
@@ -220,7 +220,7 @@ func (u *Upgrader) loop() error {
 			if err == nil {
 				return u.newUpgradeReadyError(wantTools.Version)
 			}
-			logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
+			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
 		retry = retryAfter()
 	}
@@ -250,7 +250,7 @@ func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReady
 }
 
 func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
-	logger.Infof("fetching tools from %q", agentTools.URL)
+	logger.Infof("fetching agent binaries from %q", agentTools.URL)
 	// The reader MUST verify the tools' hash, so there is no
 	// need to validate the peer. We cannot anyway: see http://pad.lv/1261780.
 	resp, err := utils.GetNonValidatingHTTPClient().Get(agentTools.URL)
@@ -263,8 +263,8 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 	}
 	err = agenttools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {
-		return fmt.Errorf("cannot unpack tools: %v", err)
+		return fmt.Errorf("cannot unpack agent binaries: %v", err)
 	}
-	logger.Infof("unpacked tools %s to %s", agentTools.Version, u.dataDir)
+	logger.Infof("unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
 	return nil
 }

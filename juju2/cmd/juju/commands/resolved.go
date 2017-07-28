@@ -9,8 +9,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newResolvedCommand() cmd.Command {
@@ -28,7 +28,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resolved",
 		Args:    "<unit>",
-		Purpose: "Marks unit errors resolved and re-executes failed hooks",
+		Purpose: "Marks unit errors resolved and re-executes failed hooks.",
 	}
 }
 

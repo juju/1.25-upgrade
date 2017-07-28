@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/provider/ec2/internal/ec2instancetypes"
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 )
 
 type InstanceTypesSuite struct {

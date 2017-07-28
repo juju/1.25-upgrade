@@ -14,10 +14,10 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")
@@ -51,6 +51,11 @@ var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 // this provider does not support custom clouds, this always returns nil.
 func (p joyentProvider) CloudSchema() *jsonschema.Schema {
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p joyentProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig is part of the EnvironProvider interface.
@@ -107,6 +112,11 @@ func credentials(cloud environs.CloudSpec) (*auth.Credentials, error) {
 		SdcKeyId:           sdcKeyID,
 		SdcEndpoint:        auth.Endpoint{URL: cloud.Endpoint},
 	}, nil
+}
+
+// Version is part of the EnvironProvider interface.
+func (joyentProvider) Version() int {
+	return 0
 }
 
 func (joyentProvider) Open(args environs.OpenParams) (environs.Environ, error) {

@@ -10,10 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/testcharms"
 )
 
 var _ = gc.Suite(&clientMacaroonSuite{})

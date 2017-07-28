@@ -7,16 +7,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
-
-func init() {
-	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
-}
 
 // UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
@@ -31,7 +27,7 @@ func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer fa
 }
 
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
-	if !authorizer.AuthMachineAgent() || !authorizer.AuthController() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	model, err := st.Model()
@@ -89,28 +85,9 @@ func (u *UndertakerAPI) RemoveModel() error {
 	return u.st.RemoveAllModelDocs()
 }
 
-func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
+func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 	var nothing params.NotifyWatchResult
-	machines, err := u.st.AllMachines()
-	if err != nil {
-		nothing.Error = common.ServerError(err)
-		return nothing
-	}
-	services, err := u.st.AllApplications()
-	if err != nil {
-		nothing.Error = common.ServerError(err)
-		return nothing
-	}
-	var watchers []state.NotifyWatcher
-	for _, machine := range machines {
-		watchers = append(watchers, machine.Watch())
-	}
-	for _, service := range services {
-		watchers = append(watchers, service.Watch())
-	}
-
-	watch := common.NewMultiNotifyWatcher(watchers...)
-
+	watch := u.st.WatchModelEntityReferences(u.st.ModelUUID())
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: u.resources.Register(watch),
@@ -125,7 +102,7 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
-			u.environResourceWatcher(),
+			u.modelEntitiesWatcher(),
 		},
 	}
 }

@@ -6,7 +6,7 @@ package logforwarder
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/juju/api/base"
 )
 
 type orchestrator struct {
@@ -47,7 +47,6 @@ func newOrchestratorForController(args OrchestratorArgs) (*orchestrator, error) 
 		return nil, errors.Errorf("multiple log forwarding targets not supported (yet)")
 	}
 	lf, err := args.OpenLogForwarder(OpenLogForwarderArgs{
-		AllModels:        true,
 		ControllerUUID:   args.ControllerUUID,
 		LogForwardConfig: args.LogForwardConfig,
 		Caller:           args.Caller,

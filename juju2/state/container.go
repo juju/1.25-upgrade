@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/instance"
 )
 
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.

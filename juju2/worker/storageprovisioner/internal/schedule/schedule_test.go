@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner/internal/schedule"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
 )
 
 type scheduleSuite struct {

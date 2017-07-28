@@ -19,10 +19,11 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
@@ -30,6 +31,8 @@ import (
 // NewCharmStoreRepo instantiates a new charm store repository.
 // It is exported for testing purposes.
 var NewCharmStoreRepo = newCharmStoreFromClient
+
+var newStateStorage = storage.NewStorage
 
 func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
 	return charmrepo.NewCharmStoreFromClient(csClient)
@@ -93,6 +96,11 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	if !ok {
 		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
 	}
+
+	// Clean up the downloaded charm - we don't need to cache it in
+	// the filesystem as well as in blob storage.
+	defer os.Remove(downloadedBundle.Path)
+
 	archive, err := os.Open(downloadedBundle.Path)
 	if err != nil {
 		return errors.Annotate(err, "cannot read downloaded charm")

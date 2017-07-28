@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/storage"
 )
 
 type BlockDevicePathSuite struct{}
@@ -19,6 +19,14 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathSerial(c *gc.C) {
 		HardwareId: "SPR_OSUM_123",
 		DeviceName: "name",
 	}, "/dev/disk/by-id/SPR_OSUM_123")
+}
+
+func (s *BlockDevicePathSuite) TestBlockDevicePathWWN(c *gc.C) {
+	testBlockDevicePath(c, storage.BlockDevice{
+		HardwareId: "SPR_OSUM_123",
+		WWN:        "rr!",
+		DeviceName: "name",
+	}, "/dev/disk/by-id/wwn-rr!")
 }
 
 func (s *BlockDevicePathSuite) TestBlockDevicePathDeviceName(c *gc.C) {

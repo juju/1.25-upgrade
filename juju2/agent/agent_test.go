@@ -13,13 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type suite struct {
@@ -462,7 +462,7 @@ func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
+func (*suite) TestAPIInfoPutsLocalhostFirstWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
@@ -470,14 +470,19 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
-	localhostAddressFound := false
-	for _, eachAPIAddress := range apiinfo.Addrs {
-		if eachAPIAddress == "localhost:47" {
-			localhostAddressFound = true
-			break
-		}
-	}
-	c.Assert(localhostAddressFound, jc.IsTrue)
+	c.Check(apiinfo.Addrs[0], gc.Equals, "localhost:47")
+}
+
+func (*suite) TestAPIInfoMovesLocalhostFirstWhenServingInfoPresent(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"localhost:1235", "localhost:47"}
+	servingInfo := stateServingInfo()
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses))
+	c.Check(apiinfo.Addrs[0], gc.Equals, "localhost:47")
 }
 
 func (*suite) TestMongoInfo(c *gc.C) {
@@ -488,6 +493,7 @@ func (*suite) TestMongoInfo(c *gc.C) {
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69"})
+	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
 }
 
 func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {

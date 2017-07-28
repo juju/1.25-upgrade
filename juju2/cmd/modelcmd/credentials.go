@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -53,18 +53,13 @@ func GetCredentials(
 	if err != nil {
 		return nil, "", "", errors.Trace(err)
 	}
-
 	regionName = args.CloudRegion
 	if regionName == "" {
 		regionName = defaultRegion
-		if regionName == "" && len(args.Cloud.Regions) > 0 {
-			// No region was specified, use the first region
-			// in the list.
-			regionName = args.Cloud.Regions[0].Name
-		}
 	}
 
 	cloudEndpoint := args.Cloud.Endpoint
+	cloudStorageEndpoint := args.Cloud.StorageEndpoint
 	cloudIdentityEndpoint := args.Cloud.IdentityEndpoint
 	if regionName != "" {
 		region, err := cloud.RegionByName(args.Cloud.Regions, regionName)
@@ -72,6 +67,7 @@ func GetCredentials(
 			return nil, "", "", errors.Trace(err)
 		}
 		cloudEndpoint = region.Endpoint
+		cloudStorageEndpoint = region.StorageEndpoint
 		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
@@ -103,6 +99,7 @@ func GetCredentials(
 		ctx, environs.FinalizeCredentialParams{
 			Credential:            *credential,
 			CloudEndpoint:         cloudEndpoint,
+			CloudStorageEndpoint:  cloudStorageEndpoint,
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
 		},
 	)

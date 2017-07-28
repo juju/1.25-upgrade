@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	workerstate "github.com/juju/1.25-upgrade/juju2/worker/state"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	workerstate "github.com/juju/juju/worker/state"
 )
 
 type StateTrackerSuite struct {

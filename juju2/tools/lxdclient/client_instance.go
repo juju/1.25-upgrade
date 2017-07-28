@@ -6,31 +6,27 @@
 package lxdclient
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/network"
 )
 
 type Device map[string]string
 type Devices map[string]Device
 
-type File struct {
-	Content []byte
-	Path    string
-	GID     int
-	UID     int
-	Mode    os.FileMode
+type DiskDevice struct {
+	Path     string
+	Source   string
+	Pool     string
+	ReadOnly bool
 }
-type Files []File
 
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
@@ -45,6 +41,7 @@ type rawInstanceClient interface {
 	WaitForSuccess(waitURL string) error
 	ContainerState(name string) (*api.ContainerState, error)
 	ContainerDeviceAdd(container, devname, devtype string, props []string) (*api.Response, error)
+	ContainerDeviceDelete(container, devname string) (*api.Response, error)
 	PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error
 }
 
@@ -100,14 +97,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
-	}
-
-	for _, file := range spec.Files {
-		logger.Infof("pushing file %q to container %q", file.Path, spec.Name)
-		err := client.raw.PushFile(spec.Name, file.Path, file.GID, file.UID, file.Mode.String(), bytes.NewReader(file.Content))
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	return nil
@@ -326,4 +315,35 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 		}
 	}
 	return addrs, nil
+}
+
+// AttachDisk attaches a disk to an instance.
+func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk DiskDevice) error {
+	props := []string{"path=" + disk.Path, "source=" + disk.Source}
+	if disk.Pool != "" {
+		props = append(props, "pool="+disk.Pool)
+	}
+	if disk.ReadOnly {
+		props = append(props, "readonly=true")
+	}
+	resp, err := client.raw.ContainerDeviceAdd(instanceName, deviceName, "disk", props)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveDevice removes a device from an instance.
+func (client *instanceClient) RemoveDevice(instanceName, deviceName string) error {
+	resp, err := client.raw.ContainerDeviceDelete(instanceName, deviceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

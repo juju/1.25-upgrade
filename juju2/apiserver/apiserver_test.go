@@ -7,21 +7,22 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
-	"github.com/juju/1.25-upgrade/juju2/pubsub/centralhub"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/pubsub/centralhub"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 const (
@@ -30,35 +31,39 @@ const (
 
 type apiserverBaseSuite struct {
 	statetesting.StateSuite
+	pool *state.StatePool
 }
 
 func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	u, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetPassword(ownerPassword)
 	c.Assert(err, jc.ErrorIsNil)
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         machineTag,
-		LogDir:      c.MkDir(),
-		Hub:         centralhub.New(machineTag),
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(s.State),
+		Clock:           clock.WallClock,
+		Cert:            coretesting.ServerCert,
+		Key:             coretesting.ServerKey,
+		Tag:             machineTag,
+		LogDir:          c.MkDir(),
+		Hub:             centralhub.New(machineTag),
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	}
 }
 
 func (s *apiserverBaseSuite) newServerNoCleanup(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, config)
+	srv, err := apiserver.NewServer(s.pool, listener, config)
 	c.Assert(err, jc.ErrorIsNil)
 	return srv
 }

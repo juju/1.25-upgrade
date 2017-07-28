@@ -12,9 +12,9 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // dummyHookContext implements jujuc.Context,

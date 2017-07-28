@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/network/ssh"
-	sshtesting "github.com/juju/1.25-upgrade/juju2/network/ssh/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/ssh"
+	sshtesting "github.com/juju/juju/network/ssh/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type SSHReachableHostPortSuite struct {

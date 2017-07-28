@@ -11,10 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/1.25-upgrade/juju2/component/all"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/testing"
 )
 
 func init() {

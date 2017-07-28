@@ -8,14 +8,14 @@ import (
 	"math/rand"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
 )
 
 type cmdSpaceSuite struct {
@@ -68,8 +68,8 @@ func (s *cmdSpaceSuite) Run(c *gc.C, args ...string) (string, string, error) {
 	context, err := runJujuCommand(c, args...)
 	stdout, stderr := "", ""
 	if context != nil {
-		stdout = testing.Stdout(context)
-		stderr = testing.Stderr(context)
+		stdout = cmdtesting.Stdout(context)
+		stderr = cmdtesting.Stderr(context)
 	}
 	return stdout, stderr, err
 }
@@ -97,8 +97,8 @@ func (s *cmdSpaceSuite) RunList(c *gc.C, expectedError string, args ...string) {
 }
 
 func (s *cmdSpaceSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
-	c.Assert(testing.Stdout(context), gc.Equals, expectedOut)
-	c.Assert(testing.Stderr(context), gc.Equals, expectedErr)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOut)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, expectedErr)
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateNotSupported(c *gc.C) {

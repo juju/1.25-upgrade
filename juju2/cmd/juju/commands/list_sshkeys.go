@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var usageListSSHKeysSummary = `
@@ -78,17 +79,21 @@ func (c *listKeysCommand) Run(context *cmd.Context) error {
 	c.user = "admin"
 	results, err := client.ListKeys(mode, c.user)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	result := results[0]
 	if result.Error != nil {
-		return result.Error
+		return errors.Trace(result.Error)
 	}
 	if len(result.Result) == 0 {
 		context.Infof("No keys to display.")
 		return nil
 	}
-	fmt.Fprintf(context.Stdout, "Keys used in model: %s\n", c.ConnectionName())
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fmt.Fprintf(context.Stdout, "Keys used in model: %s\n", modelName)
 	fmt.Fprintln(context.Stdout, strings.Join(result.Result, "\n"))
 	return nil
 }

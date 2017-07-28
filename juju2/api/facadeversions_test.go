@@ -8,11 +8,10 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/component/all"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/feature"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type facadeVersionSuite struct {
@@ -36,9 +35,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 		// All versions should now be non-zero.
 		c.Check(version, jc.GreaterThan, 0)
 	}
-	// Register the components.
-	all.RegisterForServer()
-	allServerFacades := common.Facades.List()
+	allServerFacades := apiserver.AllFacades().List()
 	serverFacadeNames := set.NewStrings()
 	serverFacadeBestVersions := make(map[string]int, len(allServerFacades))
 	for _, facade := range allServerFacades {

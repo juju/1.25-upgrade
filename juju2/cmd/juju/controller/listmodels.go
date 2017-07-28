@@ -14,12 +14,12 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -129,7 +129,11 @@ type ModelSet struct {
 
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
-	accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return err
 	}
@@ -163,12 +167,12 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		model.ControllerName = c.ControllerName()
+		model.ControllerName = controllerName
 		modelInfo = append(modelInfo, model)
 	}
 
 	modelSet := ModelSet{Models: modelInfo}
-	current, err := c.ClientStore().CurrentModel(c.ControllerName())
+	current, err := c.ClientStore().CurrentModel(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -255,21 +259,24 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", modelSet, value)
 	}
-
 	// We need the tag of the user for which we're listing models,
 	// and for the logged-in user. We use these below when formatting
 	// the model display names.
 	loggedInUser := names.NewUserTag(c.loggedInUser)
 	userForLastConn := loggedInUser
-	var userForListing names.UserTag
+	var currentUser names.UserTag
 	if c.user != "" {
-		userForListing = names.NewUserTag(c.user)
-		userForLastConn = userForListing
+		currentUser = names.NewUserTag(c.user)
+		userForLastConn = currentUser
 	}
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("Controller: " + c.ControllerName())
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.Println("Controller: " + controllerName)
 	w.Println()
 	w.Print("Model")
 	if c.listUUID {
@@ -296,8 +303,12 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	for _, model := range modelSet.Models {
 		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
 		owner := names.NewUserTag(model.Owner)
-		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
-		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
+		name := model.Name
+		if currentUser == owner {
+			// No need to display fully qualified model name to its owner.
+			name = model.ShortName
+		}
+		if model.Name == modelSet.CurrentModelQualified {
 			name += "*"
 			w.PrintColor(output.CurrentHighlight, name)
 		} else {
@@ -306,16 +317,15 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		if c.listUUID {
 			w.Print(model.UUID)
 		}
-		lastConnection := model.Users[userForLastConn.Id()].LastConnection
-		if lastConnection == "" {
-			lastConnection = "never connected"
-		}
 		userForAccess := loggedInUser
 		if c.user != "" {
 			userForAccess = names.NewUserTag(c.user)
 		}
-		access := model.Users[userForAccess.Id()].Access
-		w.Print(cloudRegion, model.Status.Current)
+		status := "-"
+		if model.Status != nil {
+			status = model.Status.Current.String()
+		}
+		w.Print(cloudRegion, status)
 		if haveMachineInfo {
 			machineInfo := fmt.Sprintf("%d", len(model.Machines))
 			cores := uint64(0)
@@ -327,6 +337,14 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 				coresInfo = fmt.Sprintf("%d", cores)
 			}
 			w.Print(machineInfo, coresInfo)
+		}
+		access := model.Users[userForAccess.Id()].Access
+		if access == "" {
+			access = "-"
+		}
+		lastConnection := model.Users[userForLastConn.Id()].LastConnection
+		if lastConnection == "" {
+			lastConnection = "never connected"
 		}
 		w.Println(access, lastConnection)
 	}

@@ -14,8 +14,8 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {

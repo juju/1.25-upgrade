@@ -11,11 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/client"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&statusHistoryTestSuite{})
@@ -40,6 +40,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // toolsFinder
 		nil, // newEnviron
 		nil, // blockChecker
+		nil, // addresser
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -88,7 +89,7 @@ func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
 			Filter: params.StatusHistoryFilter{Size: 0},
 		}}})
 	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: empty struct not valid")
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: missing filter parameters not valid")
 }
 
 func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {

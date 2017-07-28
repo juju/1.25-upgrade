@@ -10,10 +10,10 @@ import (
 	"os"
 	"time"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
 )
 
 type MongoVersionSuite struct {

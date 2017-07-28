@@ -5,10 +5,10 @@ package migrationminion
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/migrationminion"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/migrationminion"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

@@ -9,8 +9,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -19,10 +19,11 @@ import (
 // Relation represents a relation between one or two service
 // endpoints.
 type Relation struct {
-	st   *State
-	tag  names.RelationTag
-	id   int
-	life params.Life
+	st       *State
+	tag      names.RelationTag
+	id       int
+	life     params.Life
+	otherApp string
 }
 
 // Tag returns the relation tag.
@@ -46,6 +47,12 @@ func (r *Relation) Id() int {
 // Life returns the relation's current life state.
 func (r *Relation) Life() params.Life {
 	return r.life
+}
+
+// OtherApplication returns the name of the application on the other
+// end of the relation (from this unit's perspective).
+func (r *Relation) OtherApplication() string {
+	return r.otherApp
 }
 
 // Refresh refreshes the contents of the relation from the underlying

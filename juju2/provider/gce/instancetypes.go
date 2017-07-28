@@ -4,8 +4,9 @@
 package gce
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
 	"github.com/juju/utils/arch"
+
+	"github.com/juju/juju/environs/instances"
 )
 
 var (

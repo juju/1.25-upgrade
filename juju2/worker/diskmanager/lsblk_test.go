@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/diskmanager"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/diskmanager"
 )
 
 var _ = gc.Suite(&ListBlockDevicesSuite{})
@@ -71,6 +71,14 @@ EOF`)
 		UUID:           "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
 		FilesystemType: "ext4",
 	}})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *gc.C) {
+	// If ID_WWN is found, then we should get
+	// a WWN value.
+	s.testListBlockDevicesExtended(c, `
+ID_WWN=foo
+`, storage.BlockDevice{WWN: "foo"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {

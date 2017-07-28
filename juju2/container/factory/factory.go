@@ -8,10 +8,10 @@ package factory
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/container/kvm"
-	"github.com/juju/1.25-upgrade/juju2/container/lxd"
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/instance"
 )
 
 // NewContainerManager creates the appropriate container.Manager for the

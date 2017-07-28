@@ -10,10 +10,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 type statusFormatter struct {
@@ -58,11 +58,18 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 			CloudRegion:      sf.status.Model.CloudRegion,
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
-			Migration:        sf.status.Model.Migration,
+			Status:           sf.getStatusInfoContents(sf.status.Model.ModelStatus),
+			SLA:              sf.status.Model.SLA,
 		},
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
+	}
+	if sf.status.Model.MeterStatus.Color != "" {
+		out.Model.MeterStatus = &meterStatus{
+			Color:   sf.status.Model.MeterStatus.Color,
+			Message: sf.status.Model.MeterStatus.Message,
+		}
 	}
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
@@ -103,18 +110,29 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	var out machineStatus
 
 	out = machineStatus{
-		JujuStatus:    sf.getStatusInfoContents(machine.AgentStatus),
-		DNSName:       machine.DNSName,
-		IPAddresses:   machine.IPAddresses,
-		InstanceId:    machine.InstanceId,
-		MachineStatus: sf.getStatusInfoContents(machine.InstanceStatus),
-		Series:        machine.Series,
-		Id:            machine.Id,
-		Containers:    make(map[string]machineStatus),
-		Constraints:   machine.Constraints,
-		Hardware:      machine.Hardware,
+		JujuStatus:        sf.getStatusInfoContents(machine.AgentStatus),
+		DNSName:           machine.DNSName,
+		IPAddresses:       machine.IPAddresses,
+		InstanceId:        machine.InstanceId,
+		MachineStatus:     sf.getStatusInfoContents(machine.InstanceStatus),
+		Series:            machine.Series,
+		Id:                machine.Id,
+		NetworkInterfaces: make(map[string]networkInterface),
+		Containers:        make(map[string]machineStatus),
+		Constraints:       machine.Constraints,
+		Hardware:          machine.Hardware,
 	}
 
+	for k, d := range machine.NetworkInterfaces {
+		out.NetworkInterfaces[k] = networkInterface{
+			IPAddresses:    d.IPAddresses,
+			MACAddress:     d.MACAddress,
+			Gateway:        d.Gateway,
+			DNSNameservers: d.DNSNameservers,
+			Space:          d.Space,
+			IsUp:           d.IsUp,
+		}
+	}
 	for k, m := range machine.Containers {
 		out.Containers[k] = sf.formatMachine(m)
 	}

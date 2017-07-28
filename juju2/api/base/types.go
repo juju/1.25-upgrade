@@ -6,8 +6,10 @@ package base
 import (
 	"time"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/version"
+
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 // UserModel holds information about a model and the last
@@ -57,6 +59,7 @@ type ModelInfo struct {
 	Status          Status
 	Users           []UserInfo
 	Machines        []Machine
+	AgentVersion    *version.Number
 }
 
 // Status represents the status of a machine, application, or unit.

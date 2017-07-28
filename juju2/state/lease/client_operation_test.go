@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 // ClientOperationSuite verifies behaviour when claiming, extending, and expiring leases.

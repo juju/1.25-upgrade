@@ -9,24 +9,26 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var _ = gc.Suite(&commandsSuite{})
 
 type commandsSuite struct {
+	testing.CleanupSuite
+
 	stub    *testing.Stub
 	command *stubCommand
 }
 
 func (s *commandsSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
+
+	s.PatchValue(&registeredCommands, nil)
+	s.PatchValue(&registeredEnvCommands, nil)
+
 	s.stub = &testing.Stub{}
 	s.command = &stubCommand{stub: s.stub}
-}
-
-func (s *commandsSuite) TearDownTest(c *gc.C) {
-	registeredCommands = nil
-	registeredEnvCommands = nil
 }
 
 func (s *commandsSuite) TestRegisterCommand(c *gc.C) {
@@ -77,21 +79,20 @@ func (c *stubCommand) Run(ctx *cmd.Context) error {
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 
-func (c *stubCommand) SetModelName(name string) error {
+func (c *stubCommand) SetModelName(name string, allowDefault bool) error {
 	c.stub.AddCall("SetModelName", name)
 	c.envName = name
 	return c.stub.NextErr()
 }
 
-func (c *stubCommand) ModelName() string {
+func (c *stubCommand) ModelName() (string, error) {
 	c.stub.AddCall("ModelName")
 	c.stub.NextErr() // pop one off
 
-	return c.envName
+	return c.envName, nil
 }
 
 type stubRegistry struct {

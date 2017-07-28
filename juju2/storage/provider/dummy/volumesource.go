@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/storage"
 )
 
 // VolumeSource is an implementation of storage.VolumeSource, suitable for

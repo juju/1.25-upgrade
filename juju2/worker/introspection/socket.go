@@ -13,11 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/introspection/pprof"
+	"github.com/juju/juju/worker/introspection/pprof"
 )
 
 var logger = loggo.GetLogger("juju.worker.introspection")

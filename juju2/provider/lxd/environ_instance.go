@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 // Instances returns the available instances in the environment that

@@ -6,44 +6,46 @@ package model
 import (
 	"time"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
+	"gopkg.in/juju/worker.v1"
 
-	coreagent "github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
-	"github.com/juju/1.25-upgrade/juju2/core/life"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/agent"
-	"github.com/juju/1.25-upgrade/juju2/worker/apicaller"
-	"github.com/juju/1.25-upgrade/juju2/worker/apiconfigwatcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/applicationscaler"
-	"github.com/juju/1.25-upgrade/juju2/worker/charmrevision"
-	"github.com/juju/1.25-upgrade/juju2/worker/charmrevision/charmrevisionmanifold"
-	"github.com/juju/1.25-upgrade/juju2/worker/cleaner"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/discoverspaces"
-	"github.com/juju/1.25-upgrade/juju2/worker/environ"
-	"github.com/juju/1.25-upgrade/juju2/worker/firewaller"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/gate"
-	"github.com/juju/1.25-upgrade/juju2/worker/instancepoller"
-	"github.com/juju/1.25-upgrade/juju2/worker/lifeflag"
-	"github.com/juju/1.25-upgrade/juju2/worker/machineundertaker"
-	"github.com/juju/1.25-upgrade/juju2/worker/metricworker"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationflag"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationmaster"
-	"github.com/juju/1.25-upgrade/juju2/worker/provisioner"
-	"github.com/juju/1.25-upgrade/juju2/worker/remoterelations"
-	"github.com/juju/1.25-upgrade/juju2/worker/singular"
-	"github.com/juju/1.25-upgrade/juju2/worker/statushistorypruner"
-	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/worker/undertaker"
-	"github.com/juju/1.25-upgrade/juju2/worker/unitassigner"
+	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/applicationscaler"
+	"github.com/juju/juju/worker/charmrevision"
+	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
+	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/environ"
+	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/instancepoller"
+	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/juju/worker/logforwarder/sinks"
+	"github.com/juju/juju/worker/machineundertaker"
+	"github.com/juju/juju/worker/metricworker"
+	"github.com/juju/juju/worker/migrationflag"
+	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/modelupgrader"
+	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/remoterelations"
+	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/statushistorypruner"
+	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/undertaker"
+	"github.com/juju/juju/worker/unitassigner"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -83,13 +85,7 @@ type ManifoldsConfig struct {
 
 	// StatusHistoryPruner* values control status-history pruning
 	// behaviour.
-	StatusHistoryPrunerMaxHistoryTime time.Duration
-	StatusHistoryPrunerMaxHistoryMB   uint
-	StatusHistoryPrunerInterval       time.Duration
-
-	// SpacesImportedGate will be unlocked when spaces are known to
-	// have been imported.
-	SpacesImportedGate gate.Lock
+	StatusHistoryPrunerInterval time.Duration
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
@@ -103,7 +99,9 @@ type ManifoldsConfig struct {
 // Manifolds returns a set of interdependent dependency manifolds that will
 // run together to administer a model, as configured.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	modelTag := config.Agent.CurrentConfig().Model()
+	agentConfig := config.Agent.CurrentConfig()
+	modelTag := agentConfig.Model()
+	controllerTag := agentConfig.Controller()
 	result := dependency.Manifolds{
 
 		// The first group are foundational; the agent and clock
@@ -122,12 +120,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 		}),
-
-		// The spaces-imported gate will be unlocked when space
-		// discovery is known to be complete. Various manifolds
-		// should also come to depend upon it (or rather, on a
-		// Flag depending on it) in the future.
-		spacesImportedGateName: gate.ManifoldEx(config.SpacesImportedGate),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -160,6 +152,34 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: singular.NewWorker,
 		}),
 
+		// The environ tracker could/should be used by several other
+		// workers (firewaller, provisioners, address-cleaner?).
+		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
+			APICallerName:  apiCallerName,
+			NewEnvironFunc: config.NewEnvironFunc,
+		})),
+
+		// The model upgrader runs on all controller agents, and
+		// unlocks the gate when the model is up-to-date. The
+		// environ tracker will be supplied only to the leader,
+		// which is the agent that will run the upgrade steps;
+		// the other controller agents will wait for it to complete
+		// running those steps before allowing logins to the model.
+		modelUpgradeGateName: gate.Manifold(),
+		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelUpgradeGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+		modelUpgraderName: modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			GateName:      modelUpgradeGateName,
+			ControllerTag: controllerTag,
+			ModelTag:      modelTag,
+			NewFacade:     modelupgrader.NewFacade,
+			NewWorker:     modelupgrader.NewWorker,
+		}),
+
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
 		// so they can't accidentally interfere with a migration
@@ -171,23 +191,23 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// fortress).
 		//
 		// Note that the fortress and flag will only exist while
-		// the model is not dead; this frees their dependencies
-		// from model-lifetime concerns.
-		migrationFortressName: ifNotDead(fortress.Manifold()),
-		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
+		// the model is not dead, and not upgrading; this frees
+		// their dependencies from model-lifetime/upgrade concerns.
+		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold())),
+		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
-		})),
-		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+		}))),
+		migrationMasterName: ifNotUpgrading(ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			FortressName:  migrationFortressName,
 			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
 			NewWorker:     config.NewMigrationMaster,
-		})),
+		}))),
 
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
@@ -212,31 +232,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		// The environ tracker could/should be used by several other
-		// workers (firewaller, provisioners, address-cleaner?).
-		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			NewEnvironFunc: config.NewEnvironFunc,
-		})),
-
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 
 			NewFacade: undertaker.NewFacade,
 			NewWorker: undertaker.NewWorker,
-		})),
+		}))),
 
 		// All the rest depend on ifNotMigrating.
-		spaceImporterName: ifNotMigrating(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
-			EnvironName:   environTrackerName,
-			APICallerName: apiCallerName,
-			UnlockerName:  spacesImportedGateName,
-
-			NewFacade: discoverspaces.NewFacade,
-			NewWorker: discoverspaces.NewWorker,
-		})),
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
@@ -250,7 +255,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Scope:         modelTag,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			APICallerName: apiCallerName,
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        environTrackerName,
+			NewAPIConnForModel: api.NewConnectionForModel,
+
+			NewFirewallerWorker:      firewaller.NewWorker,
+			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
+			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -281,24 +293,31 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			MaxHistoryTime: config.StatusHistoryPrunerMaxHistoryTime,
-			MaxHistoryMB:   config.StatusHistoryPrunerMaxHistoryMB,
-			PruneInterval:  config.StatusHistoryPrunerInterval,
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			NewTimer: worker.NewTimer,
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			ClockName:     clockName,
+			NewWorker:     statushistorypruner.New,
+			NewFacade:     statushistorypruner.NewFacade,
+			PruneInterval: config.StatusHistoryPrunerInterval,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			NewWorker:     machineundertaker.NewWorker,
 		})),
+		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Sinks: []logforwarder.LogSinkSpec{{
+				Name:   "juju-log-forward",
+				OpenFn: sinks.OpenSyslog,
+			}},
+		})),
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			APIOpen:                  api.Open,
+			NewAPIConnForModel:       api.NewConnectionForModel,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
 		}))
@@ -365,6 +384,14 @@ var (
 		},
 		Occupy: migrationFortressName,
 	}.Decorate
+
+	// ifNotUpgrading wraps a manifold such that it only runs after
+	// the model upgrade worker has completed.
+	ifNotUpgrading = engine.Housing{
+		Flags: []string{
+			modelUpgradedFlagName,
+		},
+	}.Decorate
 )
 
 const (
@@ -373,18 +400,20 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 
-	spacesImportedGateName = "spaces-imported-gate"
-	isResponsibleFlagName  = "is-responsible-flag"
-	notDeadFlagName        = "not-dead-flag"
-	notAliveFlagName       = "not-alive-flag"
+	isResponsibleFlagName = "is-responsible-flag"
+	notDeadFlagName       = "not-dead-flag"
+	notAliveFlagName      = "not-alive-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
+	modelUpgradeGateName  = "model-upgrade-gate"
+	modelUpgradedFlagName = "model-upgraded-flag"
+	modelUpgraderName     = "model-upgrader"
+
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
-	spaceImporterName        = "space-importer"
 	computeProvisionerName   = "compute-provisioner"
 	storageProvisionerName   = "storage-provisioner"
 	firewallerName           = "firewaller"
@@ -397,4 +426,5 @@ const (
 	statusHistoryPrunerName  = "status-history-pruner"
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
+	logForwarderName         = "log-forwarder"
 )

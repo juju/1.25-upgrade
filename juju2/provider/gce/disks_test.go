@@ -8,10 +8,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/storage"
 )
 
 type storageProviderSuite struct {

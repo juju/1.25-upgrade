@@ -5,11 +5,11 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/undertaker"
-	"github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/undertaker"
+	"github.com/juju/juju/api/watcher"
 )
 
 // NewFacade creates a Facade from a base.APICaller, by calling the

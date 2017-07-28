@@ -62,7 +62,7 @@ go tool vet \
 
 
 echo "checking: go build ..."
-go build github.com/juju/1.25-upgrade/juju2/...
+go build github.com/juju/juju/...
 
 echo "checking: tests are wired up ..."
 ./scripts/checktesting.bash

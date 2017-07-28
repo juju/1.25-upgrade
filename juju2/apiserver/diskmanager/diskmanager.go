@@ -6,16 +6,12 @@ package diskmanager
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
-
-func init() {
-	common.RegisterStandardFacade("DiskManager", 2, NewDiskManagerAPI)
-}
 
 // DiskManagerAPI provides access to the DiskManager API facade.
 type DiskManagerAPI struct {
@@ -99,6 +95,7 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 			dev.Label,
 			dev.UUID,
 			dev.HardwareId,
+			dev.WWN,
 			dev.BusAddress,
 			dev.Size,
 			dev.FilesystemType,

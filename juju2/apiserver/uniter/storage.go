@@ -7,12 +7,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/storagecommon"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // StorageAPI provides access to the Storage API facade.
@@ -181,9 +181,13 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
+	var ownerTag string
+	if owner, ok := stateStorageInstance.Owner(); ok {
+		ownerTag = owner.String()
+	}
 	return params.StorageAttachment{
 		stateStorageAttachment.StorageInstance().String(),
-		stateStorageInstance.Owner().String(),
+		ownerTag,
 		stateStorageAttachment.Unit().String(),
 		params.StorageKind(stateStorageInstance.Kind()),
 		info.Location,

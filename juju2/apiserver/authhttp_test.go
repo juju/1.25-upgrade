@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"bufio"
 	"crypto/x509"
 	"encoding/json"
 	"io"
@@ -13,21 +12,21 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // authHTTPSuite provides helpers for testing HTTP "streaming" style APIs.
@@ -98,28 +97,24 @@ func (s *authHTTPSuite) baseURL(c *gc.C) *url.URL {
 }
 
 func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
-	config := makeWebsocketConfigFromURL(c, server, header)
-	c.Logf("dialing %v", server)
-	conn, err := websocket.DialConfig(config)
-	c.Assert(err, jc.ErrorIsNil)
-	return conn
-}
-
-func makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
-	config, err := websocket.NewConfig(server, "http://localhost/")
-	c.Assert(err, jc.ErrorIsNil)
-	config.Header = header
+	if header == nil {
+		header = http.Header{}
+	}
+	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = utils.SecureTLSConfig()
-	config.TlsConfig.RootCAs = caCerts
-	config.TlsConfig.ServerName = "anything"
-	return config
-}
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.RootCAs = caCerts
+	tlsConfig.ServerName = "anything"
+	c.Logf("dialing %v", server)
 
-func assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
-	_, err := reader.ReadByte()
-	c.Assert(err, gc.Equals, io.EOF)
+	dialer := &websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
+	}
+	conn, _, err := dialer.Dial(server, header)
+	c.Assert(err, jc.ErrorIsNil)
+	return conn
 }
 
 func (s *authHTTPSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
@@ -275,25 +270,6 @@ func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path str
 		contentType: contentType,
 		body:        file,
 	})
-}
-
-// assertJSONError checks the JSON encoded error returned by the log
-// and logsink APIs matches the expected value.
-func assertJSONError(c *gc.C, reader *bufio.Reader, expected string) {
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.NotNil)
-	c.Assert(errResult.Error.Message, gc.Matches, expected)
-}
-
-// readJSONErrorLine returns the error line returned by the log and
-// logsink APIS.
-func readJSONErrorLine(c *gc.C, reader *bufio.Reader) params.ErrorResult {
-	line, err := reader.ReadSlice('\n')
-	c.Assert(err, jc.ErrorIsNil)
-	var errResult params.ErrorResult
-	err = json.Unmarshal(line, &errResult)
-	c.Assert(err, jc.ErrorIsNil)
-	return errResult
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {

@@ -8,15 +8,15 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/apicaller"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/dependency"
+	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type ManifoldSuite struct {

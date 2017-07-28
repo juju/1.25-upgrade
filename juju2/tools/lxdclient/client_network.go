@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/network"
 )
 
 type rawNetworkClient interface {

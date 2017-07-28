@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/actions"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/actions"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 type actionsSuite struct{}
@@ -72,6 +72,44 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
 }
 
+func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
+	actionResolver := actions.NewResolver()
+	var actionA string = "actionA"
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:     operation.RunAction,
+			ActionId: &actionA,
+		},
+		CompletedActions: map[string]struct{}{},
+	}
+	remoteState := remotestate.Snapshot{
+		Actions: []string{},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+}
+
+func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
+	actionResolver := actions.NewResolver()
+	var actionA string = "actionA"
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind:     operation.RunAction,
+			ActionId: &actionA,
+		},
+		CompletedActions: map[string]struct{}{},
+	}
+	remoteState := remotestate.Snapshot{
+		Actions: []string{"actionA", "actionB"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, jc.DeepEquals, mockFailAction("actionA"))
+}
+
 type mockOperations struct {
 	operation.Factory
 }
@@ -80,8 +118,16 @@ func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
 	return mockOp(id), nil
 }
 
+func (m *mockOperations) NewFailAction(id string) (operation.Operation, error) {
+	return mockFailAction(id), nil
+}
+
 func mockOp(name string) operation.Operation {
 	return &mockOperation{name: name}
+}
+
+func mockFailAction(name string) operation.Operation {
+	return &mockFailOp{name: name}
 }
 
 type mockOperation struct {
@@ -90,5 +136,14 @@ type mockOperation struct {
 }
 
 func (op *mockOperation) String() string {
+	return op.name
+}
+
+type mockFailOp struct {
+	operation.Operation
+	name string
+}
+
+func (op *mockFailOp) String() string {
 	return op.name
 }

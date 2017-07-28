@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/uniter"
 )
 
 // handlerConfig stores configuration values for the socketListener.

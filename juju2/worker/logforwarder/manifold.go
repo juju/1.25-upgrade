@@ -5,20 +5,19 @@ package logforwarder
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/logstream"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/logstream"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
 	// These are the dependency resource names.
-	StateName     string
 	APICallerName string
 
 	// Sinks are the named functions that opens the underlying log sinks
@@ -50,7 +49,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 	return dependency.Manifold{
 		Inputs: []string{
-			config.StateName, // ...just to force it to run only on the controller.
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {

@@ -6,7 +6,7 @@ package cloudimagemetadata_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func Test(t *testing.T) {

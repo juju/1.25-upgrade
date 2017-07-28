@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
 )
 
 type desiredPeerGroupSuite struct {
@@ -186,8 +186,8 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 		}}
 }
 
-func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
-	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		for i, test := range desiredPeerGroupTests(ipVersion) {
 			c.Logf("\ntest %d: %s", i, test.about)
 			trackerMap := make(map[string]*machineTracker)

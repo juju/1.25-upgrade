@@ -11,14 +11,14 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/storageprovisioner"
 )
 
 type storageProvisionerSuite struct {
@@ -854,6 +854,48 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-1",
 	}}
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
+}
+
+func (s *storageProvisionerSuite) TestVolumeAttachmentNoStaticReattachment(c *gc.C) {
+	// Static storage should never be reattached.
+	s.provider.dynamic = false
+
+	volumeAttachmentInfoSet := make(chan interface{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+		volumeAttachmentInfoSet <- nil
+		return make([]params.ErrorResult, len(volumeAttachments)), nil
+	}
+
+	// volume-1, machine-0, and machine-1 are provisioned.
+	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
+		VolumeTag: "volume-1",
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+		},
+	}
+	volumeAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+
+	alreadyAttached := params.MachineStorageId{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-1",
+	}
+	volumeAccessor.provisionedAttachments[alreadyAttached] = params.VolumeAttachment{
+		MachineTag: "machine-0",
+		VolumeTag:  "volume-1",
+	}
+
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag: "machine-0", AttachmentTag: "volume-1",
+	}}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
 }
 

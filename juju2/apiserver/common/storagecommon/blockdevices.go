@@ -4,8 +4,8 @@
 package storagecommon
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 // BlockDeviceFromState translates a state.BlockDeviceInfo to a
@@ -17,6 +17,7 @@ func BlockDeviceFromState(in state.BlockDeviceInfo) storage.BlockDevice {
 		in.Label,
 		in.UUID,
 		in.HardwareId,
+		in.WWN,
 		in.BusAddress,
 		in.Size,
 		in.FilesystemType,
@@ -33,6 +34,12 @@ func MatchingBlockDevice(
 	attachmentInfo state.VolumeAttachmentInfo,
 ) (*state.BlockDeviceInfo, bool) {
 	for _, dev := range blockDevices {
+		if volumeInfo.WWN != "" {
+			if volumeInfo.WWN == dev.WWN {
+				return &dev, true
+			}
+			continue
+		}
 		if volumeInfo.HardwareId != "" {
 			if volumeInfo.HardwareId == dev.HardwareId {
 				return &dev, true

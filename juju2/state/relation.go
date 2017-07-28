@@ -10,11 +10,14 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/feature"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -70,7 +73,7 @@ func (r *Relation) Tag() names.Tag {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	relations, closer := r.st.getCollection(relationsC)
+	relations, closer := r.st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -219,7 +222,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string)
 		asserts = append(hasRelation, cannotDieYet...)
 	} else {
 		// This service may require immediate removal.
-		applications, closer := r.st.getCollection(applicationsC)
+		applications, closer := r.st.db().GetCollection(applicationsC)
 		defer closer()
 
 		svc := &Application{st: r.st}
@@ -256,7 +259,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		asserts = append(hasRelation, isAliveDoc...)
 	} else {
 		// The remote application may require immediate removal.
-		services, closer := r.st.getCollection(remoteApplicationsC)
+		services, closer := r.st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
 		svc := &RemoteApplication{st: r.st}
@@ -298,7 +301,8 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q is not a member of %q", applicationname, r)
+	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
+	return Endpoint{}, errors.NewNotFound(nil, msg)
 }
 
 // Endpoints returns the endpoints for the relation.
@@ -350,6 +354,23 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	const isPrincipal = true
 	const checkUnitLife = false
 	return r.unit(unitName, principal, isPrincipal, checkUnitLife)
+}
+
+// IsCrossModel returns whether this relation is a cross-model
+// relation.
+func (r *Relation) IsCrossModel() (bool, error) {
+	if !featureflag.Enabled(feature.CrossModelRelations) {
+		return false, nil
+	}
+	for _, ep := range r.Endpoints() {
+		_, err := r.st.RemoteApplication(ep.ApplicationName)
+		if err == nil {
+			return true, nil
+		} else if !errors.IsNotFound(err) {
+			return false, errors.Trace(err)
+		}
+	}
+	return false, nil
 }
 
 func (r *Relation) unit(

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/environs/config"
 )
 
 var configSchema = environschema.Fields{
@@ -18,7 +18,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tbool,
 	},
 	"use-default-secgroup": {
-		Description: `Whether new machine instances should have the "default" Openstack security group assigned.`,
+		Description: `Whether new machine instances should have the "default" Openstack security group assigned in addition to juju defined security groups.`,
 		Type:        environschema.Tbool,
 	},
 	"network": {

@@ -4,16 +4,11 @@
 package lifeflag
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade(
-		"LifeFlag", 1,
-		func(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
-			return NewFacade(st, resources, authorizer)
-		},
-	)
+// NewExternalFacade is for API registration.
+func NewExternalFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
+	return NewFacade(st, resources, authorizer)
 }

@@ -12,15 +12,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/logfwd"
-	"github.com/juju/1.25-upgrade/juju2/logfwd/syslog"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/logforwarder"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/logfwd/syslog"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type LogForwarderSuite struct {
@@ -84,7 +84,6 @@ func (s *LogForwarderSuite) newLogForwarderArgsWithAPI(
 	return logforwarder.OpenLogForwarderArgs{
 		Caller:           &mockCaller{},
 		LogForwardConfig: configAPI,
-		AllModels:        true,
 		ControllerUUID:   "feebdaed-2f18-4fd2-967d-db9663db7bea",
 		OpenSink: func(cfg *syslog.RawConfig) (*logforwarder.LogSink, error) {
 			sender.host = cfg.Host

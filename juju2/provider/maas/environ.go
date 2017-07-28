@@ -23,20 +23,20 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 const (
@@ -60,7 +60,6 @@ const statusPollInterval = 5 * time.Second
 var (
 	ReleaseNodes         = releaseNodes
 	DeploymentStatusCall = deploymentStatusCall
-	GetCapabilities      = getCapabilities
 	GetMAAS2Controller   = getMAAS2Controller
 )
 
@@ -102,15 +101,27 @@ type maasEnviron struct {
 
 	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
 	apiVersion string
+
+	// GetCapabilities is a function that connects to MAAS to return its set of
+	// capabilities.
+	GetCapabilities MaasCapabilities
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
 
-func NewEnviron(cloud environs.CloudSpec, cfg *config.Config) (*maasEnviron, error) {
+// MaasCapabilities represents a function that gets the capabilities of a MAAS
+// installation.
+type MaasCapabilities func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
+
+func NewEnviron(cloud environs.CloudSpec, cfg *config.Config, getCaps MaasCapabilities) (*maasEnviron, error) {
+	if getCaps == nil {
+		getCaps = getCapabilities
+	}
 	env := &maasEnviron{
-		name:  cfg.Name(),
-		uuid:  cfg.UUID(),
-		cloud: cloud,
+		name:            cfg.Name(),
+		uuid:            cfg.UUID(),
+		cloud:           cloud,
+		GetCapabilities: getCaps,
 	}
 	err := env.SetConfig(cfg)
 	if err != nil {
@@ -181,11 +192,6 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		Finalize: waitingFinalizer,
 	}
 	return bsResult, nil
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (env *maasEnviron) BootstrapMessage() string {
-	return ""
 }
 
 // ControllerInstances is specified in the Environ interface.
@@ -274,12 +280,17 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	switch {
 	case gomaasapi.IsUnsupportedVersionError(err):
 		apiVersion = apiVersion1
-		authClient, err := gomaasapi.NewAuthenticatedClient(maasServer, maasOAuth, apiVersion1)
+		_, _, includesVersion := gomaasapi.SplitVersionedURL(maasServer)
+		versionURL := maasServer
+		if !includesVersion {
+			versionURL = gomaasapi.AddAPIVersionToURL(maasServer, apiVersion1)
+		}
+		authClient, err := gomaasapi.NewAuthenticatedClient(versionURL, maasOAuth)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-		caps, err := GetCapabilities(env.maasClientUnlocked, maasServer)
+		caps, err := env.GetCapabilities(env.maasClientUnlocked, maasServer)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -618,25 +629,29 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	for a := shortAttempt.Start(); a.Next(); {
 		version := client.GetSubObject("version/")
 		result, err = version.CallGet("", nil)
-		if err != nil {
-			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				message := "could not connect to MAAS controller - check the endpoint is correct"
-				trimmedURL := strings.TrimRight(serverURL, "/")
-				if !strings.HasSuffix(trimmedURL, "/MAAS") {
-					message += " (it normally ends with /MAAS)"
-				}
-				return caps, errors.NewNotSupported(nil, message)
-			}
-		} else {
+		if err == nil {
 			break
+		}
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
+			logger.Debugf("Failed attempting to get capabilities from maas endpoint %q: %v", serverURL, err)
+
+			message := "could not connect to MAAS controller - check the endpoint is correct"
+			trimmedURL := strings.TrimRight(serverURL, "/")
+			if !strings.HasSuffix(trimmedURL, "/MAAS") {
+				message += " (it normally ends with /MAAS)"
+			}
+			return caps, errors.NewNotSupported(nil, message)
 		}
 	}
 	if err != nil {
+		logger.Debugf("Can't connect to maas server at endpoint %q: %v", serverURL, err)
 		return caps, err
 	}
 	info, err := result.GetMap()
 	if err != nil {
-		return caps, err
+		logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
+		// invalid data of some sort, probably not a MAAS server.
+		return caps, errors.New("failed to get expected data from server")
 	}
 	capsObj, ok := info["capabilities"]
 	if !ok {
@@ -644,12 +659,14 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	}
 	items, err := capsObj.GetArray()
 	if err != nil {
-		return caps, err
+		logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
+		return caps, errors.New("failed to get expected data from server")
 	}
 	for _, item := range items {
 		val, err := item.GetString()
 		if err != nil {
-			return set.NewStrings(), err
+			logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
+			return set.NewStrings(), errors.New("failed to get expected data from server")
 		}
 		caps.Add(val)
 	}
@@ -2010,18 +2027,18 @@ func (environ *maasEnviron) DestroyController(controllerUUID string) error {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]network.PortRange) error {
+func (*maasEnviron) OpenPorts([]network.IngressRule) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (*maasEnviron) ClosePorts([]network.PortRange) error {
+func (*maasEnviron) ClosePorts([]network.IngressRule) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (*maasEnviron) Ports() ([]network.PortRange, error) {
-	logger.Debugf("unimplemented Ports() called")
+func (*maasEnviron) IngressRules() ([]network.IngressRule, error) {
+	logger.Debugf("unimplemented Rules() called")
 	return nil, nil
 }
 
@@ -2161,75 +2178,6 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 }
 
 func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
-	subnetCIDRToSubnet := make(map[string]gomaasapi.Subnet)
-	spaces, err := env.maasController.Spaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, space := range spaces {
-		for _, subnet := range space.Subnets() {
-			subnetCIDRToSubnet[subnet.CIDR()] = subnet
-		}
-	}
-	// map from the source subnet (what subnet is the device in), to what
-	// static routes should be used.
-	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
-	staticRoutes, err := env.maasController.StaticRoutes()
-	if err != nil {
-		// MAAS 2.0 does not support static-routes, and will return a 404. MAAS
-		// does not report support for static-routes in its capabilities, nor
-		// does it have a different API version between 2.1 and 2.0. So we make
-		// the attempt, and treat a 404 as not having any configured static
-		// routes.
-		// gomaaasapi wraps a ServerError in an UnexpectedError, so we need to
-		// dig to make sure we have the right cause:
-		handled := false
-		if gomaasapi.IsUnexpectedError(err) {
-			msg := err.Error()
-			if strings.Contains(msg, "404") &&
-				strings.Contains(msg, "Unknown API endpoint:") &&
-				strings.Contains(msg, "/static-routes/") {
-				logger.Debugf("static-routes not supported: %v", err)
-				handled = true
-				staticRoutes = nil
-			} else {
-				logger.Warningf("IsUnexpectedError, but didn't match: %q %#v", msg, err)
-			}
-		} else {
-			logger.Warningf("not IsUnexpectedError: %#v", err)
-		}
-		if !handled {
-			logger.Warningf("error looking up static-routes: %v", err)
-			return nil, errors.Annotate(err, "unable to look up static-routes")
-		}
-	}
-	for _, route := range staticRoutes {
-		source := route.Source()
-		sourceCIDR := source.CIDR()
-		subnetToStaticRoutes[sourceCIDR] = append(subnetToStaticRoutes[sourceCIDR], route)
-	}
-	logger.Debugf("found static routes: %# v", subnetToStaticRoutes)
-
-	// Containers always use 'eth0' as their primary NIC
-	var primaryNICInfo network.InterfaceInfo
-	primaryNICName := "eth0"
-	for _, nic := range preparedInfo {
-		if nic.InterfaceName == primaryNICName {
-			primaryNICInfo = nic
-			break
-		}
-	}
-	if primaryNICInfo.InterfaceName == "" {
-		return nil, errors.Errorf("cannot find primary interface for container")
-	}
-	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
-
-	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	subnet, hasSubnet := subnetCIDRToSubnet[primaryNICSubnetCIDR]
-	if !hasSubnet {
-		logger.Debugf("primary device NIC %q has no linked subnet - leaving unconfigured", primaryNICInfo.InterfaceName)
-	}
-	primaryMACAddress := primaryNICInfo.MACAddress
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},
@@ -2246,73 +2194,35 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
-		Hostname:      deviceName,
-		MACAddress:    primaryMACAddress,
-		Subnet:        subnet, // can be nil
-		InterfaceName: primaryNICName,
-	}
-	device, err := machine.CreateDevice(createDeviceArgs)
+	params, err := env.prepareDeviceDetails(deviceName, machine, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	interface_set := device.InterfaceSet()
-	if len(interface_set) != 1 {
-		// Shouldn't be possible as machine.CreateDevice always returns us
-		// one interface.
-		return nil, errors.Errorf("unexpected number of interfaces in response from creating device: %v", interface_set)
+
+	// Check to see if we've already tried to allocate information for this device:
+	device, err := env.checkForExistingDevice(params)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	primaryNICVLAN := interface_set[0].VLAN()
-
-	nameToParentName := make(map[string]string)
-	for _, nic := range preparedInfo {
-		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
-		if nic.InterfaceName != primaryNICName {
-			createArgs := gomaasapi.CreateInterfaceArgs{
-				Name:       nic.InterfaceName,
-				MTU:        nic.MTU,
-				MACAddress: nic.MACAddress,
-			}
-
-			subnet, knownSubnet := subnetCIDRToSubnet[nic.CIDR]
-			if !knownSubnet {
-				logger.Warningf("NIC %v has no subnet - setting to manual and using 'primaryNIC' VLAN %d", nic.InterfaceName, primaryNICVLAN.ID())
-				createArgs.VLAN = primaryNICVLAN
-			} else {
-				createArgs.VLAN = subnet.VLAN()
-				logger.Infof("linking NIC %v to subnet %v - using static IP", nic.InterfaceName, subnet.CIDR())
-			}
-
-			createdNIC, err := device.CreateInterface(createArgs)
-			if err != nil {
-				return nil, errors.Annotate(err, "creating device interface")
-			}
-			logger.Debugf("created device interface: %+v", createdNIC)
-
-			if !knownSubnet {
-				continue
-			}
-
-			linkArgs := gomaasapi.LinkSubnetArgs{
-				Mode:   gomaasapi.LinkModeStatic,
-				Subnet: subnet,
-			}
-
-			if err := createdNIC.LinkSubnet(linkArgs); err != nil {
-				logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, subnet.CIDR(), err)
-			} else {
-				logger.Debugf("linked device interface to subnet: %+v", createdNIC)
-			}
+	if device == nil {
+		device, err = env.createAndPopulateDevice(params)
+		if err != nil {
+			return nil, errors.Annotatef(err,
+				"failed to create MAAS device for %q",
+				params.Name)
 		}
 	}
 
-	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName, subnetToStaticRoutes)
+	// TODO(jam): the old code used to reload the device from its SystemID()
+	nameToParentName := make(map[string]string)
+	for _, nic := range preparedInfo {
+		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
+	}
+	interfaces, err := env.deviceInterfaceInfo2(device, nameToParentName, params.CIDRToStaticRoutes)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
-	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
-
-	return finalInterfaces, nil
+	return interfaces, nil
 }
 
 func (env *maasEnviron) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
@@ -2425,4 +2335,19 @@ func (env *maasEnviron) AdoptResources(controllerUUID string, fromVersion versio
 		return errors.Errorf("failed to update controller for some instances: %v", failed)
 	}
 	return nil
+}
+
+// ProviderSpaceInfo implements environs.NetworkingEnviron.
+func (*maasEnviron) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements environs.NetworkingEnviron.
+func (*maasEnviron) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+func (*maasEnviron) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
 }

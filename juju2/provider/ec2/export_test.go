@@ -10,11 +10,11 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	jujustorage "github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/instance"
+	jujustorage "github.com/juju/juju/storage"
 )
 
 func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {

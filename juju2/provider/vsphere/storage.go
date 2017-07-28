@@ -1,14 +1,12 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/storage"
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.

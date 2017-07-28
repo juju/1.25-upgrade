@@ -5,7 +5,7 @@
 
 package upgrades
 
-import "github.com/juju/1.25-upgrade/juju2/state"
+import "github.com/juju/juju/state"
 
 func updateLXDCloudCredentials(st *state.State) error {
 	// The LXD provider is compiled out when Juju is

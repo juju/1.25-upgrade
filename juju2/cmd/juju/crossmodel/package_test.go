@@ -8,9 +8,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/jujuclient"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *testing.T) {
@@ -20,21 +19,22 @@ func TestAll(t *testing.T) {
 type BaseCrossModelSuite struct {
 	jujutesting.BaseSuite
 
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 func (s *BaseCrossModelSuite) SetUpTest(c *gc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{
-		CurrentModel: "test",
+		CurrentModel: "fred/test",
 		Models: map[string]jujuclient.ModelDetails{
-			"bob/test": {"test-uuid"},
-			"bob/prod": {"prod-uuid"},
+			"bob/test":  {"test-uuid"},
+			"bob/prod":  {"prod-uuid"},
+			"fred/test": {"fred-uuid"},
 		},
 	}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{

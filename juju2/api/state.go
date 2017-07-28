@@ -16,20 +16,19 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/charmrevisionupdater"
-	"github.com/juju/1.25-upgrade/juju2/api/cleaner"
-	"github.com/juju/1.25-upgrade/juju2/api/discoverspaces"
-	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/api/instancepoller"
-	"github.com/juju/1.25-upgrade/juju2/api/keyupdater"
-	"github.com/juju/1.25-upgrade/juju2/api/reboot"
-	"github.com/juju/1.25-upgrade/juju2/api/unitassigner"
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/api/upgrader"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/charmrevisionupdater"
+	"github.com/juju/juju/api/cleaner"
+	"github.com/juju/juju/api/imagemetadata"
+	"github.com/juju/juju/api/instancepoller"
+	"github.com/juju/juju/api/keyupdater"
+	"github.com/juju/juju/api/reboot"
+	"github.com/juju/juju/api/unitassigner"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 )
 
 // Login authenticates as the entity with the given name and password
@@ -129,6 +128,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		modelTag:         result.ModelTag,
 		controllerTag:    result.ControllerTag,
 		servers:          servers,
+		publicDNSName:    result.PublicDNSName,
 		facades:          result.Facades,
 		modelAccess:      modelAccess,
 		controllerAccess: controllerAccess,
@@ -150,6 +150,7 @@ type loginResultParams struct {
 	controllerAccess string
 	servers          [][]network.HostPort
 	facades          []params.FacadeVersions
+	publicDNSName    string
 }
 
 func (st *state) setLoginResult(p loginResultParams) error {
@@ -181,6 +182,7 @@ func (st *state) setLoginResult(p loginResultParams) error {
 		return err
 	}
 	st.hostPorts = hostPorts
+	st.publicDNSName = p.publicDNSName
 
 	st.facadeVersions = make(map[string][]int, len(p.facades))
 	for _, facade := range p.facades {
@@ -291,11 +293,6 @@ func (st *state) Reboot() (reboot.State, error) {
 	default:
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-}
-
-// DiscoverSpaces returns access to the DiscoverSpacesAPI.
-func (st *state) DiscoverSpaces() *discoverspaces.API {
-	return discoverspaces.NewAPI(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API

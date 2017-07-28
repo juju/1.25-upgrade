@@ -5,10 +5,10 @@ package hostkeyreporter
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apihostkeyreporter "github.com/juju/1.25-upgrade/juju2/api/hostkeyreporter"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/api/base"
+	apihostkeyreporter "github.com/juju/juju/api/hostkeyreporter"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

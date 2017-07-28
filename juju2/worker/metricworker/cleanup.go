@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/api/metricsmanager"
+	jworker "github.com/juju/juju/worker"
 )
 
 var cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")
@@ -30,5 +31,5 @@ func newCleanup(client metricsmanager.MetricsManagerClient, notify chan string) 
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, cleanupPeriod, worker.NewTimer)
+	return jworker.NewPeriodicWorker(f, cleanupPeriod, jworker.NewTimer)
 }

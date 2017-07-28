@@ -4,18 +4,20 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/utils"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/status"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -49,9 +51,9 @@ func unixNanoToTime(i int64) *time.Time {
 // getStatus retrieves the status document associated with the given
 // globalKey and converts it to a StatusInfo. If the status document
 // is not found, a NotFoundError referencing badge will be returned.
-func getStatus(st *State, globalKey, badge string) (_ status.StatusInfo, err error) {
+func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get status")
-	statuses, closer := st.getCollection(statusesC)
+	statuses, closer := db.GetCollection(statusesC)
 	defer closer()
 
 	var doc statusDoc
@@ -98,9 +100,20 @@ type setStatusParams struct {
 	updated *time.Time
 }
 
+func timeOrNow(t *time.Time, clock clock.Clock) *time.Time {
+	if t == nil {
+		now := clock.Now()
+		t = &now
+	}
+	return t
+}
+
 // setStatus inteprets the supplied params as documented on the type.
-func setStatus(st *State, params setStatusParams) (err error) {
+func setStatus(db Database, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
+	if params.updated == nil {
+		return errors.NotValidf("nil updated time")
+	}
 
 	doc := statusDoc{
 		Status:     params.status,
@@ -108,38 +121,35 @@ func setStatus(st *State, params setStatusParams) (err error) {
 		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    params.updated.UnixNano(),
 	}
-	probablyUpdateStatusHistory(st, params.globalKey, doc)
+	probablyUpdateStatusHistory(db, params.globalKey, doc)
 
 	// Set the authoritative status document, or fail trying.
-	buildTxn := updateStatusSource(st, params.globalKey, doc)
+	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
+		return statusSetOps(db, doc, params.globalKey)
+	}
 	if params.token != nil {
 		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
-	err = st.run(buildTxn)
+	err = db.Run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return errors.NotFoundf(params.badge)
 	}
 	return errors.Trace(err)
 }
 
-// updateStatusSource returns a transaction source that builds the operations
-// necessary to set the supplied status (and to fail safely if leaked and
-// executed late, so as not to overwrite more recent documents).
-func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.TransactionSource {
+func statusSetOps(db Database, doc statusDoc, globalKey string) ([]txn.Op, error) {
 	update := bson.D{{"$set", &doc}}
-	return func(_ int) ([]txn.Op, error) {
-		txnRevno, err := st.readTxnRevno(statusesC, globalKey)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		assert := bson.D{{"txn-revno", txnRevno}}
-		return []txn.Op{{
-			C:      statusesC,
-			Id:     globalKey,
-			Assert: assert,
-			Update: update,
-		}}, nil
+	txnRevno, err := readTxnRevno(db, statusesC, globalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	assert := bson.D{{"txn-revno", txnRevno}}
+	return []txn.Op{{
+		C:      statusesC,
+		Id:     globalKey,
+		Assert: assert,
+		Update: update,
+	}}, nil
 }
 
 // createStatusOp returns the operation needed to create the given status
@@ -163,6 +173,10 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 	}
 }
 
+// globalKeyField must have the same value as the tag for
+// historicalStatusDoc.GlobalKey.
+const globalKeyField = "globalkey"
+
 type historicalStatusDoc struct {
 	ModelUUID  string                 `bson:"model-uuid"`
 	GlobalKey  string                 `bson:"globalkey"`
@@ -170,13 +184,12 @@ type historicalStatusDoc struct {
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 
-	// Updated might not be present on statuses copied by old versions of juju
-	// from yet older versions of juju. Do not dereference without checking.
-	// Updated *time.Time `bson:"updated"`
+	// Updated might not be present on statuses copied by old
+	// versions of juju from yet older versions of juju.
 	Updated int64 `bson:"updated"`
 }
 
-func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
+func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -184,7 +197,7 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-	history, closer := st.getCollection(statusesHistoryC)
+	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 	if err := historyW.Insert(historyDoc); err != nil {
@@ -192,56 +205,85 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 	}
 }
 
+func eraseStatusHistory(st *State, globalKey string) error {
+	history, closer := st.db().GetCollection(statusesHistoryC)
+	defer closer()
+	historyW := history.Writeable()
+
+	if _, err := historyW.RemoveAll(bson.D{{globalKeyField, globalKey}}); err != nil {
+		return err
+	}
+	return nil
+}
+
 // statusHistoryArgs hold the arguments to call statusHistory.
 type statusHistoryArgs struct {
-	st        *State
+	db        Database
 	globalKey string
 	filter    status.StatusHistoryFilter
 }
 
-func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
-	filter := args.filter
-	if err := args.filter.Validate(); err != nil {
-		return nil, errors.Annotate(err, "validating arguments")
-	}
-	statusHistory, closer := args.st.getCollection(statusesHistoryC)
-	defer closer()
-
+// fetchNStatusResults will return status for the given key filtered with the
+// given filter or error.
+func fetchNStatusResults(col mongo.Collection, key string,
+	filter status.StatusHistoryFilter) ([]historicalStatusDoc, error) {
 	var (
 		docs  []historicalStatusDoc
 		query mongo.Query
 	)
-	baseQuery := bson.M{"globalkey": args.globalKey}
+	baseQuery := bson.M{"globalkey": key}
 	if filter.Delta != nil {
 		delta := *filter.Delta
-		// TODO(perrito666) 2016-05-02 lp:1558657
+		// TODO(perrito666) 2016-10-06 lp:1558657
 		updated := time.Now().Add(-delta)
-		baseQuery = bson.M{"updated": bson.M{"$gt": updated.UnixNano()}, "globalkey": args.globalKey}
+		baseQuery["updated"] = bson.M{"$gt": updated.UnixNano()}
 	}
-	if filter.Date != nil {
-		baseQuery = bson.M{"updated": bson.M{"$gt": filter.Date.UnixNano()}, "globalkey": args.globalKey}
+	if filter.FromDate != nil {
+		baseQuery["updated"] = bson.M{"$gt": filter.FromDate.UnixNano()}
 	}
-	query = statusHistory.Find(baseQuery).Sort("-updated")
+	excludes := []string{}
+	excludes = append(excludes, filter.Exclude.Values()...)
+	if len(excludes) > 0 {
+		baseQuery["statusinfo"] = bson.M{"$nin": excludes}
+	}
+
+	query = col.Find(baseQuery).Sort("-updated")
 	if filter.Size > 0 {
 		query = query.Limit(filter.Size)
 	}
 	err := query.All(&docs)
 
 	if err == mgo.ErrNotFound {
-		return []status.StatusInfo{}, errors.NotFoundf("status history")
+		return []historicalStatusDoc{}, errors.NotFoundf("status history")
 	} else if err != nil {
-		return []status.StatusInfo{}, errors.Annotatef(err, "cannot get status history")
+		return []historicalStatusDoc{}, errors.Annotatef(err, "cannot get status history")
 	}
+	return docs, nil
 
-	results := make([]status.StatusInfo, len(docs))
-	for i, doc := range docs {
-		results[i] = status.StatusInfo{
+}
+
+func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
+	if err := args.filter.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating arguments")
+	}
+	statusHistory, closer := args.db.GetCollection(statusesHistoryC)
+	defer closer()
+
+	var results []status.StatusInfo
+	docs, err := fetchNStatusResults(statusHistory, args.globalKey, args.filter)
+	partial := []status.StatusInfo{}
+	if err != nil {
+		return []status.StatusInfo{}, errors.Trace(err)
+	}
+	for _, doc := range docs {
+		partial = append(partial, status.StatusInfo{
 			Status:  doc.Status,
 			Message: doc.StatusInfo,
 			Data:    utils.UnescapeKeys(doc.StatusData),
 			Since:   unixNanoToTime(doc.Updated),
-		}
+		})
 	}
+	results = partial
 	return results, nil
 }
 
@@ -250,42 +292,99 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 // that the collection is smaller than <maxLogsMB> after the
 // deletion.
 func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	if maxHistoryMB < 0 {
-		return errors.NotValidf("non-positive maxHistoryMB")
-	}
-	if maxHistoryTime < 0 {
-		return errors.NotValidf("non-positive maxHistoryTime")
-	}
-	if maxHistoryMB == 0 && maxHistoryTime == 0 {
-		return errors.NotValidf("backlog size and time constraints are both 0")
-	}
+	// NOTE(axw) we require a raw collection to obtain the size of the
+	// collection. Take care to include model-uuid in queries where
+	// appropriate.
 	history, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
-	// Status Record Age
-	if maxHistoryTime > 0 {
-		t := st.clock.Now().Add(-maxHistoryTime)
-		_, err := history.RemoveAll(bson.D{
-			{"updated", bson.M{"$lt": t.UnixNano()}},
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
+	p := statusHistoryPruner{
+		st:      st,
+		coll:    history,
+		maxAge:  maxHistoryTime,
+		maxSize: maxHistoryMB,
 	}
-	if maxHistoryMB == 0 {
+	if err := p.validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.pruneByAge(); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(p.pruneBySize())
+}
+
+const historyPruneBatchSize = 1000
+const historyPruneProgressSeconds = 15
+
+type doneCheck func() (bool, error)
+
+type statusHistoryPruner struct {
+	st   *State
+	coll *mgo.Collection
+
+	maxAge  time.Duration
+	maxSize int
+}
+
+func (p *statusHistoryPruner) validate() error {
+	if p.maxSize < 0 {
+		return errors.NotValidf("non-positive max size")
+	}
+	if p.maxAge < 0 {
+		return errors.NotValidf("non-positive max age")
+	}
+	if p.maxSize == 0 && p.maxAge == 0 {
+		return errors.NotValidf("backlog size and age constraints are both 0")
+	}
+	return nil
+}
+
+func (p *statusHistoryPruner) pruneByAge() error {
+	if p.maxAge == 0 {
+		return nil
+	}
+	t := p.st.clock.Now().Add(-p.maxAge)
+	iter := p.coll.Find(bson.D{
+		{"model-uuid", p.st.ModelUUID()},
+		{"updated", bson.M{"$lt": t.UnixNano()}},
+	}).Select(bson.M{"_id": 1}).Iter()
+
+	model, err := p.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logTemplate := fmt.Sprintf("status history age pruning (%s): %%d rows deleted", model.Name())
+	deleted, err := p.deleteInBatches(iter, logTemplate, noEarlyFinish)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if deleted > 0 {
+		logger.Infof("status history age pruning (%s): %d rows deleted", model.Name(), deleted)
+	}
+	return nil
+}
+
+func (p *statusHistoryPruner) pruneBySize() error {
+	if !p.st.IsController() {
+		// Only prune by size in the controller. Otherwise we might
+		// find that multiple pruners are trying to delete the latest
+		// 1000 rows and end up with more deleted than we expect.
+		return nil
+	}
+	if p.maxSize == 0 {
 		return nil
 	}
 	// Collection Size
-	collMB, err := getCollectionMB(history)
+	collMB, err := getCollectionMB(p.coll)
 	if err != nil {
 		return errors.Annotate(err, "retrieving status history collection size")
 	}
-	if collMB <= maxHistoryMB {
+	if collMB <= p.maxSize {
 		return nil
 	}
 	// TODO(perrito666) explore if there would be any beneffit from having the
 	// size limit be per model
-	count, err := history.Count()
+	count, err := p.coll.Count()
 	if err == mgo.ErrNotFound || count <= 0 {
 		return nil
 	}
@@ -301,17 +400,80 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	if sizePerStatus == 0 {
 		return errors.New("unexpected result calculating status history entry size")
 	}
-	deleteStatuses := count - int(float64(collMB-maxHistoryMB)/sizePerStatus)
-	result := historicalStatusDoc{}
-	err = history.Find(nil).Sort("-updated").Skip(deleteStatuses).One(&result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = history.RemoveAll(bson.D{
-		{"updated", bson.M{"$lt": result.Updated}},
+	toDelete := int(float64(collMB-p.maxSize) / sizePerStatus)
+
+	iter := p.coll.Find(nil).Sort("updated").Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
+
+	template := fmt.Sprintf("status history size pruning: deleted %%d of %d (estimated)", toDelete)
+	deleted, err := p.deleteInBatches(iter, template, func() (bool, error) {
+		// Check that we still need to delete more
+		collMB, err := getCollectionMB(p.coll)
+		if err != nil {
+			return false, errors.Annotate(err, "retrieving status history collection size")
+		}
+		if collMB <= p.maxSize {
+			return true, nil
+		}
+		return false, nil
 	})
+
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	logger.Infof("status history size pruning finished: %d rows deleted", deleted)
+
 	return nil
+}
+
+func (p *statusHistoryPruner) deleteInBatches(iter *mgo.Iter, logTemplate string, shouldStop doneCheck) (int, error) {
+	var doc bson.M
+	chunk := p.coll.Bulk()
+	chunkSize := 0
+
+	lastUpdate := time.Now()
+	deleted := 0
+	for iter.Next(&doc) {
+		chunk.Remove(bson.D{{"_id", doc["_id"]}})
+		chunkSize++
+		if chunkSize == historyPruneBatchSize {
+			_, err := chunk.Run()
+			// NotFound indicates that records were already deleted.
+			if err != nil && err != mgo.ErrNotFound {
+				return 0, errors.Annotate(err, "removing status history batch")
+			}
+
+			deleted += chunkSize
+			chunk = p.coll.Bulk()
+			chunkSize = 0
+
+			// Check that we still need to delete more
+			done, err := shouldStop()
+			if err != nil {
+				return 0, errors.Annotate(err, "checking whether to stop")
+			}
+			if done {
+				return deleted, nil
+			}
+
+			now := time.Now()
+			if now.Sub(lastUpdate) >= historyPruneProgressSeconds*time.Second {
+				logger.Infof(logTemplate, deleted)
+				lastUpdate = now
+			}
+		}
+	}
+
+	if chunkSize > 0 {
+		_, err := chunk.Run()
+		if err != nil && err != mgo.ErrNotFound {
+			return 0, errors.Annotate(err, "removing status history remainder")
+		}
+	}
+
+	return deleted + chunkSize, nil
+}
+
+func noEarlyFinish() (bool, error) {
+	return false, nil
 }

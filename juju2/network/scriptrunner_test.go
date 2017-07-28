@@ -8,12 +8,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/network"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ScriptRunnerSuite struct {

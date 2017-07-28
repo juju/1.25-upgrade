@@ -14,18 +14,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewListCommand returns a command used to list spaces.
-func NewListCommand() cmd.Command {
-	return modelcmd.Wrap(&listCommand{})
+func NewListCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&ListCommand{})
 }
 
 // listCommand displays a list of all spaces known to Juju.
-type listCommand struct {
+type ListCommand struct {
 	SpaceCommandBase
 	Short bool
 	out   cmd.Output
@@ -39,18 +39,18 @@ their subnets are displayed, otherwise just a list of spaces. The
 output to be redirected to a file. `
 
 // Info is defined on the cmd.Command interface.
-func (c *listCommand) Info() *cmd.Info {
+func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "spaces",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
-		Purpose: "List known spaces, including associated subnets",
+		Purpose: "List known spaces, including associated subnets.",
 		Doc:     strings.TrimSpace(listCommandDoc),
 		Aliases: []string{"list-spaces"},
 	}
 }
 
 // SetFlags is defined on the cmd.Command interface.
-func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -62,7 +62,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *listCommand) Init(args []string) error {
+func (c *ListCommand) Init(args []string) error {
 	// No arguments are accepted, just flags.
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Trace(err)
@@ -72,7 +72,7 @@ func (c *listCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *listCommand) Run(ctx *cmd.Context) error {
+func (c *ListCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		spaces, err := api.ListSpaces()
 		if err != nil {
@@ -139,7 +139,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 }
 
 // printTabular prints the list of spaces in tabular format
-func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
+func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 	tw := output.TabWriter(writer)
 	if c.Short {
 		list, ok := value.(formattedShortList)

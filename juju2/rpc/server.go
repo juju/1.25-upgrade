@@ -6,12 +6,13 @@ package rpc
 import (
 	"io"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 const codeNotImplemented = "not implemented"
@@ -152,9 +153,12 @@ type Conn struct {
 
 // NewConn creates a new connection that uses the given codec for
 // transport, but it does not start it. Conn.Start must be called before
-// any requests are sent or received. If notifier is non-nil, the
+// any requests are sent or received. If observerFactory is non-nil, the
 // appropriate method will be called for every RPC request.
 func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
+	if observerFactory == nil {
+		observerFactory = nopObserverFactory{}
+	}
 	return &Conn{
 		codec:           codec,
 		clientPending:   make(map[uint64]*Call),
@@ -325,7 +329,7 @@ func (conn *Conn) input() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	if conn.closing || err == io.EOF {
+	if conn.closing || errors.Cause(err) == io.EOF {
 		err = ErrShutdown
 	} else {
 		// Make the error available for Conn.Close to see.
@@ -347,7 +351,7 @@ func (conn *Conn) loop() error {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
 		switch {
-		case err == io.EOF:
+		case errors.Cause(err) == io.EOF:
 			// handle sentinel error specially
 			return err
 		case err != nil:
@@ -507,7 +511,15 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, o
 		conn.sending.Unlock()
 	}
 	if err != nil {
-		logger.Errorf("error writing response: %v", err)
+		// If the message failed due to the other end closing the socket, that
+		// is expected when an agent restarts so no need to log an  error.
+		// The error type here is errors.errorString so all we can do is a match
+		// on the error string content.
+		msg := err.Error()
+		if !strings.Contains(msg, "websocket: close sent") &&
+			!strings.Contains(msg, "write: broken pipe") {
+			logger.Errorf("error writing response: %T %+v", err, err)
+		}
 	}
 }
 
@@ -519,3 +531,15 @@ func (e *serverError) ErrorCode() string {
 	// serverError only knows one error code.
 	return codeNotImplemented
 }
+
+type nopObserverFactory struct{}
+
+func (nopObserverFactory) RPCObserver() Observer {
+	return nopObserver{}
+}
+
+type nopObserver struct{}
+
+func (nopObserver) ServerRequest(hdr *Header, body interface{}) {}
+
+func (nopObserver) ServerReply(req Request, hdr *Header, body interface{}) {}

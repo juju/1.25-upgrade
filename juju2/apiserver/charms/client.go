@@ -8,38 +8,30 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/resource"
+	names "gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Charms", 2, NewAPI)
-}
-
-var getState = func(st *state.State) charmsAccess {
-	return stateShim{st}
-}
-
-// Charms defines the methods on the charms API end point.
-type Charms interface {
-	List(args params.CharmsList) (params.CharmsListResult, error)
-	CharmInfo(args params.CharmURL) (params.CharmInfo, error)
-	IsMetered(args params.CharmURL) (bool, error)
+type backend interface {
+	Charm(curl *charm.URL) (*state.Charm, error)
+	AllCharms() ([]*state.Charm, error)
+	ModelTag() names.ModelTag
 }
 
 // API implements the charms interface and is the concrete
-// implementation of the api end point.
+// implementation of the API end point.
 type API struct {
-	access     charmsAccess
 	authorizer facade.Authorizer
+	backend    backend
 }
 
 func (a *API) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.access.ModelTag())
+	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -49,20 +41,16 @@ func (a *API) checkCanRead() error {
 	return nil
 }
 
-// NewAPI returns a new charms API facade.
-func NewAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-
+// NewFacade provides the signature required for facade registration.
+func NewFacade(ctx facade.Context) (*API, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
 	return &API{
-		access:     getState(st),
 		authorizer: authorizer,
+		backend:    ctx.State(),
 	}, nil
 }
 
@@ -77,7 +65,7 @@ func (a *API) CharmInfo(args params.CharmURL) (params.CharmInfo, error) {
 	if err != nil {
 		return params.CharmInfo{}, errors.Trace(err)
 	}
-	aCharm, err := a.access.Charm(curl)
+	aCharm, err := a.backend.Charm(curl)
 	if err != nil {
 		return params.CharmInfo{}, errors.Trace(err)
 	}
@@ -100,7 +88,7 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
 
-	charms, err := a.access.AllCharms()
+	charms, err := a.backend.AllCharms()
 	if err != nil {
 		return params.CharmsListResult{}, errors.Annotatef(err, " listing charms ")
 	}
@@ -130,7 +118,7 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 	if err != nil {
 		return params.IsMeteredResult{false}, errors.Trace(err)
 	}
-	aCharm, err := a.access.Charm(curl)
+	aCharm, err := a.backend.Charm(curl)
 	if err != nil {
 		return params.IsMeteredResult{false}, errors.Trace(err)
 	}

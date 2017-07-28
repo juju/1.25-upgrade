@@ -8,9 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	charmtesting "github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

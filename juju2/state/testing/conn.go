@@ -10,20 +10,19 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	dummystorage "github.com/juju/1.25-upgrade/juju2/storage/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/state"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 type InitializeArgs struct {
 	Owner                     names.UserTag
 	InitialConfig             *config.Config
+	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
 	RegionConfig              cloud.RegionConfig
 	NewPolicy                 state.NewPolicyFunc
@@ -57,6 +56,9 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 	dialOpts := mongotest.DialOpts()
 
 	controllerCfg := testing.FakeControllerConfig()
+	for k, v := range args.ControllerConfig {
+		controllerCfg[k] = v
+	}
 	st, err := state.Initialize(state.InitializeParams{
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
@@ -65,7 +67,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 			CloudRegion: "dummy-region",
 			Config:      args.InitialConfig,
 			Owner:       args.Owner,
-			StorageProviderRegistry: StorageProviders(),
+			StorageProviderRegistry: dummystorage.StorageProviders(),
 		},
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		Cloud: cloud.Cloud{
@@ -73,19 +75,19 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{
-				cloud.Region{
+				{
 					Name:             "dummy-region",
 					Endpoint:         "dummy-endpoint",
 					IdentityEndpoint: "dummy-identity-endpoint",
 					StorageEndpoint:  "dummy-storage-endpoint",
 				},
-				cloud.Region{
+				{
 					Name:             "nether-region",
 					Endpoint:         "nether-endpoint",
 					IdentityEndpoint: "nether-identity-endpoint",
 					StorageEndpoint:  "nether-storage-endpoint",
 				},
-				cloud.Region{
+				{
 					Name:             "unused-region",
 					Endpoint:         "unused-endpoint",
 					IdentityEndpoint: "unused-identity-endpoint",
@@ -102,39 +104,14 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 	return st
 }
 
-func StorageProviders() storage.ProviderRegistry {
-	return storage.ChainedProviderRegistry{
-		storage.StaticProviderRegistry{
-			map[storage.ProviderType]storage.Provider{
-				"static": &dummystorage.StorageProvider{IsDynamic: false},
-				"environscoped": &dummystorage.StorageProvider{
-					StorageScope: storage.ScopeEnviron,
-					IsDynamic:    true,
-				},
-				"environscoped-block": &dummystorage.StorageProvider{
-					StorageScope: storage.ScopeEnviron,
-					IsDynamic:    true,
-					SupportsFunc: func(k storage.StorageKind) bool {
-						return k == storage.StorageKindBlock
-					},
-				},
-				"machinescoped": &dummystorage.StorageProvider{
-					StorageScope: storage.ScopeMachine,
-					IsDynamic:    true,
-				},
-			},
-		},
-		provider.CommonStorageProviders(),
-	}
-}
-
 // NewMongoInfo returns information suitable for
 // connecting to the testing controller's mongo database.
 func NewMongoInfo() *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{jujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

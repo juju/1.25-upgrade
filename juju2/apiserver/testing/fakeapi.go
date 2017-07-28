@@ -8,14 +8,14 @@ import (
 	"reflect"
 
 	"github.com/bmizerany/pat"
+	"github.com/gorilla/websocket"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
-	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/testing"
 )
 
 // Server represents a fake API server. It must be closed
@@ -67,12 +67,12 @@ func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
 }
 
 func (srv *Server) serveAPI(w http.ResponseWriter, req *http.Request) {
-	wsServer := websocket.Server{
-		Handler: func(conn *websocket.Conn) {
-			srv.serveConn(conn, req.URL.Query().Get(":modeluuid"))
-		},
+	var websocketUpgrader = websocket.Upgrader{}
+	conn, err := websocketUpgrader.Upgrade(w, req, nil)
+	if err != nil {
+		return
 	}
-	wsServer.ServeHTTP(w, req)
+	srv.serveConn(conn, req.URL.Query().Get(":modeluuid"))
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {

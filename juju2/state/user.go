@@ -22,7 +22,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/juju/permission"
 )
 
 const userGlobalKeyPrefix = "us"
@@ -32,7 +32,7 @@ func userGlobalKey(userID string) string {
 }
 
 func (st *State) checkUserExists(name string) (bool, error) {
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var count int
@@ -110,9 +110,12 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("user")
+		err = errors.Errorf("username unavailable")
 	}
 	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			err = errors.Errorf("username unavailable")
+		}
 		return nil, errors.Trace(err)
 	}
 	return user, nil
@@ -182,7 +185,7 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	name = strings.ToLower(name)
@@ -210,7 +213,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		// client. So we don't annotate with information regarding deletion.
 		// TODO(redir): We'll return a deletedUserError in the future so we can
 		// return more appropriate errors, e.g. username not available.
-		return nil, errors.UserNotFoundf("%q", user.Name())
+		return nil, DeletedUserError{UserName: user.Name()}
 	}
 	return user, nil
 }
@@ -221,7 +224,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var result []*User
 
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var query bson.D
@@ -376,7 +379,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot update last login")
 	}
-	lastLogins, closer := u.st.getCollection(userLastLoginC)
+	lastLogins, closer := u.st.db().GetCollection(userLastLoginC)
 	defer closer()
 
 	lastLoginsW := lastLogins.Writeable()
@@ -533,7 +536,7 @@ type DeletedUserError struct {
 
 // Error implements the error interface.
 func (e DeletedUserError) Error() string {
-	return fmt.Sprintf("user %q deleted", e.UserName)
+	return fmt.Sprintf("user %q is permanently deleted", e.UserName)
 }
 
 // ensureNotDeleted refreshes the user to ensure it wasn't deleted since we

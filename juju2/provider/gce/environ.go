@@ -8,15 +8,16 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 type gceConnection interface {
@@ -30,11 +31,17 @@ type gceConnection interface {
 	RemoveInstances(prefix string, ids ...string) error
 	UpdateMetadata(key, value string, ids ...string) error
 
-	Ports(fwname string) ([]network.PortRange, error)
-	OpenPorts(fwname string, ports ...network.PortRange) error
-	ClosePorts(fwname string, ports ...network.PortRange) error
+	IngressRules(fwname string) ([]network.IngressRule, error)
+	OpenPorts(fwname string, rules ...network.IngressRule) error
+	ClosePorts(fwname string, rules ...network.IngressRule) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
+	// Subnetworks returns the subnetworks that machines can be
+	// assigned to in the given region.
+	Subnetworks(region string) ([]*compute.Subnetwork, error)
+	// Networks returns the available networks that exist across
+	// regions.
+	Networks() ([]*compute.Network, error)
 
 	// Storage related methods.
 
@@ -194,26 +201,21 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	ports := network.PortRange{
-		FromPort: params.ControllerConfig.APIPort(),
-		ToPort:   params.ControllerConfig.APIPort(),
-		Protocol: "tcp",
-	}
-	if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
+	rule := network.NewOpenIngressRule(
+		"tcp",
+		params.ControllerConfig.APIPort(),
+		params.ControllerConfig.APIPort(),
+	)
+	if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return bootstrap(ctx, env, params)
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (env *environ) BootstrapMessage() string {
-	return ""
-}
-
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {
-	ports, err := env.Ports()
+	ports, err := env.IngressRules()
 	if err != nil {
 		return errors.Trace(err)
 	}

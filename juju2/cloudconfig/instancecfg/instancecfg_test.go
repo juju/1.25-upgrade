@@ -8,11 +8,11 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 type instancecfgSuite struct {

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/service/common"
 )
 
 const (

@@ -11,19 +11,19 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type configureSuite struct {
@@ -220,7 +220,7 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
 	expectedCommands := regexp.QuoteMeta(`
-echo 'Changing apt mirror to http://woat.com' >&9
+echo 'Changing apt mirror to http://woat.com' >&$JUJU_PROGRESS_FD
 old_mirror=$(awk "/^deb .* $(lsb_release -sc) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
 new_mirror=http://woat.com
 sed -i s,$old_mirror,$new_mirror, /etc/apt/sources.list

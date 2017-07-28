@@ -15,11 +15,11 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
-	jujucharmstore "github.com/juju/1.25-upgrade/juju2/charmstore"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	jujucharmstore "github.com/juju/juju/charmstore"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 )
 
 // CharmSuite provides infrastructure to set up and perform tests associated

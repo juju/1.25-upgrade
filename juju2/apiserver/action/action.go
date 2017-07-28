@@ -7,16 +7,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("Action", 2, NewActionAPI)
-}
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
@@ -243,8 +239,10 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 	}
 
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
+
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
+		currentResult.Action = &params.Action{Tag: entity.Tag}
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)

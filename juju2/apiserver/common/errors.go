@@ -13,10 +13,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state"
 )
 
 func NotSupportedError(tag names.Tag, operation string) error {
@@ -252,7 +252,7 @@ func ServerError(err error) *params.Error {
 	}
 }
 
-func DestroyErr(desc string, ids, errs []string) error {
+func DestroyErr(desc string, ids []string, errs []error) error {
 	// TODO(waigani) refactor DestroyErr to take a map of ids to errors.
 	if len(errs) == 0 {
 		return nil
@@ -262,7 +262,11 @@ func DestroyErr(desc string, ids, errs []string) error {
 		msg = "no %s were destroyed"
 	}
 	msg = fmt.Sprintf(msg, desc)
-	return errors.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+	errStrings := make([]string, len(errs))
+	for i, err := range errs {
+		errStrings[i] = err.Error()
+	}
+	return errors.Errorf("%s: %s", msg, strings.Join(errStrings, "; "))
 }
 
 // RestoreError makes a best effort at converting the given error

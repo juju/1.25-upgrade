@@ -7,16 +7,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
-
 	"regexp"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/space"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cmd/juju/space"
 )
 
 type ListSuite struct {
@@ -27,8 +25,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewListCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = space.NewListCommand
 }
 
 func (s *ListSuite) TestInit(c *gc.C) {
@@ -72,18 +69,15 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectFormat: "tabular",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := space.NewListCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*space.ListCommand)
+			c.Check(command.ListFormat(), gc.Equals, test.expectFormat)
+			c.Check(command.Short, gc.Equals, test.expectShort)
 		}
-		c.Check(command.ListFormat(), gc.Equals, test.expectFormat)
-		c.Check(command.Short, gc.Equals, test.expectShort)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)

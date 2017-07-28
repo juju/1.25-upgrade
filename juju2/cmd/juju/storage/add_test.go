@@ -8,15 +8,15 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/storage"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/storage"
+	_ "github.com/juju/juju/provider/dummy"
 )
 
 type addSuite struct {
@@ -233,7 +233,7 @@ func (s *addSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 	}
 
 	ctx, _ := s.runAdd(c, s.args...)
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
@@ -251,19 +251,19 @@ func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string, expectedOut, e
 }
 
 func (s *addSuite) assertExpectedOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 
-	obtainedValid := testing.Stdout(context)
+	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Equals, expectedOut)
 }
 
 func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewAddCommandForTest(s.mockAPI, s.store), args...)
+	return cmdtesting.RunCommand(c, storage.NewAddCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func visibleErrorMessage(errMsg string) string {
-	return fmt.Sprintf("error: %v\n", errMsg)
+	return fmt.Sprintf("ERROR %v\n", errMsg)
 }
 
 type mockAddAPI struct {

@@ -10,8 +10,8 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/mongo"
 )
 
 // Mongo exposes MongoDB operations for use by the lease package.

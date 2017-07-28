@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/watcher"
 )
 
 // volumesChanged is called when the lifecycle states of the volumes
@@ -390,6 +390,8 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 			params.VolumeInfo{
 				v.VolumeId,
 				v.HardwareId,
+				v.WWN,
+				"", // pool
 				v.Size,
 				v.Persistent,
 			},
@@ -425,6 +427,7 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 		storage.VolumeInfo{
 			in.Info.VolumeId,
 			in.Info.HardwareId,
+			in.Info.WWN,
 			in.Info.Size,
 			in.Info.Persistent,
 		},

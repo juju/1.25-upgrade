@@ -6,7 +6,7 @@ package backups
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/instance"
 )
 
 // RestoreArgs holds the args to be used to call state/backups.Restore

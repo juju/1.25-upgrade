@@ -15,12 +15,12 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {

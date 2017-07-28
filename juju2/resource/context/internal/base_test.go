@@ -10,8 +10,8 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 func newResource(c *gc.C, stub *testing.Stub, name, content string) (resource.Resource, io.ReadCloser) {

@@ -11,32 +11,32 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 
-	coreagent "github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	msapi "github.com/juju/1.25-upgrade/juju2/api/meterstatus"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
-	"github.com/juju/1.25-upgrade/juju2/utils/proxy"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/agent"
-	"github.com/juju/1.25-upgrade/juju2/worker/apiaddressupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker/apicaller"
-	"github.com/juju/1.25-upgrade/juju2/worker/apiconfigwatcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/leadership"
-	"github.com/juju/1.25-upgrade/juju2/worker/logger"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/meterstatus"
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/collect"
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/sender"
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationflag"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationminion"
-	"github.com/juju/1.25-upgrade/juju2/worker/proxyupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker/retrystrategy"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
+	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	msapi "github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/meterstatus"
+	"github.com/juju/juju/worker/metrics/collect"
+	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/migrationflag"
+	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/retrystrategy"
+	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -197,7 +197,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The leadership tracker attempts to secure and retain leadership of
 		// the unit's service, and is consulted on such matters by the
-		// uniter. As it stannds today, we'll need one per unit in a
+		// uniter. As it stands today, we'll need one per unit in a
 		// consolidated agent.
 		leadershipTrackerName: ifNotMigrating(leadership.Manifold(leadership.ManifoldConfig{
 			AgentName:           agentName,

@@ -13,9 +13,9 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -32,6 +32,7 @@ var cloudSchema = &jsonschema.Schema{
 		cloud.EndpointKey: &jsonschema.Schema{
 			Singular: "the API endpoint url",
 			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
 		},
 	},
 }
@@ -39,20 +40,29 @@ var cloudSchema = &jsonschema.Schema{
 // Logger for the MAAS provider.
 var logger = loggo.GetLogger("juju.provider.maas")
 
-type maasEnvironProvider struct {
+type MaasEnvironProvider struct {
 	environProviderCredentials
+
+	// GetCapabilities is a function that connects to MAAS to return its set of
+	// capabilities.
+	GetCapabilities MaasCapabilities
 }
 
-var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
+var _ environs.EnvironProvider = (*MaasEnvironProvider)(nil)
 
-var providerInstance maasEnvironProvider
+var providerInstance MaasEnvironProvider
 
-func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+// Version is part of the EnvironProvider interface.
+func (MaasEnvironProvider) Version() int {
+	return 0
+}
+
+func (MaasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := NewEnviron(args.Cloud, args.Config)
+	env, err := NewEnviron(args.Cloud, args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +73,45 @@ var errAgentNameAlreadySet = errors.New(
 	"maas-agent-name is already set; this should not be set by hand")
 
 // CloudSchema returns the schema for adding new clouds of this type.
-func (p maasEnvironProvider) CloudSchema() *jsonschema.Schema {
+func (p MaasEnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p MaasEnvironProvider) Ping(endpoint string) error {
+	base, version, includesVersion := gomaasapi.SplitVersionedURL(endpoint)
+	if includesVersion {
+		err := p.checkMaas(base, version)
+		if err == nil {
+			return nil
+		}
+	} else {
+		// No version info in the endpoint - try both in preference order.
+		err := p.checkMaas(endpoint, apiVersion2)
+		if err == nil {
+			return nil
+		}
+		err = p.checkMaas(endpoint, apiVersion1)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.Errorf("No MAAS server running at %s", endpoint)
+}
+
+func (p MaasEnvironProvider) checkMaas(endpoint, ver string) error {
+	c, err := gomaasapi.NewAnonymousClient(endpoint, ver)
+	if err != nil {
+		logger.Debugf("Can't create maas API %s client for %q: %v", ver, endpoint, err)
+		return errors.Trace(err)
+	}
+	maas := gomaasapi.NewMAAS(*c)
+	_, err = p.GetCapabilities(maas, endpoint)
+	return errors.Trace(err)
+}
+
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p maasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p MaasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -101,7 +144,7 @@ Please ensure the credentials are correct.`)
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
-func (p maasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
+func (p MaasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 

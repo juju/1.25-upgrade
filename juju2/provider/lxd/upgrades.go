@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	jujupaths "github.com/juju/1.25-upgrade/juju2/juju/paths"
+	"github.com/juju/juju/cloud"
+	jujupaths "github.com/juju/juju/juju/paths"
 )
 
 // ReadLegacyCloudCredentials reads cloud credentials off disk for an old

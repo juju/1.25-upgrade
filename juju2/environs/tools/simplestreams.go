@@ -25,9 +25,9 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	coretools "github.com/juju/juju/tools"
 )
 
 func init() {
@@ -282,7 +282,7 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		if err != nil {
 			return errors.Annotate(err, "cannot resolve metadata")
 		}
-		logger.Infof("Fetching tools from dir %q to generate hash: %v", toolsDir, binary)
+		logger.Infof("Fetching agent binaries from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
 		// Older versions of Juju only know about ppc64, not ppc64el,
 		// so if there's no metadata for ppc64, dd metadata for that arch.

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
@@ -20,28 +21,34 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/controller/modelmanager"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/migration"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
-func init() {
-	common.RegisterStandardFacade("ModelManager", 2, newFacade)
+// ModelManagerV3 defines the methods on the version 2 facade for the
+// modelmanager API endpoint.
+type ModelManagerV3 interface {
+	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
+	DumpModels(args params.DumpModelRequest) params.StringResults
+	DumpModelsDB(args params.Entities) params.MapResults
+	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModels(args params.Entities) (params.ErrorResults, error)
 }
 
-// ModelManager defines the methods on the modelmanager API endpoint.
-type ModelManager interface {
+// ModelManagerV2 defines the methods on the version 2 facade for the
+// modelmanager API endpoint.
+type ModelManagerV2 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.Entities) params.MapResults
 	DumpModelsDB(args params.Entities) params.MapResults
@@ -54,6 +61,7 @@ type ModelManager interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
+	pool        common.BackendPool
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
@@ -61,17 +69,43 @@ type ModelManagerAPI struct {
 	isAdmin     bool
 }
 
-var _ ModelManager = (*ModelManagerAPI)(nil)
+// ModelManagerAPIV2 provides a way to wrap the different calls between
+// version 2 and version 3 of the model manager API
+type ModelManagerAPIV2 struct {
+	*ModelManagerAPI
+}
 
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
+var (
+	_ ModelManagerV3 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
+)
+
+// NewFacade is used for API registration.
+func NewFacadeV3(ctx facade.Context) (*ModelManagerAPI, error) {
+	st := ctx.State()
+	auth := ctx.Auth()
+	pool := ctx.StatePool()
 	configGetter := stateenvirons.EnvironConfigGetter{st}
-	return NewModelManagerAPI(common.NewModelManagerBackend(st), configGetter, auth)
+
+	return NewModelManagerAPI(
+		common.NewModelManagerBackend(st),
+		common.NewBackendPool(pool), configGetter, auth)
+}
+
+// NewFacade is used for API registration.
+func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
+	v3, err := NewFacadeV3(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV2{v3}, nil
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
+	pool common.BackendPool,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 ) (*ModelManagerAPI, error) {
@@ -89,8 +123,9 @@ func NewModelManagerAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
+		ModelStatusAPI: common.NewModelStatusAPI(st, pool, authorizer, apiUser),
 		state:          st,
+		pool:           pool,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
@@ -323,16 +358,25 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		Config:          newConfig,
 		Owner:           ownerTag,
 		StorageProviderRegistry: storageProviderRegistry,
+		EnvironVersion:          env.Provider().Version(),
 	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()
 
+	if err = st.ReloadSpaces(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return result, errors.Annotate(err, "Failed to perform spaces discovery")
+		}
+	}
+
 	return m.getModelInfo(model.ModelTag())
 }
 
-func (m *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}, error) {
+func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -346,19 +390,41 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{},
 		return nil, common.ErrPerm
 	}
 
-	st := m.state
-	if st.ModelTag() != modelTag {
-		st, err = m.state.ForModel(modelTag)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrBadId)
-			}
-			return nil, errors.Trace(err)
+	st, releaser, err := m.pool.Get(modelTag.Id())
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.Trace(common.ErrBadId)
 		}
-		defer st.Close()
+		return nil, errors.Trace(err)
+	}
+	defer releaser()
+
+	var exportConfig state.ExportConfig
+	if simplified {
+		exportConfig.SkipActions = true
+		exportConfig.SkipAnnotations = true
+		exportConfig.SkipCloudImageMetadata = true
+		exportConfig.SkipCredentials = true
+		exportConfig.SkipIPAddresses = true
+		exportConfig.SkipSettings = true
+		exportConfig.SkipSSHHostKeys = true
+		exportConfig.SkipStatusHistory = true
+		exportConfig.SkipLinkLayerDevices = true
 	}
 
-	bytes, err := migration.ExportModel(st)
+	model, err := st.ExportPartial(exportConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bytes, err := description.Serialize(model)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bytes, nil
+}
+
+func (m *ModelManagerAPIV2) dumpModel(args params.Entity) (map[string]interface{}, error) {
+	bytes, err := m.ModelManagerAPI.dumpModel(args, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -394,14 +460,14 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 
 	st := m.state
 	if st.ModelTag() != modelTag {
-		st, err = m.state.ForModel(modelTag)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Trace(common.ErrBadId)
-			}
+		newSt, releaser, err := m.pool.Get(modelTag.Id())
+		if errors.IsNotFound(err) {
+			return nil, errors.Trace(common.ErrBadId)
+		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer st.Close()
+		defer releaser()
+		st = newSt
 	}
 
 	return st.DumpAll()
@@ -410,7 +476,26 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 // DumpModels will export the models into the database agnostic
 // representation. The user needs to either be a controller admin, or have
 // admin privileges on the model itself.
-func (m *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
+func (m *ModelManagerAPI) DumpModels(args params.DumpModelRequest) params.StringResults {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		bytes, err := m.dumpModel(entity, args.Simplified)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// We know here that the bytes are valid YAML.
+		results.Results[i].Result = string(bytes)
+	}
+	return results
+}
+
+// DumpModels will export the models into the database agnostic
+// representation. The user needs to either be a controller admin, or have
+// admin privileges on the model itself.
+func (m *ModelManagerAPIV2) DumpModels(args params.Entities) params.MapResults {
 	results := params.MapResults{
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
@@ -503,7 +588,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResul
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+		return errors.Trace(common.DestroyModel(m.state, tag))
 	}
 
 	for i, arg := range args.Entities {
@@ -561,33 +646,13 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 
-	cfg, err := model.Config()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	users, err := model.Users()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	status, err := model.Status()
-	if err != nil {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-
 	owner := model.Owner()
 	info := params.ModelInfo{
-		Name:           cfg.Name(),
-		UUID:           cfg.UUID(),
-		ControllerUUID: controllerCfg.ControllerUUID(),
+		Name:           model.Name(),
+		UUID:           model.UUID(),
+		ControllerUUID: model.ControllerUUID(),
 		OwnerTag:       owner.String(),
 		Life:           params.Life(model.Life().String()),
-		Status:         common.EntityStatusFromState(status),
-		ProviderType:   cfg.Type(),
-		DefaultSeries:  config.PreferredSeries(cfg),
 		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:    model.CloudRegion(),
 	}
@@ -596,26 +661,74 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		info.CloudCredentialTag = cloudCredentialTag.String()
 	}
 
-	authorizedOwner := m.authCheck(owner) == nil
-	for _, user := range users {
-		if !authorizedOwner && m.authCheck(user.UserTag) != nil {
-			// The authenticated user is neither the owner
-			// nor administrator, nor the model user, so
-			// has no business knowing about the model user.
-			continue
-		}
-
-		userInfo, err := common.ModelUserInfo(user, st)
-		if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-		info.Users = append(info.Users, userInfo)
+	// All users with access to the model can see the SLA information.
+	info.SLA = &params.ModelSLAInfo{
+		Level: model.SLALevel(),
+		Owner: model.SLAOwner(),
 	}
 
-	if len(info.Users) == 0 {
-		// No users, which means the authenticated user doesn't
-		// have access to the model.
-		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
+	// If model is not alive - dying or dead - or if it is being imported,
+	// there is no guarantee that the rest of the call will succeed.
+	// For these models we can ignore NotFound errors coming from persistence layer.
+	// However, for Alive models, these errors are genuine and cannot be ignored.
+	ignoreNotFoundError := model.Life() != state.Alive || model.MigrationMode() == state.MigrationModeImporting
+
+	// If we received an an error and cannot ignore it, we should consider it fatal and surface it.
+	// We should do the same if we can ignore NotFound errors but the given error is of some other type.
+	shouldErr := func(thisErr error) bool {
+		if thisErr == nil {
+			return false
+		}
+		return !ignoreNotFoundError || !errors.IsNotFound(thisErr)
+	}
+	cfg, err := model.Config()
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		info.ProviderType = cfg.Type()
+		info.DefaultSeries = config.PreferredSeries(cfg)
+		if agentVersion, exists := cfg.AgentVersion(); exists {
+			info.AgentVersion = &agentVersion
+		}
+	}
+
+	status, err := model.Status()
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		entityStatus := common.EntityStatusFromState(status)
+		info.Status = entityStatus
+	}
+
+	authorizedOwner := m.authCheck(owner) == nil
+
+	users, err := model.Users()
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		for _, user := range users {
+			if !authorizedOwner && m.authCheck(user.UserTag) != nil {
+				// The authenticated user is neither the owner
+				// nor administrator, nor the model user, so
+				// has no business knowing about the model user.
+				continue
+			}
+
+			userInfo, err := common.ModelUserInfo(user, st)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
+			}
+			info.Users = append(info.Users, userInfo)
+		}
+
+		if len(info.Users) == 0 {
+			// No users, which means the authenticated user doesn't
+			// have access to the model.
+			return params.ModelInfo{}, errors.Trace(common.ErrPerm)
+		}
 	}
 
 	canSeeMachines := authorizedOwner
@@ -625,7 +738,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 	if canSeeMachines {
-		if info.Machines, err = common.ModelMachineInfo(st); err != nil {
+		if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
 	}

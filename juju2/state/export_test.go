@@ -18,21 +18,21 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/utils"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state/storage"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	"github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -58,7 +58,6 @@ var (
 	AddVolumeOps                         = (*State).addVolumeOps
 	CombineMeterStatus                   = combineMeterStatus
 	ApplicationGlobalKey                 = applicationGlobalKey
-	ReadSettings                         = readSettings
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
@@ -74,19 +73,38 @@ type (
 	BlockDevicesDoc blockDevicesDoc
 )
 
+// EnsureWorkersStarted ensures that all the automatically
+// started state workers are running, so that tests which
+// insert transaction hooks are less likely to have the hooks
+// run by some other worker, and any side effects of starting
+// the workers (for example, creating collections) will have
+// taken effect.
+func EnsureWorkersStarted(st *State) {
+	// Note: we don't start the all-watcher workers, as
+	// they're started on demand anyway.
+	st.workers.txnLogWatcher()
+	st.workers.presenceWatcher()
+	st.workers.leadershipManager()
+	st.workers.singularManager()
+}
+
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
@@ -97,12 +115,12 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	return runner
 }
 
-func OfferAtURL(sd crossmodel.ApplicationDirectory, url string) (*applicationOfferDoc, error) {
-	return sd.(*applicationDirectory).offerAtURL(url)
+func OfferForName(sd crossmodel.ApplicationOffers, name string) (*applicationOfferDoc, error) {
+	return sd.(*applicationOffers).offerForName(name)
 }
 
-func MakeApplicationOfferDoc(sd crossmodel.ApplicationDirectory, url string, offer crossmodel.ApplicationOffer) applicationOfferDoc {
-	return sd.(*applicationDirectory).makeApplicationOfferDoc(offer)
+func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
+	return sd.(*applicationOffers).makeApplicationOffer(*offer)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -119,7 +137,7 @@ func (doc *MachineDoc) String() string {
 }
 
 func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
 	key := applicationSettingsKey(appName, curl)
@@ -167,7 +185,7 @@ func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, b
 
 func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddApplication(AddApplicationArgs{
+	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
 		Series:           series,
 		Charm:            ch,
@@ -175,7 +193,7 @@ func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindi
 		Storage:          storage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return service
+	return app
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
@@ -252,7 +270,7 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	coll, closer := st.getCollection(collName)
+	coll, closer := st.db().GetCollection(collName)
 	defer closer()
 	err := coll.FindId(id).One(&doc)
 	if err != nil {
@@ -264,7 +282,7 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given application name.
 func MinUnitsRevno(st *State, applicationname string) (int, error) {
-	minUnitsCollection, closer := st.getCollection(minUnitsC)
+	minUnitsCollection, closer := st.db().GetCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
 	if err := minUnitsCollection.FindId(applicationname).One(&doc); err != nil {
@@ -307,7 +325,7 @@ func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...A
 }
 
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
-	upgradeInfos, closer := st.getCollection(upgradeInfoC)
+	upgradeInfos, closer := st.db().GetCollection(upgradeInfoC)
 	defer closer()
 
 	var out []*UpgradeInfo
@@ -344,7 +362,7 @@ func GetUnitModelUUID(unit *Unit) string {
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
-	return st.getCollection(name)
+	return st.db().GetCollection(name)
 }
 
 func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
@@ -445,7 +463,6 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -454,15 +471,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      t.UnixNano(),
-		ModelUUID: modelUUID,
-		Entity:    entity.String(),
-		Version:   version.Current.String(),
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
+		Id:       bson.NewObjectId(),
+		Time:     t.UnixNano(),
+		Entity:   entity.String(),
+		Version:  version.Current.String(),
+		Module:   module,
+		Location: location,
+		Level:    int(level),
+		Message:  msg,
 	}
 }
 
@@ -492,22 +508,22 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return st.updateLastModelConnection(e.UserTag, when)
 }
 
-func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
-	globalKey := service.globalKey()
+func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
+	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	txnError := service.st.runTransaction([]txn.Op{removeOp})
+	txnError := app.st.runTransaction([]txn.Op{removeOp})
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func RelationCount(service *Application) int {
-	return service.doc.RelationCount
+func RelationCount(app *Application) int {
+	return app.doc.RelationCount
 }
 
-func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Application) {
-	globalKey := service.globalKey()
-	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
+func AssertEndpointBindingsNotFoundForService(c *gc.C, app *Application) {
+	globalKey := app.globalKey()
+	storedBindings, _, err := readEndpointBindings(app.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -552,7 +568,7 @@ func PrimeUnitStatusHistory(
 ) {
 	globalKey := unit.globalKey()
 
-	history, closer := unit.st.getCollection(statusesHistoryC)
+	history, closer := unit.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 
@@ -582,7 +598,11 @@ func PrimeUnitStatusHistory(
 		StatusData: data,
 		Updated:    clock.Now().UnixNano(),
 	}
-	buildTxn := updateStatusSource(unit.st, globalKey, doc)
+
+	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
+		return statusSetOps(unit.st.db(), doc, globalKey)
+	}
+
 	err := unit.st.run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -618,11 +638,11 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 	return true
 }
 
-// AssertNoCleanups checks that there are no cleanups scheduled of a
-// given kind.
-func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
+// AssertNoCleanupsWithKind checks that there are no cleanups
+// of a given kind scheduled.
+func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -631,4 +651,37 @@ func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
 			c.Fatalf("found cleanup of kind %q", kind)
 		}
 	}
+}
+
+// AssertNoCleanups checks that there are no cleanups scheduled.
+func AssertNoCleanups(c *gc.C, st *State) {
+	var docs []cleanupDoc
+	cleanups, closer := st.db().GetCollection(cleanupsC)
+	defer closer()
+	err := cleanups.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	if len(docs) > 0 {
+		c.Fatalf("unexpected cleanups: %+v", docs)
+	}
+}
+
+// GetApplicationSettings allows access to settings collection for a
+// given application.
+func GetApplicationSettings(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.settingsKey())
+}
+
+// GetControllerSettings allows access to settings collection for
+// the controller.
+func GetControllerSettings(st *State) *Settings {
+	return newSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+}
+
+// NewSLALevel returns a new SLA level.
+func NewSLALevel(level string) (slaLevel, error) {
+	return newSLALevel(level)
+}
+
+func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
+	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }

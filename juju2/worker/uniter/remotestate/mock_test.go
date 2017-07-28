@@ -5,14 +5,15 @@ package remotestate_test
 
 import (
 	"sync"
+	"time"
 
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 func newMockWatcher() *mockWatcher {
@@ -181,6 +182,10 @@ func (st *mockState) WatchStorageAttachment(
 	return watcher, nil
 }
 
+func (st *mockState) UpdateStatusHookInterval() (time.Duration, error) {
+	return 5 * time.Minute, nil
+}
+
 type mockUnit struct {
 	tag                   names.UnitTag
 	life                  params.Life
@@ -191,6 +196,7 @@ type mockUnit struct {
 	configSettingsWatcher *mockNotifyWatcher
 	storageWatcher        *mockStringsWatcher
 	actionWatcher         *mockStringsWatcher
+	relationsWatcher      *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -233,6 +239,10 @@ func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return u.actionWatcher, nil
 }
 
+func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
+	return u.relationsWatcher, nil
+}
+
 type mockService struct {
 	tag                   names.ApplicationTag
 	life                  params.Life
@@ -241,7 +251,6 @@ type mockService struct {
 	forceUpgrade          bool
 	serviceWatcher        *mockNotifyWatcher
 	leaderSettingsWatcher *mockNotifyWatcher
-	relationsWatcher      *mockStringsWatcher
 }
 
 func (s *mockService) CharmModifiedVersion() (int, error) {
@@ -270,10 +279,6 @@ func (s *mockService) Watch() (watcher.NotifyWatcher, error) {
 
 func (s *mockService) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
 	return s.leaderSettingsWatcher, nil
-}
-
-func (s *mockService) WatchRelations() (watcher.StringsWatcher, error) {
-	return s.relationsWatcher, nil
 }
 
 type mockRelation struct {

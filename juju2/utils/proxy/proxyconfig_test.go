@@ -7,11 +7,10 @@ import (
 	"net/http"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/utils/proxy"
-
-	proxyconfig "github.com/juju/1.25-upgrade/juju2/utils/proxy"
+	proxyconfig "github.com/juju/juju/utils/proxy"
 )
 
 type Suite struct{}
@@ -43,12 +42,17 @@ var (
 		Http:    "http://http.proxy",
 		NoProxy: "*",
 	}
+	ipv6Proxy = proxy.Settings{
+		Http:  "2001:db8:85a3::8a2e:370:7334",
+		Https: "[2001:db8:85a3::8a2e:370:7334]:80",
+	}
 )
 
 func (s *Suite) TestGetProxy(c *gc.C) {
 	checkProxy(c, normal, "https://perfect.crime", "https://https.proxy")
-	checkProxy(c, normal, "decemberists.com", "http://http.proxy")
-	checkProxy(c, normal, "2001:db8:85a3::8a2e:370:7334", "http://http.proxy")
+	checkProxy(c, normal, "http://decemberists.com", "http://http.proxy")
+	checkProxy(c, normal, "http://[2001:db8:85a3::8a2e:370:7334]", "http://http.proxy")
+	checkProxy(c, ipv6Proxy, "http://[2001:db8:85a3::8a2e:370:7334]", "http://2001:db8:85a3::8a2e:370:7334")
 	checkProxy(c, proxy.Settings{}, "https://sufjan.stevens", "")
 	checkProxy(c, normal, "http://adz.foo.com:80", "")
 	checkProxy(c, normal, "http://adz.bar.com", "")
@@ -58,7 +62,7 @@ func (s *Suite) TestGetProxy(c *gc.C) {
 	checkProxy(c, normal, "http://10.0.0.1", "")
 	checkProxy(c, normal, "http://10.0.0.1:1996", "")
 	checkProxy(c, normal, "http://10.23.45.67:80", "http://http.proxy")
-	checkProxy(c, noProxy, "decemberists.com", "")
+	checkProxy(c, noProxy, "http://decemberists.com", "")
 	checkProxy(c, proxy.Settings{Http: "grizzly.bear"}, "veckatimest.com", "http://grizzly.bear")
 }
 

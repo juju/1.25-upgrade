@@ -10,9 +10,9 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	apiprovisioner "github.com/juju/1.25-upgrade/juju2/api/provisioner"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/juju/api"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/mongo"
 )
 
 // TaggedPasswordChanger defines an interface for a entity with a

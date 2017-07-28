@@ -22,14 +22,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})
@@ -271,10 +271,12 @@ func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
 	var (
 		passedAddress string
 		passedArgs    []string
+		passedOptions *ssh.Options
 	)
 	fakeSSHCommand := func(address string, args []string, options *ssh.Options) *ssh.Cmd {
 		passedAddress = address
 		passedArgs = args
+		passedOptions = options
 		return ssh.Command("", []string{"ls"}, &ssh.Options{})
 	}
 
@@ -282,4 +284,10 @@ func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
 	runViaSSH("invalidAddress", "invalidScript")
 	c.Assert(passedAddress, gc.Equals, "ubuntu@invalidAddress")
 	c.Assert(passedArgs, gc.DeepEquals, []string{"sudo", "-n", "bash", "-c 'invalidScript'"})
+
+	var expectedOptions ssh.Options
+	expectedOptions.SetIdentities("/var/lib/juju/system-identity")
+	expectedOptions.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	expectedOptions.SetKnownHostsFile(os.DevNull)
+	c.Assert(passedOptions, jc.DeepEquals, &expectedOptions)
 }

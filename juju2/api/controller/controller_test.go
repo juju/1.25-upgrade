@@ -7,18 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/controller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	jujutesting "github.com/juju/testing"
-	"github.com/juju/utils"
+	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 )
 
 type Suite struct {
@@ -31,15 +31,9 @@ func (s *Suite) TestInitiateMigration(c *gc.C) {
 	s.checkInitiateMigration(c, makeSpec())
 }
 
-func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
+func (s *Suite) TestInitiateMigrationEmptyCACert(c *gc.C) {
 	spec := makeSpec()
-	spec.ExternalControl = true
-	s.checkInitiateMigration(c, spec)
-}
-
-func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
-	spec := makeSpec()
-	spec.SkipInitialPrechecks = true
+	spec.TargetCACert = ""
 	s.checkInitiateMigration(c, spec)
 }
 
@@ -77,8 +71,6 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 }
@@ -122,7 +114,7 @@ func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
 	spec.ModelUUID = "not-a-uuid"
 	id, err := client.InitiateMigration(spec)
 	c.Check(id, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "model UUID not valid")
+	c.Check(err, gc.ErrorMatches, "client-side validation failed: model UUID not valid")
 	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
 }
 

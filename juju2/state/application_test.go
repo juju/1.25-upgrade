@@ -18,13 +18,14 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"gopkg.in/juju/names.v2"
 )
 
 type ApplicationSuite struct {
@@ -199,6 +200,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Name:  "yoursql",
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
+			"":       "db",
 			"server": "db",
 			"client": "client",
 		}})
@@ -212,13 +214,14 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
+		"":        "db",
 		"server":  "db",
 		"client":  "client",
-		"cluster": "", // inherited from defaults in AddService.
-		// New endpoints use empty defaults.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"cluster": "db", // inherited from defaults in AddService.
+		// New endpoints use defaults.
+		"foo":  "db",
+		"baz":  "db",
+		"just": "db",
 	})
 }
 
@@ -1167,10 +1170,21 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	serverAdminEP, err := s.mysql.Endpoint("server-admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverAdminEP, gc.DeepEquals, state.Endpoint{
+		ApplicationName: "mysql",
+		Relation: charm.Relation{
+			Interface: "mysql-root",
+			Name:      "server-admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	})
 
 	eps, err := s.mysql.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, gc.DeepEquals, []state.Endpoint{jiEP, serverEP})
+	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP})
 }
 
 func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {
@@ -1715,6 +1729,37 @@ func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
 	assertLife(c, machine, state.Dying)
 }
 
+func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetCharmURL(ch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(app.Destroy(), gc.IsNil)
+	assertLife(c, app, state.Dying)
+	assertCleanupCount(c, s.State, 2)
+
+	// These next API calls are normally done by the uniter.
+	err = s.State.RemoveStorageAttachment(names.NewStorageTag("data/0"), u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure storage constraints and settings are now gone.
+	_, err = state.AppStorageConstraints(app)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	settings := state.GetApplicationSettings(s.State, app)
+	err = settings.Read()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
@@ -1781,7 +1826,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// No cleanup required for placeholder resources.
-	state.AssertNoCleanups(c, s.State, state.CleanupKindResourceBlob)
+	state.AssertNoCleanupsWithKind(c, s.State, "resourceBlob")
 }
 
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
@@ -2613,4 +2658,51 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
 	s.assertApplicationRemovedWithItsBindings(c, service)
+}
+
+func (s *ApplicationSuite) setupAppicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {
+	originalCharmMeta := mysqlBaseMeta + `
+peers:
+  replication:
+    interface: pgreplication
+`
+	originalCharm := s.AddMetaCharm(c, "mysql", originalCharmMeta, 2)
+	cfg := state.SetCharmConfig{Charm: originalCharm}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationRelations(c, s.mysql, "mysql:replication")
+	deployedV = s.mysql.CharmModifiedVersion()
+
+	for i := 0; i < numOfUnits; i++ {
+		_, err = s.mysql.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// New mysql charm renames peer relation.
+	updatedCharmMeta := mysqlBaseMeta + `
+peers:
+  replication:
+    interface: pgpeer
+`
+	updatedCharm := s.AddMetaCharm(c, "mysql", updatedCharmMeta, 3)
+
+	cfg = state.SetCharmConfig{Charm: updatedCharm}
+	err = s.mysql.SetCharm(cfg)
+	return
+}
+
+func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithOneUnit(c *gc.C) {
+	obtainedV, err := s.setupAppicationWithUnitsForUpgradeCharmScenario(c, 1)
+
+	// ensure upgrade happened
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV+1, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c *gc.C) {
+	obtainedV, err := s.setupAppicationWithUnitsForUpgradeCharmScenario(c, 2)
+
+	// ensure upgrade did not happen
+	c.Assert(err, gc.ErrorMatches, `*would break relation "mysql:replication"*`)
+	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
 }

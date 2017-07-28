@@ -10,11 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")
@@ -84,7 +85,10 @@ func (w *commonWatcher) commonLoop() {
 		defer wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
-			logger.Errorf("error trying to stop watcher: %v", err)
+			// Don't log an error if a watcher is stopped due to an agent restart.
+			if err.Error() != worker.ErrRestartAgent.Error() && err.Error() != rpc.ErrShutdown.Error() {
+				logger.Errorf("error trying to stop watcher: %v", err)
+			}
 		}
 	}()
 	wg.Add(1)
@@ -387,61 +391,6 @@ func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.out
 }
 
-// EntitiesWatcher will send events when something changes.
-// The content for the changes is a list of tag strings.
-type entitiesWatcher struct {
-	commonWatcher
-	caller            base.APICaller
-	entitiesWatcherId string
-	out               chan []string
-}
-
-func NewEntitiesWatcher(caller base.APICaller, result params.EntitiesWatchResult) watcher.EntitiesWatcher {
-	w := &entitiesWatcher{
-		caller:            caller,
-		entitiesWatcherId: result.EntitiesWatcherId,
-		out:               make(chan []string),
-	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(result.Changes))
-	}()
-	return w
-}
-
-func (w *entitiesWatcher) loop(initialChanges []string) error {
-	changes := initialChanges
-	w.newResult = func() interface{} { return new(params.EntitiesWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "EntityWatcher", w.entitiesWatcherId)
-	w.commonWatcher.init()
-	go w.commonLoop()
-
-	for {
-		select {
-		// Send the initial event or subsequent change.
-		case w.out <- changes:
-		case <-w.tomb.Dying():
-			return nil
-		}
-		// Read the next change.
-		data, ok := <-w.in
-		if !ok {
-			// The tomb is already killed with the correct error
-			// at this point, so just return.
-			return nil
-		}
-		// Changes have been transformed at the server side already.
-		changes = data.(*params.EntitiesWatchResult).Changes
-	}
-}
-
-// Changes returns a channel that receives a list of changes
-// as tags (converted to strings) of the watched entities
-// with changes.
-func (w *entitiesWatcher) Changes() watcher.StringsChannel {
-	return w.out
-}
-
 // NewMigrationStatusWatcher takes the NotifyWatcherId returns by the
 // MigrationSlave.Watch API and returns a watcher which will report
 // status changes for any migration of the model associated with the
@@ -512,87 +461,5 @@ func (w *migrationStatusWatcher) loop() error {
 // Changes returns a channel that reports the latest status of the
 // migration of a model.
 func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
-	return w.out
-}
-
-// remoteRelationsWatcher will sends changes to relations an application
-// is involved in with another remote application, including changes to the
-// remote units involved in those relations, and their settings.
-type remoteRelationsWatcher struct {
-	commonWatcher
-	caller                   base.APICaller
-	remoteRelationsWatcherId string
-	out                      chan watcher.RemoteRelationsChange
-}
-
-// NewRemoteRelationsWatcher returns a RemoteRelationsWatcher which
-// communicates with the RemoteRelationsWatcher API facade to watch
-// application relations.
-func NewRemoteRelationsWatcher(caller base.APICaller, result params.RemoteRelationsWatchResult) watcher.RemoteRelationsWatcher {
-	w := &remoteRelationsWatcher{
-		caller: caller,
-		remoteRelationsWatcherId: result.RemoteRelationsWatcherId,
-		out: make(chan watcher.RemoteRelationsChange),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop(*result.Change))
-	}()
-	return w
-}
-
-func (w *remoteRelationsWatcher) loop(initialChanges params.RemoteRelationsChange) error {
-	changes := copyRemoteRelationsChange(initialChanges)
-	w.newResult = func() interface{} { return new(params.RemoteRelationsWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationsWatcher", w.remoteRelationsWatcherId)
-	w.commonWatcher.init()
-	go w.commonLoop()
-
-	for {
-		select {
-		// Send the initial event or subsequent change.
-		case w.out <- changes:
-		case <-w.tomb.Dying():
-			return nil
-		}
-		// Read the next change.
-		data, ok := <-w.in
-		if !ok {
-			// The tomb is already killed with the correct error
-			// at this point, so just return.
-			return nil
-		}
-		changes = copyRemoteRelationsChange(*data.(*params.RemoteRelationsWatchResult).Change)
-	}
-}
-
-func copyRemoteRelationsChange(src params.RemoteRelationsChange) watcher.RemoteRelationsChange {
-	dst := watcher.RemoteRelationsChange{
-		RemovedRelations: src.RemovedRelations,
-	}
-	if src.ChangedRelations != nil {
-		dst.ChangedRelations = make([]watcher.RemoteRelationChange, len(src.ChangedRelations))
-		for i, change := range src.ChangedRelations {
-			cr := watcher.RemoteRelationChange{
-				RelationId:    change.RelationId,
-				Life:          multiwatcher.Life(change.Life),
-				DepartedUnits: change.DepartedUnits,
-			}
-			cr.ChangedUnits = make(map[string]watcher.RemoteRelationUnitChange)
-			for name, relationChange := range change.ChangedUnits {
-				cr.ChangedUnits[name] = watcher.RemoteRelationUnitChange{Settings: relationChange.Settings}
-			}
-			dst.ChangedRelations[i] = cr
-		}
-	}
-	return dst
-}
-
-// Changes returns a channel that will receive the changes to
-// relations an application is involved in. The first event on the channel
-// holds the initial state of the application's relations in its Changed
-// field.
-func (w *remoteRelationsWatcher) Changes() watcher.RemoteRelationsChannel {
 	return w.out
 }

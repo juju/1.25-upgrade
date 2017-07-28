@@ -8,16 +8,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/controller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade/facadetest"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type modelStatusSuite struct {
@@ -26,6 +26,7 @@ type modelStatusSuite struct {
 	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
+	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
@@ -45,11 +46,15 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
+
 	controller, err := controller.NewControllerAPI(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
+			StatePool_: s.pool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -92,6 +97,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 			State_:     s.State,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
+			StatePool_: s.pool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 const (

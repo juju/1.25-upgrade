@@ -7,10 +7,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v1/client"
-	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v2/client"
+	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/juju/environs"
 )
 
 // TODO(axw) 2016-10-03 #1629721

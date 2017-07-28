@@ -8,9 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // TerminationSignal is the signal that
@@ -52,7 +53,7 @@ func (w *terminationWorker) Wait() error {
 func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
 	select {
 	case <-c:
-		return worker.ErrTerminateAgent
+		return jworker.ErrTerminateAgent
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
 	}

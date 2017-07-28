@@ -8,9 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 type stateSuite struct {
@@ -46,7 +46,7 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(unitPorts, gc.HasLen, 0)
 
 	// Add another wordpress unit on the same machine.
-	wordpressUnit1, err := s.wordpressService.AddUnit()
+	wordpressUnit1, err := s.wordpressApplication.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit1.AssignToMachine(s.wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)

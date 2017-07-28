@@ -16,18 +16,18 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/migration"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/wrench"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/migrationtarget"
+	"github.com/juju/juju/apiserver/params"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/wrench"
 )
 
 var (
@@ -207,11 +207,6 @@ func (w *Worker) run() error {
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
 	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	if status.ExternalControl {
-		err := w.waitForMigrationEnd()
 		return errors.Trace(err)
 	}
 

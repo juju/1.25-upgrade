@@ -6,10 +6,10 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit/renderers"
 	jujuos "github.com/juju/utils/os"
+
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 type VsphereRenderer struct{}

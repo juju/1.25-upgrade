@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/1.25-upgrade/juju2/status"
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
+
+	"github.com/juju/juju/status"
 )
 
 // DefaultFormatters holds the formatters that can be
@@ -61,19 +62,6 @@ func (w *Wrapper) Println(values ...interface{}) {
 	fmt.Fprintln(w)
 }
 
-// Headerln writes many tab separated values finished with a new line using
-// the Header context
-func (w *Wrapper) Headerln(values ...interface{}) {
-	for i, v := range values {
-		if i != len(values)-1 {
-			Heading.Fprintf(w.TabWriter, "%v\t", v)
-		} else {
-			Heading.Fprintf(w.TabWriter, "%v", v)
-		}
-	}
-	fmt.Fprintln(w)
-}
-
 // PrintColor writes the value out in the color context specified.
 func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 	if ctx != nil {
@@ -87,8 +75,6 @@ func (w *Wrapper) PrintColor(ctx *ansiterm.Context, value interface{}) {
 func (w *Wrapper) PrintStatus(status status.Status) {
 	w.PrintColor(statusColors[status], status)
 }
-
-var Heading = ansiterm.Styles(ansiterm.Bold)
 
 // CurrentHighlight is the color used to show the current
 // controller, user or model in tabular
@@ -111,6 +97,8 @@ var statusColors = map[status.Status]*ansiterm.Context{
 	status.Idle:      GoodHighlight,
 	status.Started:   GoodHighlight,
 	status.Executing: GoodHighlight,
+	status.Attaching: GoodHighlight,
+	status.Attached:  GoodHighlight,
 	// busy
 	status.Allocating:  WarningHighlight,
 	status.Lost:        WarningHighlight,
@@ -119,6 +107,8 @@ var statusColors = map[status.Status]*ansiterm.Context{
 	status.Rebooting:   WarningHighlight,
 	status.Stopped:     WarningHighlight,
 	status.Unknown:     WarningHighlight,
+	status.Detaching:   WarningHighlight,
+	status.Detached:    WarningHighlight,
 	// bad
 	status.Blocked: ErrorHighlight,
 	status.Down:    ErrorHighlight,

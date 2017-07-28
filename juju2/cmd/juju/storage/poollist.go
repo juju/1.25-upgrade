@@ -7,8 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // PoolCommandBase is a helper base structure for pool commands.

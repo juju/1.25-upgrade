@@ -4,26 +4,27 @@
 package apiserver
 
 import (
-	"io"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/google/go-querystring/query"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type LogStreamIntSuite struct {
@@ -34,7 +35,6 @@ var _ = gc.Suite(&LogStreamIntSuite{})
 
 func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 	cfg := params.LogStreamConfig{
-		AllModels:          true,
 		Sink:               "spam",
 		MaxLookbackRecords: 100,
 	}
@@ -48,15 +48,13 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 		newSource: source.newSource,
 	}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(req, clock.WallClock)
+	_, err := handler.newLogStreamRequestHandler(nil, req, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
-	stub.CheckCall(c, 1, "getStart", "spam", true)
-	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+	stub.CheckCall(c, 1, "getStart", "spam")
+	stub.CheckCall(c, 2, "newTailer", state.LogTailerParams{
 		StartTime:    time.Unix(10, 0),
-		AllModels:    true,
 		InitialLines: 100,
 	})
 }
@@ -88,13 +86,12 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 	now := time.Now()
 	clock := &mockClock{now: now}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(req, clock)
+	_, err := handler.newLogStreamRequestHandler(nil, req, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(reqHandler.sendModelUUID, jc.IsFalse)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
-	stub.CheckCall(c, 1, "getStart", "spam", false)
-	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
+	stub.CheckCall(c, 1, "getStart", "spam")
+	stub.CheckCall(c, 2, "newTailer", state.LogTailerParams{
 		StartTime: now.Add(-2 * time.Hour),
 	})
 }
@@ -152,8 +149,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	tailer := &stubLogTailer{stub: &testing.Stub{}}
 	tailer.ReturnLogs = tailer.newChannel(logs)
 	req := s.newReq(c, params.LogStreamConfig{
-		AllModels: true,
-		Sink:      "eggs",
+		Sink: "eggs",
 	})
 
 	// Start the websocket server, which apes expected apiserver
@@ -167,16 +163,13 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		defer close(serverDone)
 		defer conn.Close()
 
-		stream, err := initStream(conn, nil)
-		if !c.Check(err, jc.ErrorIsNil) {
-			return
-		}
+		conn.SendInitialErrorV0(nil)
 		handler := &logStreamRequestHandler{
-			req:           req,
-			tailer:        tailer,
-			sendModelUUID: true,
+			conn:   conn.Conn,
+			req:    req,
+			tailer: tailer,
 		}
-		handler.serveWebsocket(conn, stream, abortServer)
+		handler.serveWebsocket(abortServer)
 	})
 	defer waitFor(c, serverDone)
 	defer close(abortServer)
@@ -192,12 +185,12 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		defer close(clientDone)
 
 		var result params.ErrorResult
-		err := websocket.JSON.Receive(client, &result)
+		err := client.ReadJSON(&result)
 		ok := c.Check(err, jc.ErrorIsNil)
 		if ok && c.Check(result, jc.DeepEquals, params.ErrorResult{}) {
 			for {
 				var apiRec params.LogStreamRecords
-				err = websocket.JSON.Receive(client, &apiRec)
+				err = client.ReadJSON(&apiRec)
 				if err != nil {
 					break
 				}
@@ -206,7 +199,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		}
 
 		c.Logf("client stopped: %v", err)
-		if err == io.EOF {
+		if gorillaws.IsCloseError(err,
+			gorillaws.CloseNormalClosure,
+			gorillaws.CloseGoingAway,
+			gorillaws.CloseNoStatusReceived) {
 			return // this is fine
 		}
 		if _, ok := err.(*net.OpError); ok {
@@ -258,20 +254,21 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	closer := func() {
+	closer := func() bool {
 		s.stub.AddCall("close")
+		return false
 	}
 	return s, closer, nil
 }
 
-func (s *stubSource) getStart(sink string, allModels bool) (time.Time, error) {
-	s.stub.AddCall("getStart", sink, allModels)
+func (s *stubSource) getStart(sink string) (time.Time, error) {
+	s.stub.AddCall("getStart", sink)
 	if err := s.stub.NextErr(); err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
@@ -279,7 +276,7 @@ func (s *stubSource) getStart(sink string, allModels bool) (time.Time, error) {
 	return time.Unix(s.ReturnGetStart, 0), nil
 }
 
-func (s *stubSource) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+func (s *stubSource) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
 	s.stub.AddCall("newTailer", args)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -322,23 +319,27 @@ func (s *stubLogTailer) Err() error {
 	return nil
 }
 
-func newWebsocketServer(c *gc.C, h websocket.Handler) *websocket.Conn {
-	cfg, err := websocket.NewConfig("ws://localhost:12345/", "http://localhost/")
-	c.Assert(err, jc.ErrorIsNil)
-
-	go func() {
-		err = http.ListenAndServe(":12345", websocket.Server{
-			Config:  *cfg,
-			Handler: h,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	return newWebsocketClient(c, cfg)
+type testStreamHandler struct {
+	handler func(*websocket.Conn)
 }
 
-func newWebsocketClient(c *gc.C, cfg *websocket.Config) *websocket.Conn {
-	client, err := websocket.DialConfig(cfg)
+func (h *testStreamHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	websocket.Serve(w, req, h.handler)
+}
+
+func newWebsocketServer(c *gc.C, h func(*websocket.Conn)) *gorillaws.Conn {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	go http.Serve(listener, &testStreamHandler{h})
+
+	return newWebsocketClient(c, port)
+}
+
+func newWebsocketClient(c *gc.C, port int) *gorillaws.Conn {
+	address := fmt.Sprintf("ws://localhost:%d/", port)
+	client, _, err := gorillaws.DefaultDialer.Dial(address, nil)
 	if err == nil {
 		return client
 	}
@@ -347,15 +348,15 @@ func newWebsocketClient(c *gc.C, cfg *websocket.Config) *websocket.Conn {
 	for {
 		select {
 		case <-timeoutCh:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Fatalf("unable to connect to %s", address)
 		case <-time.After(coretesting.ShortWait):
 		}
 
-		client, err = websocket.DialConfig(cfg)
-		if _, ok := err.(*websocket.DialError); ok {
+		client, _, err = gorillaws.DefaultDialer.Dial(address, nil)
+		if err != nil {
+			c.Logf("failed attempt to connect to %s", address)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
 		return client
 	}
 }

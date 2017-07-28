@@ -7,24 +7,24 @@ import (
 	"io"
 	"os"
 
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/rackspace"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type environSuite struct {
@@ -52,7 +52,15 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
-	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.InstanceRefresher, timeout environs.BootstrapDialOpts) (addr string, err error) {
+	s.PatchValue(rackspace.WaitSSH, func(
+		stdErr io.Writer,
+		interrupted <-chan os.Signal,
+		client ssh.Client,
+		checkHostScript string,
+		inst common.InstanceRefresher,
+		timeout environs.BootstrapDialOpts,
+		hostSSHOptions common.HostSSHOptionsFunc,
+	) (addr string, err error) {
 		addresses, err := inst.Addresses()
 		if err != nil {
 			return "", err
@@ -125,10 +133,6 @@ func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.B
 	return nil, nil
 }
 
-func (e *fakeEnviron) BootstrapMessage() string {
-	return ""
-}
-
 func (e *fakeEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	e.Push("StartInstance", args)
 	return &environs.StartInstanceResult{
@@ -190,17 +194,17 @@ func (e *fakeEnviron) DestroyController(controllerUUID string) error {
 	return nil
 }
 
-func (e *fakeEnviron) OpenPorts(ports []network.PortRange) error {
-	e.Push("OpenPorts", ports)
+func (e *fakeEnviron) OpenPorts(rules []network.IngressRule) error {
+	e.Push("OpenPorts", rules)
 	return nil
 }
 
-func (e *fakeEnviron) ClosePorts(ports []network.PortRange) error {
-	e.Push("ClosePorts", ports)
+func (e *fakeEnviron) ClosePorts(rules []network.IngressRule) error {
+	e.Push("ClosePorts", rules)
 	return nil
 }
 
-func (e *fakeEnviron) Ports() ([]network.PortRange, error) {
+func (e *fakeEnviron) IngressRules() ([]network.IngressRule, error) {
 	e.Push("Ports")
 	return nil, nil
 }
@@ -253,13 +257,13 @@ func (e *fakeConfigurator) ConfigureExternalIpAddress(apiPort int) error {
 	return nil
 }
 
-func (e *fakeConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
-	e.Push("ChangePorts", ipAddress, insert, ports)
+func (e *fakeConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error {
+	e.Push("ChangeIngressRules", ipAddress, insert, rules)
 	return nil
 }
 
-func (e *fakeConfigurator) FindOpenPorts() ([]network.PortRange, error) {
-	e.Push("FindOpenPorts")
+func (e *fakeConfigurator) FindIngressRules() ([]network.IngressRule, error) {
+	e.Push("FindIngressRules")
 	return nil, nil
 }
 
@@ -314,17 +318,17 @@ func (e *fakeInstance) Addresses() ([]network.Address, error) {
 	}}, nil
 }
 
-func (e *fakeInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (e *fakeInstance) OpenPorts(machineId string, ports []network.IngressRule) error {
 	e.Push("OpenPorts", machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (e *fakeInstance) ClosePorts(machineId string, ports []network.IngressRule) error {
 	e.Push("ClosePorts", machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) Ports(machineId string) ([]network.PortRange, error) {
+func (e *fakeInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	e.Push("Ports", machineId)
 	return nil, nil
 }

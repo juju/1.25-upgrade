@@ -10,9 +10,9 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/imageutils"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/azure/internal/imageutils"
+	"github.com/juju/juju/testing"
 )
 
 type imageutilsSuite struct {
@@ -67,7 +67,7 @@ func (s *imageutilsSuite) TestSeriesImageWindows(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {
-	s.assertImageId(c, "centos7", "released", "OpenLogic:CentOS:7.1:latest")
+	s.assertImageId(c, "centos7", "released", "OpenLogic:CentOS:7.3:latest")
 }
 
 func (s *imageutilsSuite) TestSeriesImageGenericLinux(c *gc.C) {

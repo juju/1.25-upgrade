@@ -6,14 +6,15 @@ package application
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	jtesting "github.com/juju/juju/testing"
 )
 
 type AddRelationSuite struct {
@@ -34,7 +35,9 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), args...)
+	cmd := NewAddRelationCommandForTest(s.mockAPI)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
 
@@ -71,7 +74,7 @@ func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
-	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
+	jtesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
@@ -81,8 +84,10 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	ctx, _ := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), "application1", "application2")
-	errString := strings.Replace(coretesting.Stderr(ctx), "\n", " ", -1)
+	cmd := NewAddRelationCommandForTest(s.mockAPI)
+	cmd.SetClientStore(NewMockStore())
+	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 

@@ -14,22 +14,22 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/provisioner"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/provisioner"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage/poolmanager"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -983,7 +983,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "static-pool",
-	}, nil, nil)
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision machine 0 first.
@@ -1169,13 +1169,21 @@ func (s *withoutControllerSuite) TestContainerManagerConfig(c *gc.C) {
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy":            "http://proxy.example.com:9000",
+		"apt-https-proxy":       "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts": true,
 		"apt-mirror":            "http://example.mirror.com",
 	}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	expectedAPTProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		Https:   "https://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
+	}
+
 	expectedProxy := proxy.Settings{
-		Http: "http://proxy.example.com:9000",
+		Http:    "http://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
 	results, err := s.provisioner.ContainerConfig()
@@ -1185,7 +1193,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
-	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
 }
 

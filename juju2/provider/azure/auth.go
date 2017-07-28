@@ -12,8 +12,9 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 // cloudSpecAuth is an implementation of autorest.Authorizer.
@@ -73,29 +74,34 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 		return nil, errors.NotSupportedf("auth-type %q", authType)
 	}
 
+	resourceId, err := azureauth.ResourceManagerResourceId(cloud.StorageEndpoint)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	credAttrs := cloud.Credential.Attributes()
 	subscriptionId := credAttrs[credAttrSubscriptionId]
 	appId := credAttrs[credAttrAppId]
 	appPassword := credAttrs[credAttrAppPassword]
 	client := subscriptions.Client{subscriptions.NewWithBaseURI(cloud.Endpoint)}
+	useragent.UpdateClient(&client.Client)
 	client.Sender = sender
 	oauthConfig, _, err := azureauth.OAuthConfig(client, cloud.Endpoint, subscriptionId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	resource := azureauth.TokenResource(cloud.Endpoint)
 	token, err := azure.NewServicePrincipalToken(
 		*oauthConfig,
 		appId,
 		appPassword,
-		resource,
+		resourceId,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing service principal token")
 	}
-	if sender != nil {
-		token.SetSender(sender)
-	}
+	tokenClient := autorest.NewClientWithUserAgent(useragent.JujuPrefix())
+	tokenClient.Sender = sender
+	token.SetSender(&tokenClient)
 	return token, nil
 }

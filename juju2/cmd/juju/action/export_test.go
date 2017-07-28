@@ -7,9 +7,9 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -23,6 +23,10 @@ type ShowOutputCommand struct {
 
 type StatusCommand struct {
 	*statusCommand
+}
+
+type CancelCommand struct {
+	*cancelCommand
 }
 
 type RunCommand struct {
@@ -71,6 +75,12 @@ func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Status
 	c := &statusCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &StatusCommand{c}
+}
+
+func NewCancelCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CancelCommand) {
+	c := &cancelCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c), &CancelCommand{c}
 }
 
 func NewListCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListCommand) {

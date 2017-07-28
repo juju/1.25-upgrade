@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/payload"
 )
 
 // RegisterCmdName is the name of the payload register command.

@@ -13,12 +13,12 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/controller"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/status"
 )
 
 var helpControllersSummary = `
@@ -56,7 +56,7 @@ func (c *listControllersCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.refresh, "refresh", false, "Connect to each controller to download the latest details")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -83,8 +83,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to list controllers")
 	}
 	if len(controllers) == 0 && c.out.Name() == "tabular" {
-		ctx.Infof("%s", modelcmd.ErrNoControllersDefined)
-		return nil
+		return errors.Trace(modelcmd.ErrNoControllersDefined)
 	}
 	if c.refresh && len(controllers) > 0 {
 		var wg sync.WaitGroup
@@ -186,7 +185,7 @@ func controllerMachineCounts(controllerModelUUID string, modelStatus []base.Mode
 }
 
 type listControllersCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out     cmd.Output
 	store   jujuclient.ClientStore

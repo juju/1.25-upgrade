@@ -10,13 +10,13 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -24,10 +24,19 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
+	// Version returns the version of the provider. This is recorded as the
+	// environ version for each model, and used to identify which upgrade
+	// operations to run when upgrading a model's environ. Providers should
+	// start out at version 0.
+	Version() int
+
 	// CloudSchema returns the schema used to validate input for add-cloud.  If
 	// a provider does not suppport custom clouds, CloudSchema should return
 	// nil.
 	CloudSchema() *jsonschema.Schema
+
+	// Ping tests the connection to the cloud, to verify the endpoint is valid.
+	Ping(endpoint string) error
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a
@@ -125,6 +134,11 @@ type FinalizeCredentialParams struct {
 	// for. This may be used by the provider to communicate with the cloud
 	// to finalize the credentials.
 	CloudEndpoint string
+
+	// CloudStorageEndpoint is the storage endpoint for the cloud that the
+	// credentials are for. This may be used by the provider to communicate
+	// with the cloud to finalize the credentials.
+	CloudStorageEndpoint string
 
 	// CloudIdentityEndpoint is the identity endpoint for the cloud that the
 	// credentials are for. This may be used by the provider to communicate
@@ -250,10 +264,6 @@ type Environ interface {
 	// architecture.
 	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
 
-	// BootstrapMessage optionally provides a message to be displayed to
-	// the user at bootstrap time.
-	BootstrapMessage() string
-
 	// Create creates the environment for a new hosted model.
 	//
 	// This will be called before any workers begin operating on the
@@ -364,17 +374,20 @@ type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []network.PortRange) error
+	OpenPorts(rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []network.PortRange) error
+	ClosePorts(rules []network.IngressRule) error
 
-	// Ports returns the port ranges opened for the whole environment.
+	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]network.PortRange, error)
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
+	IngressRules() ([]network.IngressRule, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
@@ -390,4 +403,47 @@ type InstanceTagger interface {
 // a provider to be obtained.
 type InstanceTypesFetcher interface {
 	InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
+}
+
+// Upgrader is an interface that can be used for upgrading Environs. If an
+// Environ implements this interface, its UpgradeOperations method will be
+// invoked to identify operations that should be run on upgrade.
+type Upgrader interface {
+	// UpgradeOperations returns a list of UpgradeOperations for upgrading
+	// an Environ.
+	UpgradeOperations(UpgradeOperationsParams) []UpgradeOperation
+}
+
+// UpgradeOperationsParams contains the parameters for
+// Upgrader.UpgradeOperations.
+type UpgradeOperationsParams struct {
+	// ControllerUUID is the UUID of the controller that manages
+	// the Environ being upgraded.
+	ControllerUUID string
+}
+
+// UpgradeOperation contains a target agent version and sequence of upgrade
+// steps to apply to get to that version.
+type UpgradeOperation struct {
+	// TargetVersion is the target environ provider version number to
+	// which the upgrade steps pertain. When a model is upgraded, all
+	// upgrade operations will be run for versions greater than the
+	// recorded environ version. This version number is independent of
+	// the agent and controller versions.
+	TargetVersion int
+
+	// Steps contains the sequence of upgrade steps to apply when
+	// upgrading to the accompanying target version number.
+	Steps []UpgradeStep
+}
+
+// UpgradeStep defines an idempotent operation that is run to perform a
+// specific upgrade step on an Environ.
+type UpgradeStep interface {
+	// Description is a human readable description of what the upgrade
+	// step does.
+	Description() string
+
+	// Run executes the upgrade business logic.
+	Run() error
 }

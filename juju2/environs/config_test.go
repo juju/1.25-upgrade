@@ -4,13 +4,14 @@
 package environs_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/manual"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/manual"
+	"github.com/juju/juju/testing"
 )
 
 type suite struct {
@@ -119,4 +120,18 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 			}
 		}
 	}
+}
+
+func (s *suite) TestUnregisterProvider(c *gc.C) {
+	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
+	s.PatchValue(environs.ProviderAliases, make(map[string]string))
+	registered := &dummyProvider{}
+	unreg := environs.RegisterProvider("test", registered, "alias1", "alias2")
+	unreg()
+	_, err := environs.Provider("test")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = environs.Provider("alias1")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = environs.Provider("alias2")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

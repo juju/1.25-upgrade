@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/replicaset"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/network"
 )
 
 // jujuMachineKey is the key for the tag where we save the member's juju machine id.
@@ -128,7 +128,7 @@ func possiblePeerGroupChanges(
 				logger.Debugf("machine %q is a potential voter", m.Id())
 				toAddVote = append(toAddVote, m)
 			} else {
-				logger.Debugf("machine %q is not ready (has status: %v)", m.Id(), ok)
+				logger.Debugf("machine %q is not ready (status: %v, healthy: %v)", m.Id(), status.State, status.Healthy)
 				toKeep = append(toKeep, m)
 			}
 		case !wantsVote && isVoting:

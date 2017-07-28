@@ -15,24 +15,26 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/providerinit"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/ec2/internal/ec2instancetypes"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 const (
@@ -131,11 +133,6 @@ func (env *environ) Create(args environs.CreateParams) error {
 // Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, args)
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (e *environ) BootstrapMessage() string {
-	return ""
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -244,7 +241,8 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 }
 
 type ec2Placement struct {
-	availabilityZone ec2.AvailabilityZoneInfo
+	availabilityZone *ec2.AvailabilityZoneInfo
+	subnet           *ec2.Subnet
 }
 
 func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
@@ -261,12 +259,44 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		}
 		for _, z := range zones {
 			if z.Name() == availabilityZone {
+				ec2AZ := z.(*ec2AvailabilityZone)
 				return &ec2Placement{
-					z.(*ec2AvailabilityZone).AvailabilityZoneInfo,
+					availabilityZone: &ec2AZ.AvailabilityZoneInfo,
 				}, nil
 			}
 		}
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+	case "subnet":
+		logger.Debugf("searching for subnet matching placement directive %q", value)
+		matcher := CreateSubnetMatcher(value)
+		// Get all known subnets, look for a match
+		allSubnets := []string{}
+		subnetResp, vpcId, err := e.subnetsForVPC()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// we'll also need info about this zone, we don't have a way right now to ask about a single AZ, so punt
+		zones, err := e.AvailabilityZones()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnet := range subnetResp.Subnets {
+			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", subnet.Id, subnet.CIDRBlock))
+			if matcher.Match(subnet) {
+				// We found the CIDR, now see if we can find the AZ
+				for _, zone := range zones {
+					if zone.Name() == subnet.AvailZone {
+						ec2AZ := zone.(*ec2AvailabilityZone)
+						return &ec2Placement{
+							availabilityZone: &ec2AZ.AvailabilityZoneInfo,
+							subnet:           &subnet,
+						}, nil
+					}
+				}
+				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
+			}
+		}
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcId)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -360,27 +390,37 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.New("missing controller UUID")
 	}
 	var inst *ec2Instance
+	callback := args.StatusCallback
 	defer func() {
 		if resultErr == nil || inst == nil {
 			return
 		}
 		if err := e.StopInstances(inst.Id()); err != nil {
+			callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
 			logger.Errorf("error stopping failed instance: %v", err)
 		}
 	}()
 
 	var availabilityZones []string
+	var placementSubnetID string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
 			return nil, err
 		}
 		if placement.availabilityZone.State != availableState {
-			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
+			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
+		if placement.subnet != nil {
+			if placement.subnet.State != availableState {
+				return nil, errors.Errorf("subnet %q is %q", placement.subnet.CIDRBlock, placement.subnet.State)
+			}
+			placementSubnetID = placement.subnet.Id
+		}
 	}
 
+	callback(status.Allocating, "Determining availability zones", nil)
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
@@ -444,6 +484,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
+	callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
@@ -455,7 +496,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	} else {
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
+	callback(status.Allocating, "Setting up groups", nil)
 	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -501,12 +544,25 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		var subnetErr error
 		if haveVPCID {
 			var allowedSubnetIDs []string
-			for subnetID, _ := range args.SubnetsToZones {
-				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			if placementSubnetID != "" {
+				allowedSubnetIDs = []string{placementSubnetID}
+			} else {
+				for subnetID, _ := range args.SubnetsToZones {
+					allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+				}
 			}
 			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), zone, allowedSubnetIDs)
 		} else if args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
+			if subnetErr == nil && placementSubnetID != "" {
+				asSet := set.NewStrings(subnetIDsForZone...)
+				if asSet.Contains(placementSubnetID) {
+					subnetIDsForZone = []string{placementSubnetID}
+				} else {
+					subnetIDsForZone = nil
+					subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, zone)
+				}
+			}
 		}
 
 		switch {
@@ -531,7 +587,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		}
 
-		instResp, err = runInstances(e.ec2, runArgs)
+		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)
+		instResp, err = runInstances(e.ec2, runArgs, callback)
 		if err == nil || !isZoneOrSubnetConstrainedError(err) {
 			break
 		}
@@ -665,12 +722,15 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp, err error) {
+func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFunc) (resp *ec2.RunInstancesResp, err error) {
+	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
+		c(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
 		resp, err = e.RunInstances(ri)
 		if err == nil || !isNotFoundError(err) {
 			break
 		}
+		try++
 	}
 	return resp, err
 }
@@ -849,7 +909,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
+func makeSubnetInfo(cidr string, subnetId, providerNetworkId network.Id, availZones []string) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
@@ -858,6 +918,7 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 	info := network.SubnetInfo{
 		CIDR:              cidr,
 		ProviderId:        subnetId,
+		ProviderNetworkId: providerNetworkId,
 		VLANTag:           0, // Not supported on EC2
 		AvailabilityZones: availZones,
 	}
@@ -900,7 +961,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 				continue
 			}
 			subIdSet[string(iface.ProviderSubnetId)] = true
-			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -908,7 +969,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			results = append(results, info)
 		}
 	} else {
-		resp, err := e.ec2.Subnets(nil, nil)
+		resp, _, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -926,7 +987,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			}
 			subIdSet[subnet.Id] = true
 			cidr := subnet.CIDRBlock
-			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), network.Id(subnet.VPCId), []string{subnet.AvailZone})
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -947,6 +1008,19 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	}
 
 	return results, nil
+}
+
+func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err error) {
+	filter := ec2.NewFilter()
+	vpcId = e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	filter.Add("vpc-id", vpcId)
+	resp, err = e.ec2.Subnets(nil, filter)
+	return resp, vpcId, err
 }
 
 // AdoptResources is part of the Environ interface.
@@ -1153,21 +1227,26 @@ func (e *environ) allModelVolumes(includeRootDisks bool) ([]string, error) {
 	return listVolumes(e.ec2, filter, includeRootDisks)
 }
 
-func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
-	ipPerms := make([]ec2.IPPerm, len(ports))
-	for i, p := range ports {
+func rulesToIPPerms(rules []network.IngressRule) []ec2.IPPerm {
+	ipPerms := make([]ec2.IPPerm, len(rules))
+	for i, r := range rules {
 		ipPerms[i] = ec2.IPPerm{
-			Protocol:  p.Protocol,
-			FromPort:  p.FromPort,
-			ToPort:    p.ToPort,
-			SourceIPs: []string{"0.0.0.0/0"},
+			Protocol: r.Protocol,
+			FromPort: r.FromPort,
+			ToPort:   r.ToPort,
+		}
+		if len(r.SourceCIDRs) == 0 {
+			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
+		} else {
+			ipPerms[i].SourceIPs = make([]string, len(r.SourceCIDRs))
+			copy(ipPerms[i].SourceIPs, r.SourceCIDRs)
 		}
 	}
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
-	if len(ports) == 0 {
+func (e *environ) openPortsInGroup(name string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
@@ -1175,10 +1254,10 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	if err != nil {
 		return err
 	}
-	ipPerms := portsToIPPerms(ports)
+	ipPerms := rulesToIPPerms(rules)
 	_, err = e.ec2.AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
-		if len(ports) == 1 {
+		if len(rules) == 1 {
 			return nil
 		}
 		// If there's more than one port and we get a duplicate error,
@@ -1199,8 +1278,8 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
-	if len(ports) == 0 {
+func (e *environ) closePortsInGroup(name string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	// Revoke permissions for anyone to access the given ports.
@@ -1210,60 +1289,60 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	if err != nil {
 		return err
 	}
-	_, err = e.ec2.RevokeSecurityGroup(g, portsToIPPerms(ports))
+	_, err = e.ec2.RevokeSecurityGroup(g, rulesToIPPerms(rules))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.PortRange, err error) {
+func (e *environ) ingressRulesInGroup(name string) (rules []network.IngressRule, err error) {
 	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range group.IPPerms {
-		if len(p.SourceIPs) != 1 {
-			logger.Errorf("expected exactly one IP permission, found: %v", p)
-			continue
+		ips := p.SourceIPs
+		if len(ips) == 0 {
+			ips = []string{defaultRouteCIDRBlock}
 		}
-		ports = append(ports, network.PortRange{
-			Protocol: p.Protocol,
-			FromPort: p.FromPort,
-			ToPort:   p.ToPort,
-		})
+		rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, ips...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, rule)
 	}
-	network.SortPortRanges(ports)
-	return ports, nil
+	network.SortIngressRules(rules)
+	return rules, nil
 }
 
-func (e *environ) OpenPorts(ports []network.PortRange) error {
+func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.openPortsInGroup(e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", rules)
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.PortRange) error {
+func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.closePortsInGroup(e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", rules)
 	return nil
 }
 
-func (e *environ) Ports() ([]network.PortRange, error) {
+func (e *environ) IngressRules() ([]network.IngressRule, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ports from model", e.Config().FirewallMode())
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}
-	return e.portsInGroup(e.globalGroupName())
+	return e.ingressRulesInGroup(e.globalGroupName())
 }
 
 func (*environ) Provider() environs.EnvironProvider {
@@ -1820,4 +1899,19 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 		e.defaultVPCChecked = true
 	}
 	return e.defaultVPC != nil, nil
+}
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements NetworkingEnviron.
+func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
 }

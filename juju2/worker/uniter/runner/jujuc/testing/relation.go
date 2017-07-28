@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // Relation holds the data for the test double.

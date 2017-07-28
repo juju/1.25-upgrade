@@ -9,13 +9,13 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/version"
 )
 
 type BSInteractSuite struct {
@@ -26,14 +26,14 @@ var _ = gc.Suite(BSInteractSuite{})
 
 func (BSInteractSuite) TestInitEmpty(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, nil)
+	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
 func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"--build-agent"})
+	err := cmdtesting.InitCommand(cmd, []string{"--build-agent"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
 	c.Assert(cmd.BuildAgent, jc.IsTrue)
@@ -41,28 +41,28 @@ func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
 
 func (BSInteractSuite) TestInitArg(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"foo"})
+	err := cmdtesting.InitCommand(cmd, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
 func (BSInteractSuite) TestInitTwoArgs(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"foo", "bar"})
+	err := cmdtesting.InitCommand(cmd, []string{"foo", "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
 func (BSInteractSuite) TestInitInfoOnlyFlag(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"--clouds"})
+	err := cmdtesting.InitCommand(cmd, []string{"--clouds"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
 func (BSInteractSuite) TestInitVariousFlags(c *gc.C) {
 	cmd := &bootstrapCommand{}
-	err := jujutesting.InitCommand(cmd, []string{"--keep-broken", "--agent-version", version.Current.String()})
+	err := cmdtesting.InitCommand(cmd, []string{"--keep-broken", "--agent-version", version.Current.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsTrue)
 }

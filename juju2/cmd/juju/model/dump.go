@@ -9,8 +9,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewDumpCommand returns a fully constructed dump-model command.
@@ -19,11 +19,13 @@ func NewDumpCommand() cmd.Command {
 }
 
 type dumpCommand struct {
+	// TODO(rog) change to use ModelCommandBase.
 	modelcmd.ControllerCommandBase
 	out cmd.Output
 	api DumpModelAPI
 
-	model string
+	model      string
+	simplified bool
 }
 
 const dumpModelHelpDoc = `
@@ -53,6 +55,7 @@ func (c *dumpCommand) Info() *cmd.Info {
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	f.BoolVar(&c.simplified, "simplified", false, "Dump a simplified partial model")
 }
 
 // Init implements Command.
@@ -67,7 +70,7 @@ func (c *dumpCommand) Init(args []string) error {
 // DumpModelAPI specifies the used function calls of the ModelManager.
 type DumpModelAPI interface {
 	Close() error
-	DumpModel(names.ModelTag) (map[string]interface{}, error)
+	DumpModel(names.ModelTag, bool) (map[string]interface{}, error)
 }
 
 func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
@@ -79,6 +82,10 @@ func (c *dumpCommand) getAPI() (DumpModelAPI, error) {
 
 // Run implements Command.
 func (c *dumpCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -87,22 +94,19 @@ func (c *dumpCommand) Run(ctx *cmd.Context) error {
 
 	store := c.ClientStore()
 	if c.model == "" {
-		c.model, err = store.CurrentModel(c.ControllerName())
+		c.model, err = store.CurrentModel(controllerName)
 		if err != nil {
 			return err
 		}
 	}
 
-	modelDetails, err := store.ModelByName(
-		c.ControllerName(),
-		c.model,
-	)
+	modelDetails, err := store.ModelByName(controllerName, c.model)
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
-	results, err := client.DumpModel(modelTag)
+	results, err := client.DumpModel(modelTag, c.simplified)
 	if err != nil {
 		return err
 	}

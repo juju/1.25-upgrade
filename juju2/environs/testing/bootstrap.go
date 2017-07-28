@@ -4,17 +4,17 @@
 package testing
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")
@@ -39,5 +39,5 @@ func DisableFinishBootstrap() func() {
 
 // BootstrapContext creates a simple bootstrap execution context.
 func BootstrapContext(c *gc.C) environs.BootstrapContext {
-	return modelcmd.BootstrapContext(coretesting.Context(c))
+	return modelcmd.BootstrapContext(cmdtesting.Context(c))
 }

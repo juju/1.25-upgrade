@@ -12,10 +12,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/jujuclient"
 )
 
 var whoAmIDetails = `
@@ -44,14 +44,14 @@ func NewWhoAmICommand() cmd.Command {
 func (c *whoAmICommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "whoami",
-		Purpose: "Print current login details",
+		Purpose: "Print current login details.",
 		Doc:     whoAmIDetails,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *whoAmICommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -120,7 +120,7 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 }
 
 type whoAmICommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out   cmd.Output
 	store jujuclient.ClientStore

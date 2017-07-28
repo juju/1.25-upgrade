@@ -13,11 +13,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // CommandInfo specifies the information necessary to run a command.
@@ -74,6 +74,7 @@ type contextFactory struct {
 	storage    StorageContextAccessor
 	clock      clock.Clock
 	zone       string
+	principal  string
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -83,20 +84,22 @@ type contextFactory struct {
 	rand *rand.Rand
 }
 
+// FactoryConfig contains configuration values
+// for the context factory.
+type FactoryConfig struct {
+	State            *uniter.State
+	UnitTag          names.UnitTag
+	Tracker          leadership.Tracker
+	GetRelationInfos RelationsFunc
+	Storage          StorageContextAccessor
+	Paths            Paths
+	Clock            clock.Clock
+}
+
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
-func NewContextFactory(
-	state *uniter.State,
-	unitTag names.UnitTag,
-	tracker leadership.Tracker,
-	getRelationInfos RelationsFunc,
-	storage StorageContextAccessor,
-	paths Paths,
-	clock clock.Clock,
-) (
-	ContextFactory, error,
-) {
-	unit, err := state.Unit(unitTag)
+func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
+	unit, err := config.State.Unit(config.UnitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,7 +107,7 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := state.Model()
+	model, err := config.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -113,20 +116,29 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	principal, ok, err := unit.PrincipalName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if !ok {
+		principal = ""
+	}
+
 	f := &contextFactory{
 		unit:             unit,
-		state:            state,
-		tracker:          tracker,
-		paths:            paths,
+		state:            config.State,
+		tracker:          config.Tracker,
+		paths:            config.Paths,
 		modelUUID:        model.UUID(),
 		envName:          model.Name(),
 		machineTag:       machineTag,
-		getRelationInfos: getRelationInfos,
+		getRelationInfos: config.GetRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
-		storage:          storage,
+		storage:          config.Storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
-		clock:            clock,
+		clock:            config.Clock,
 		zone:             zone,
+		principal:        principal,
 	}
 	return f, nil
 }
@@ -159,6 +171,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
 		availabilityzone:   f.zone,
+		principal:          f.principal,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -282,6 +295,12 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		code: statusCode,
 		info: statusInfo,
 	}
+
+	sla, err := f.state.SLALevel()
+	if err != nil {
+		return errors.Annotate(err, "could not retrieve the SLA level")
+	}
+	ctx.slaLevel = sla
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.

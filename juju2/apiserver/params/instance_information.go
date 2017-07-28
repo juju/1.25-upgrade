@@ -3,7 +3,7 @@
 
 package params
 
-import "github.com/juju/1.25-upgrade/juju2/constraints"
+import "github.com/juju/juju/constraints"
 
 // CloudInstanceTypesConstraints contains a slice of CloudInstanceTypesConstraint.
 type CloudInstanceTypesConstraints struct {

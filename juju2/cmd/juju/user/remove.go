@@ -12,8 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var removeUsageSummary = `
@@ -40,9 +41,14 @@ See also:
     change-user-password`[1:]
 
 var removeUserMsg = `
-WARNING! This command will remove the user %q from the %q controller.
+WARNING! This command will permanently archive the user %q on the %q
+controller.
 
-Continue (y/N)? `[1:]
+This action is irreversible. If you wish to temporarily disable the
+user please use the`[1:] + " `juju disable-user` " + `command. See
+` + " `juju help disable-user` " + `for more details.
+
+Continue (y/N)? `
 
 // RemoveUserAPI defines the usermanager API methods that the remove command
 // uses.
@@ -92,6 +98,10 @@ func (c *removeCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	api := c.api // This is for testing.
 
 	if api == nil { // The real McCoy.
@@ -105,13 +115,20 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 	// Confirm deletion if the user didn't specify -y/--yes in the command.
 	if !c.ConfirmDelete {
-		if err := confirmDelete(ctx, c.ControllerName(), c.UserName); err != nil {
-			return err
+		if err := confirmDelete(ctx, controllerName, c.UserName); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
-	err := api.RemoveUser(c.UserName)
-	if err != nil {
+	if err := api.RemoveUser(c.UserName); err != nil {
+		// This is very awful, but it makes the user experience crisper. At
+		// least maybe more tenable until users and authn/z are overhauled.
+		if e, ok := err.(*params.Error); ok {
+			if e.Message == fmt.Sprintf("failed to delete user %q: user %q is permanently deleted", c.UserName, c.UserName) {
+				e.Message = fmt.Sprintf("failed to delete user %q: the user has already been permanently deleted", c.UserName)
+				err = e
+			}
+		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 

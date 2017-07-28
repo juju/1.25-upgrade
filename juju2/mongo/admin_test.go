@@ -10,9 +10,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/mongo"
+	svctesting "github.com/juju/juju/service/common/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type adminSuite struct {

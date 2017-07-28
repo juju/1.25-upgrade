@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/workertest"
 )
 
 // UndertakerSuite is *not* complete. But it's a lot more so
@@ -119,8 +119,10 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		nil, // ModelInfo
 		nil, // SetStatus
 		nil, // WatchModelResources,
-		errors.New("meh, will retry"),  // ProcessDyingModel,
+		errors.New("meh, will retry"), // ProcessDyingModel,
+		nil, // SetStatus
 		errors.New("will retry again"), // ProcessDyingModel,
+		nil, // SetStatus
 		nil, // ProcessDyingModel,
 		nil, // SetStatus
 		nil, // Destroy,
@@ -134,7 +136,9 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
+		"SetStatus",
 		"ProcessDyingModel",
+		"SetStatus",
 		"ProcessDyingModel",
 		"SetStatus",
 		"Destroy",

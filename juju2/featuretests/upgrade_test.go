@@ -16,30 +16,30 @@ import (
 	"github.com/juju/utils/arch"
 	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	"github.com/juju/1.25-upgrade/juju2/upgrades"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgradesteps"
-	"github.com/juju/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/constraints"
+	envtesting "github.com/juju/juju/environs/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 const (
@@ -56,6 +56,12 @@ var ShortAttempt = &utils.AttemptStrategy{
 type upgradeSuite struct {
 	agenttest.AgentSuite
 	oldVersion version.Binary
+}
+
+func (s *upgradeSuite) SetUpSuite(c *gc.C) {
+	s.AgentSuite.SetUpSuite(c)
+	// Speed up the watcher frequency to make the test much faster.
+	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 }
 
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
@@ -158,9 +164,6 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	// terminates the machine agent with the UpgradeReadyError which
 	// makes the downgrade happen.
 
-	// Speed up the watcher frequency to make the test much faster.
-	s.PatchValue(&watcher.Period, 200*time.Millisecond)
-
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
@@ -225,11 +228,16 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 		agentConf,
 		logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
+}
+
+func noPreUpgradeSteps(_ *state.State, _ agent.Config, isController, isMaster bool) error {
+	return nil
 }
 
 // TODO(mjs) - the following should maybe be part of AgentSuite

@@ -16,24 +16,20 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/cloudspec"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/migration"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/migrationtarget"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
-
-func init() {
-	common.RegisterStandardFacade("Controller", 3, NewControllerAPI)
-}
 
 // Controller defines the methods on the controller API end point.
 type Controller interface {
@@ -83,13 +79,18 @@ func NewControllerAPI(ctx facade.Context) (*ControllerAPI, error) {
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfig(st),
-		ModelStatusAPI:      common.NewModelStatusAPI(common.NewModelManagerBackend(st), authorizer, apiUser),
-		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
-		state:               st,
-		statePool:           ctx.StatePool(),
-		authorizer:          authorizer,
-		apiUser:             apiUser,
-		resources:           ctx.Resources(),
+		ModelStatusAPI: common.NewModelStatusAPI(
+			common.NewModelManagerBackend(st),
+			common.NewBackendPool(ctx.StatePool()),
+			authorizer,
+			apiUser,
+		),
+		CloudSpecAPI: cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
+		state:        st,
+		statePool:    ctx.StatePool(),
+		authorizer:   authorizer,
+		apiUser:      apiUser,
+		resources:    ctx.Resources(),
 	}, nil
 }
 
@@ -105,51 +106,52 @@ func (s *ControllerAPI) checkHasAdmin() error {
 }
 
 // AllModels allows controller administrators to get the list of all the
-// environments in the controller.
+// models in the controller.
 func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
 	if err := s.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	// Get all the environments that the authenticated user can see, and
-	// supplement that with the other environments that exist that the user
-	// cannot see. The reason we do this is to get the LastConnection time for
-	// the environments that the user is able to see, so we have consistent
-	// output when listing with or without --all when an admin user.
-	environments, err := s.state.ModelsForUser(s.apiUser)
+	// Get all the models that the authenticated user can see, and
+	// supplement that with the other models that exist that the user
+	// cannot see. The reason we do this is to get the LastConnection
+	// time for the models that the user is able to see, so we have
+	// consistent output when listing with or without --all when an
+	// admin user.
+	models, err := s.state.ModelsForUser(s.apiUser)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	visibleEnvironments := set.NewStrings()
-	for _, env := range environments {
-		lastConn, err := env.LastConnection()
+	visibleModels := set.NewStrings()
+	for _, model := range models {
+		lastConn, err := model.LastConnection()
 		if err != nil && !state.IsNeverConnectedError(err) {
 			return result, errors.Trace(err)
 		}
-		visibleEnvironments.Add(env.UUID())
+		visibleModels.Add(model.UUID())
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     env.Name(),
-				UUID:     env.UUID(),
-				OwnerTag: env.Owner().String(),
+				Name:     model.Name(),
+				UUID:     model.UUID(),
+				OwnerTag: model.Owner().String(),
 			},
 			LastConnection: &lastConn,
 		})
 	}
 
-	allEnvs, err := s.state.AllModels()
+	allModels, err := s.state.AllModels()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, env := range allEnvs {
-		if !visibleEnvironments.Contains(env.UUID()) {
+	for _, model := range allModels {
+		if !visibleModels.Contains(model.UUID()) {
 			result.UserModels = append(result.UserModels, params.UserModel{
 				Model: params.Model{
-					Name:     env.Name(),
-					UUID:     env.UUID(),
-					OwnerTag: env.Owner().String(),
+					Name:     model.Name(),
+					UUID:     model.UUID(),
+					OwnerTag: model.Owner().String(),
 				},
 				// No LastConnection as this user hasn't.
 			})
@@ -352,13 +354,13 @@ func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAcc
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		accessInfo, err := c.state.UserAccess(userTag, c.state.ControllerTag())
+		access, err := c.state.UserPermission(userTag, c.state.ControllerTag())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &params.UserAccess{
-			Access:  string(accessInfo.Access),
+			Access:  string(access),
 			UserTag: userTag.String()}
 	}
 	return results, nil
@@ -432,17 +434,14 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if !(spec.ExternalControl && spec.SkipInitialPrechecks) {
-		if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
-			return "", errors.Trace(err)
-		}
+	if err := runMigrationPrechecks(hostedState, &targetInfo); err != nil {
+		return "", errors.Trace(err)
 	}
 
 	// Trigger the migration.
 	mig, err := hostedState.CreateMigration(state.MigrationSpec{
-		InitiatedBy:     c.apiUser,
-		TargetInfo:      targetInfo,
-		ExternalControl: spec.ExternalControl,
+		InitiatedBy: c.apiUser,
+		TargetInfo:  targetInfo,
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -488,7 +487,10 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 	return result, nil
 }
 
-var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.TargetInfo) error {
+// runMigrationPrechecks runs prechecks on the migration and updates
+// information in targetInfo as needed based on information
+// retrieved from the target controller.
+var runMigrationPrechecks = func(st *state.State, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st)
 	if err != nil {
@@ -508,7 +510,19 @@ var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.Targe
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = migrationtarget.NewClient(conn).Prechecks(modelInfo)
+	client := migrationtarget.NewClient(conn)
+	if targetInfo.CACert == "" {
+		targetInfo.CACert, err = client.CACert()
+		if err != nil {
+			if !params.IsCodeNotImplemented(err) {
+				return errors.Annotatef(err, "cannot retrieve CA certificate")
+			}
+			// If the call's not implemented, it indicates an earlier version
+			// of the controller, which we can't migrate to.
+			return errors.New("controller API version is too old")
+		}
+	}
+	err = client.Prechecks(modelInfo)
 	return errors.Annotate(err, "target prechecks failed")
 }
 
@@ -547,7 +561,7 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 	}, nil
 }
 
-func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
+func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 	return &api.Info{
 		Addrs:     ti.Addrs,
 		CACert:    ti.CACert,

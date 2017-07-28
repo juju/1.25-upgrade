@@ -16,12 +16,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azureauth"
-	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azuretesting"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type storageSuite struct {
@@ -40,11 +39,10 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
-		Sender:                            &s.sender,
-		NewStorageClient:                  s.storageClient.NewClient,
-		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
-		RandomWindowsAdminPassword:        func() string { return "sorandom" },
-		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
+		Sender:                     &s.sender,
+		NewStorageClient:           s.storageClient.NewClient,
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.sender = nil
 

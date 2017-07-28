@@ -9,19 +9,19 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/highavailability"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/presence"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/highavailability"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/presence"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -226,7 +226,7 @@ func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	placement := []string{"valid"}
-	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), defaultSeries, placement)
+	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G tags=foobar"), defaultSeries, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
@@ -238,8 +238,8 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
-		constraints.MustParse("mem=4G"),
-		constraints.MustParse("mem=4G"),
+		{},
+		constraints.MustParse("mem=4G tags=foobar"),
 	}
 	expectedPlacement := []string{"", "valid", ""}
 	for i, m := range machines {

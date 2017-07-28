@@ -14,7 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
 // state describes the state of a storage attachment.
@@ -106,8 +106,14 @@ func readAllStateFiles(dirPath string) (files map[names.StorageTag]*stateFile, e
 		if fi.IsDir() {
 			continue
 		}
-		storageId := strings.Replace(fi.Name(), "-", "/", -1)
-		if !names.IsValidStorage(storageId) {
+		storageId := fi.Name()
+		if i := strings.LastIndex(storageId, "-"); i > 0 {
+			storageId = storageId[:i] + "/" + storageId[i+1:]
+			if !names.IsValidStorage(storageId) {
+				continue
+			}
+		} else {
+			// Lack of "-" means it's not a valid storage ID.
 			continue
 		}
 		tag := names.NewStorageTag(storageId)

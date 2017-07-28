@@ -6,18 +6,17 @@ package networkingcommon
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // NOTE: All of the following code is only tested with a feature test.
 
 // subnetShim forwards and adapts state.Subnets methods to BackingSubnet.
 type subnetShim struct {
-	BackingSubnet
 	subnet *state.Subnet
 }
 
@@ -27,6 +26,10 @@ func (s *subnetShim) CIDR() string {
 
 func (s *subnetShim) VLANTag() int {
 	return s.subnet.VLANTag()
+}
+
+func (s *subnetShim) ProviderNetworkId() network.Id {
+	return s.subnet.ProviderNetworkId()
 }
 
 func (s *subnetShim) ProviderId() network.Id {
@@ -56,7 +59,6 @@ func (s *subnetShim) SpaceName() string {
 
 // spaceShim forwards and adapts state.Space methods to BackingSpace.
 type spaceShim struct {
-	BackingSpace
 	space *state.Space
 }
 
@@ -110,17 +112,19 @@ func (s *stateShim) AllSpaces() ([]BackingSpace, error) {
 }
 
 func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
-	// TODO(dimitern): Add multiple AZs per subnet in state.
+	// TODO(babbageclunk): we only take the first zone because
+	// state.Subnet currently only stores one.
 	var firstZone string
 	if len(info.AvailabilityZones) > 0 {
 		firstZone = info.AvailabilityZones[0]
 	}
 	_, err := s.st.AddSubnet(state.SubnetInfo{
-		CIDR:             info.CIDR,
-		VLANTag:          info.VLANTag,
-		ProviderId:       info.ProviderId,
-		AvailabilityZone: firstZone,
-		SpaceName:        info.SpaceName,
+		CIDR:              info.CIDR,
+		VLANTag:           info.VLANTag,
+		ProviderId:        info.ProviderId,
+		ProviderNetworkId: info.ProviderNetworkId,
+		AvailabilityZone:  firstZone,
+		SpaceName:         info.SpaceName,
 	})
 	return nil, err // Drop the first result, as it's unused.
 }

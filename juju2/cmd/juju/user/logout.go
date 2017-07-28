@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 const logoutDoc = `
@@ -68,7 +68,10 @@ func (c *logoutCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *logoutCommand) Run(ctx *cmd.Context) error {
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	if err := c.logout(store, controllerName); err != nil {
 		return errors.Trace(err)
@@ -131,11 +134,7 @@ this command again with the "--force" flag.
 `)
 	}
 
-	details, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.ClearControllerMacaroons(details.APIEndpoints); err != nil {
+	if err := c.ClearControllerMacaroons(c.ClientStore(), controllerName); err != nil {
 		return errors.Trace(err)
 	}
 

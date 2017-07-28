@@ -13,11 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type httpSuite struct {
@@ -71,7 +71,7 @@ var httpClientTests = []struct {
 			Message: make(map[string]int),
 		})
 	},
-	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go value of type string`,
+	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
 }, {
 	about: "bad charms error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -84,7 +84,7 @@ var httpClientTests = []struct {
 			CharmURL: make(map[string]int),
 		})
 	},
-	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go value of type string`,
+	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
 }, {
 	about: "no message in ErrorResponse",
 	handler: func(w http.ResponseWriter, req *http.Request) {

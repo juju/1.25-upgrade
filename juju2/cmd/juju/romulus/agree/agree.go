@@ -11,13 +11,14 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/juju/charm.v6-unstable"
+
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
@@ -46,8 +47,8 @@ Examples:
 
 // NewAgreeCommand returns a new command that can be
 // used to create user agreements.
-func NewAgreeCommand() cmd.Command {
-	return &agreeCommand{}
+func NewAgreeCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&agreeCommand{})
 }
 
 type term struct {
@@ -58,7 +59,7 @@ type term struct {
 
 // agreeCommand creates a user agreement to the specified terms.
 type agreeCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.ControllerCommandBase
 
 	terms           []term
 	termIds         []string
@@ -67,7 +68,7 @@ type agreeCommand struct {
 
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
 }
 
@@ -101,7 +102,7 @@ func (c *agreeCommand) Init(args []string) error {
 	if len(c.terms) == 0 {
 		return errors.New("must specify a valid term revision")
 	}
-	return nil
+	return c.CommandBase.Init([]string{})
 }
 
 // Run implements Command.Run.

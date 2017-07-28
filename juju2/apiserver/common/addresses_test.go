@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
 
 type stateAddresserSuite struct {
@@ -106,10 +106,6 @@ type fakeAddresses struct {
 
 func (fakeAddresses) Addresses() ([]string, error) {
 	return []string{"addresses:1", "addresses:2"}, nil
-}
-
-func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
-	panic("should never be called")
 }
 
 func (fakeAddresses) CACert() string {

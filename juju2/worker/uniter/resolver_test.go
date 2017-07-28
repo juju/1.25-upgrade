@@ -12,16 +12,16 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
-	uniteractions "github.com/juju/1.25-upgrade/juju2/worker/uniter/actions"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/leadership"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/relation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/storage"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/uniter"
+	uniteractions "github.com/juju/juju/worker/uniter/actions"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/leadership"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/storage"
 )
 
 type resolverSuite struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	jujucontroller "github.com/juju/1.25-upgrade/juju2/controller"
+	jujucontroller "github.com/juju/juju/controller"
 )
 
 const (
@@ -27,7 +27,7 @@ func controllerKey(controllerUUID string) string {
 
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
-	settings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
+	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

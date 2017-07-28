@@ -10,12 +10,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 const uniterFacade = "Uniter"
@@ -69,12 +69,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV4 creates a new client-side Uniter facade, version 4.
-var newStateV4 = newStateForVersionFn(4)
+// newStateV6 creates a new client-side Uniter facade, version 6
+var newStateV6 = newStateForVersionFn(6)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV4
+var NewState = newStateV6
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -203,10 +203,11 @@ func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
 		return nil, err
 	}
 	return &Relation{
-		id:   result.Id,
-		tag:  relationTag,
-		life: result.Life,
-		st:   st,
+		id:       result.Id,
+		tag:      relationTag,
+		life:     result.Life,
+		st:       st,
+		otherApp: result.OtherApplication,
 	}, nil
 }
 
@@ -294,10 +295,11 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}
 	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
-		id:   result.Id,
-		tag:  relationTag,
-		life: result.Life,
-		st:   st,
+		id:       result.Id,
+		tag:      relationTag,
+		life:     result.Life,
+		st:       st,
+		otherApp: result.OtherApplication,
 	}, nil
 }
 
@@ -389,4 +391,20 @@ func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
 		}
 		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)
 	}
+}
+
+// SLALevel returns the SLA level set on the model.
+func (st *State) SLALevel() (string, error) {
+	if st.BestAPIVersion() < 5 {
+		return "unsupported", nil
+	}
+	var result params.StringResult
+	err := st.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := result.Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
 }

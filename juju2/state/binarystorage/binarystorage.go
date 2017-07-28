@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/1.25-upgrade/juju2/mongo"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
@@ -15,6 +14,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.binarystorage")

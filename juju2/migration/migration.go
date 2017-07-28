@@ -9,17 +9,17 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.migration")
@@ -245,10 +245,8 @@ func uploadTools(config UploadBinariesConfig) error {
 func uploadResources(config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
 		if res.ApplicationRevision.IsPlaceholder() {
-			err := config.ResourceUploader.SetPlaceholderResource(res.ApplicationRevision)
-			if err != nil {
-				return errors.Annotate(err, "cannot set placeholder resource")
-			}
+			// Resource placeholders created in the migration import rather
+			// than attempting to post empty resources.
 		} else {
 			err := uploadAppResource(config, res.ApplicationRevision)
 			if err != nil {

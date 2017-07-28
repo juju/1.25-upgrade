@@ -18,12 +18,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/paths"
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	"github.com/juju/1.25-upgrade/juju2/service/systemd"
-	systemdtesting "github.com/juju/1.25-upgrade/juju2/service/systemd/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
+	systemdtesting "github.com/juju/juju/service/systemd/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var renderer = &shell.BashRenderer{}

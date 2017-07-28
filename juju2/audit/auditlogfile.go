@@ -4,13 +4,13 @@
 package audit
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"fmt"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -34,6 +34,7 @@ func NewLogFileSink(logDir string) AuditEntrySinkFn {
 			Filename:   logPath,
 			MaxSize:    300, // MB
 			MaxBackups: 10,
+			Compress:   true,
 		},
 	}
 	return handler.handle

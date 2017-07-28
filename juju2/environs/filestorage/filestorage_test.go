@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 )
 
 func TestPackage(t *testing.T) {

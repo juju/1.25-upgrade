@@ -10,8 +10,8 @@ import (
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/context/internal"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/context/internal"
 )
 
 var _ = gc.Suite(&ContextSuite{})

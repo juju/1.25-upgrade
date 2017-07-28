@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type instanceSuite struct {
@@ -51,42 +51,42 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
-	err := s.Instance.OpenPorts("42", s.Ports)
+	err := s.Instance.OpenPorts("42", s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "OpenPorts",
 		Args: []interface{}{
 			s.InstName,
-			s.Ports,
+			s.Rules,
 		},
 	}})
 }
 
 func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
-	err := s.Instance.ClosePorts("42", s.Ports)
+	err := s.Instance.ClosePorts("42", s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ClosePorts",
 		Args: []interface{}{
 			s.InstName,
-			s.Ports,
+			s.Rules,
 		},
 	}})
 }
 
 func (s *instanceSuite) TestPortsOkay(c *gc.C) {
-	s.Firewaller.PortRanges = s.Ports
+	s.Firewaller.PortRanges = s.Rules
 
-	ports, err := s.Instance.Ports("42")
+	ports, err := s.Instance.IngressRules("42")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ports, jc.DeepEquals, s.Ports)
+	c.Check(ports, jc.DeepEquals, s.Rules)
 }
 
 func (s *instanceSuite) TestPortsAPI(c *gc.C) {
-	_, err := s.Instance.Ports("42")
+	_, err := s.Instance.IngressRules("42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{

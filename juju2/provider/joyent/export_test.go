@@ -14,12 +14,12 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
 // Use ShortAttempt to poll for short-term events.
@@ -206,7 +206,7 @@ func MakeCredentials(c *gc.C, endpoint string, cloudCredential cloud.Credential)
 	return creds
 }
 
-var GetPorts = getPorts
+var GetPorts = getRules
 
 var CreateFirewallRuleAll = createFirewallRuleAll
 

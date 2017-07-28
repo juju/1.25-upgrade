@@ -20,13 +20,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/actions"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state/presence"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -120,7 +120,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st, settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
+	settings, err := readSettings(u.st.db(), settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (u *Unit) Life() Life {
 // the charm (eg, the version of postgresql that is running, as
 // opposed to the version of the postgresql charm).
 func (u *Unit) WorkloadVersion() (string, error) {
-	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	status, err := getStatus(u.st.db(), u.globalWorkloadVersionKey(), "workload")
 	if errors.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
@@ -212,7 +212,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
 	now := u.st.clock.Now()
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
 		status:    status.Active,
@@ -336,7 +336,7 @@ func (u *Unit) Destroy() (err error) {
 	}
 	if err = unit.st.run(buildTxn); err == nil {
 		if historyErr := unit.eraseHistory(); historyErr != nil {
-			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), err)
+			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), historyErr)
 		}
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
@@ -346,15 +346,14 @@ func (u *Unit) Destroy() (err error) {
 }
 
 func (u *Unit) eraseHistory() error {
-	history, closer := u.st.getCollection(statusesHistoryC)
-	defer closer()
-	historyW := history.Writeable()
-
-	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
-		return err
+	if err := eraseStatusHistory(u.st, u.globalKey()); err != nil {
+		return errors.Annotate(err, "workload")
 	}
-	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
-		return err
+	if err := eraseStatusHistory(u.st, u.globalAgentKey()); err != nil {
+		return errors.Annotate(err, "agent")
+	}
+	if err := eraseStatusHistory(u.st, u.globalWorkloadVersionKey()); err != nil {
+		return errors.Annotate(err, "version")
 	}
 	return nil
 }
@@ -407,7 +406,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// If so then we can't set directly to dead.
 	isAssigned := u.doc.MachineId != ""
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
+	agentStatusInfo, agentErr := getStatus(u.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
@@ -448,8 +447,8 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 // destroyHostOps returns all necessary operations to destroy the service unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
-func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
-	if s.doc.Subordinate {
+func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
+	if a.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
 			Id:     u.st.docID(u.doc.Principal),
@@ -807,7 +806,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
 func (u *Unit) Refresh() error {
-	units, closer := u.st.getCollection(unitsC)
+	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
 	err := units.FindId(u.doc.DocID).One(&u.doc)
@@ -858,7 +857,7 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        u.st,
+		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
 	}
@@ -875,12 +874,12 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade) as on unitagent, this transformation does not belong here.
 	// For now, pretend we're always reading the unit status.
-	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
+	info, err := getStatus(u.st.db(), u.globalAgentKey(), "unit")
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
 	if info.Status != status.Error {
-		info, err = getStatus(u.st, u.globalKey(), "unit")
+		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
 			return status.StatusInfo{}, err
 		}
@@ -897,13 +896,13 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
 		status:    unitStatus.Status,
 		message:   unitStatus.Message,
 		rawData:   unitStatus.Data,
-		updated:   unitStatus.Since,
+		updated:   timeOrNow(unitStatus.Since, u.st.clock),
 	})
 }
 
@@ -1135,7 +1134,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1150,9 +1149,44 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
+// charm returns the charm for the unit, or the application if the unit's charm
+// has not been set yet.
+func (u *Unit) charm() (*Charm, error) {
+	curl, ok := u.CharmURL()
+	if !ok {
+		app, err := u.Application()
+		if err != nil {
+			return nil, err
+		}
+		curl = app.doc.CharmURL
+	}
+	ch, err := u.st.Charm(curl)
+	return ch, errors.Annotatef(err, "getting charm for %s", u)
+}
+
+// assertCharmOps returns txn.Ops to assert the current charm of the unit.
+// If the unit currently has no charm URL set, then the application's charm
+// URL will be checked by the txn.Ops also.
+func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.Name,
+		Assert: bson.D{{"charmurl", u.doc.CharmURL}},
+	}}
+	if _, ok := u.CharmURL(); !ok {
+		appName := u.ApplicationName()
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     appName,
+			Assert: bson.D{{"charmurl", ch.URL()}},
+		})
+	}
+	return ops
+}
+
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher := u.st.workers.presenceWatcher()
 	return pwatcher.Alive(u.globalAgentKey())
 }
 
@@ -1170,12 +1204,17 @@ func (u *Unit) UnitTag() names.UnitTag {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// These should really only be used in the test suite.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher := u.st.workers.presenceWatcher()
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
+	pingBatcher := u.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1196,11 +1235,15 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
+	recorder := u.st.getPingBatcher()
+	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey(),
+		func() presence.PingRecorder { return u.st.getPingBatcher() })
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	return p, nil
 }
 
@@ -1218,7 +1261,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 		return u.doc.MachineId, nil
 	}
 
-	units, closer := u.st.getCollection(unitsC)
+	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
 	pudoc := unitDoc{}
@@ -1396,14 +1439,14 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume)
+		v, err := st.volumeParamsWithDefaults(v.Volume, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
+		f, err := st.filesystemParamsWithDefaults(f.Filesystem, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1625,7 +1668,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	if err != nil {
 		return err
 	}
-	machinesCollection, closer := u.st.getCollection(machinesC)
+	machinesCollection, closer := u.st.db().GetCollection(machinesC)
 	defer closer()
 	var host machineDoc
 	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
@@ -1757,22 +1800,9 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
-	curl := u.doc.CharmURL
-	if curl == nil {
-		var err error
-		app, err := u.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		curl, _ = app.CharmURL()
-	}
-	ch, err := u.st.Charm(curl)
+	ch, err := u.charm()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting charm")
-	}
-	allCons, err := u.StorageConstraints()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
 
 	// Sort storage attachments so the volume ids are consistent (for testing).
@@ -1785,12 +1815,12 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
+			u.st, chMeta, u.UnitTag(), u.Series(), storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1824,8 +1854,7 @@ func machineStorageParamsForStorageInstance(
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
 	series string,
-	allCons map[string]StorageConstraints,
-	storage StorageInstance,
+	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
@@ -1840,15 +1869,13 @@ func machineStorageParamsForStorageInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a volume.
-			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
-				binding: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			volumes = append(volumes, MachineVolumeParams{
 				volumeParams, volumeAttachmentParams,
@@ -1876,15 +1903,13 @@ func machineStorageParamsForStorageInstance(
 			location,
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a filesystem.
-			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				binding: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			filesystems = append(filesystems, MachineFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
@@ -2106,7 +2131,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// instances for those that are provisioned. Instances
 	// will be distributed across in preference to
 	// unprovisioned machines.
-	machinesCollection, closer := u.st.getCollection(machinesC)
+	machinesCollection, closer := u.st.db().GetCollection(machinesC)
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
@@ -2249,21 +2274,9 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
 func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 	none := ActionSpecsByName{}
-	curl, _ := u.CharmURL()
-	if curl == nil {
-		// If unit charm URL is not yet set, fall back to service
-		svc, err := u.Application()
-		if err != nil {
-			return none, err
-		}
-		curl, _ = svc.CharmURL()
-		if curl == nil {
-			return none, errors.Errorf("no URL set for application %q", svc.Name())
-		}
-	}
-	ch, err := u.st.Charm(curl)
+	ch, err := u.charm()
 	if err != nil {
-		return none, errors.Annotatef(err, "unable to get charm with URL %q", curl.String())
+		return none, errors.Trace(err)
 	}
 	chActions := ch.Actions()
 	if chActions == nil || len(chActions.ActionSpecs) == 0 {
@@ -2454,9 +2467,30 @@ type HistoryGetter struct {
 // StatusHistory implements status.StatusHistoryGetter.
 func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        g.st,
+		db:        g.st.db(),
 		globalKey: g.globalKey,
 		filter:    filter,
 	}
 	return statusHistory(args)
+}
+
+func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
+	app, err := u.Application()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	bindings, err := app.EndpointBindings()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		// If default binding is not explicitly defined we'll use default space
+		if bindingName == "" {
+			return "", nil
+		}
+		return "", errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
+	}
+	return boundSpace, nil
 }

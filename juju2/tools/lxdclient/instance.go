@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -25,7 +24,8 @@ const (
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/
 	// http://cloudinit.readthedocs.org/en/latest/
 	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
-	UserdataKey = "user-data"
+	UserdataKey      = "user-data"
+	NetworkconfigKey = "network-config"
 
 	// CertificateFingerprintKey is a key that we define to associate
 	// a certificate fingerprint with an instance. We use this to clean
@@ -38,11 +38,30 @@ const (
 // ResolveConfigKey applies the specified namespaces to the config key
 // name to return the fully-qualified key.
 func ResolveConfigKey(name string, namespace ...string) string {
-	parts := append(namespace, name)
-	return strings.Join(parts, ".")
+	prefix := strings.Join(namespace, ".") + "."
+	if !shouldNamespace(name, prefix) {
+		return name
+	}
+	return prefix + name
 }
 
-func splitConfigKey(key string) (string, string) {
+func shouldNamespace(name, prefix string) bool {
+	// already in namespace
+	if strings.HasPrefix(name, prefix) {
+		return false
+	}
+	// never namespace lxd limit configuration
+	if strings.HasPrefix(name, "limits.") {
+		return false
+	}
+	// never namespace boot config
+	if name == "boot.autostart" {
+		return false
+	}
+	return true
+}
+
+func splitConfigKey(key string) (namespace, name string) {
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) == 1 {
 		return "", parts[0]
@@ -86,10 +105,6 @@ type InstanceSpec struct {
 
 	// Devices to be added at container initialisation time.
 	Devices
-
-	// Files to be pushed after initialisation has completed but
-	// before the container is started.
-	Files
 
 	// TODO(ericsnow) Other possible fields:
 	// Disks
@@ -159,6 +174,9 @@ type InstanceSummary struct {
 
 	// Metadata is the instance metadata.
 	Metadata map[string]string
+
+	// Devices is the instance's devices.
+	Devices map[string]map[string]string
 }
 
 func newInstanceSummary(info *api.Container) InstanceSummary {
@@ -202,6 +220,7 @@ func newInstanceSummary(info *api.Container) InstanceSummary {
 		Name:     info.Name,
 		Status:   statusStr,
 		Metadata: metadata,
+		Devices:  info.Devices,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
@@ -238,25 +257,31 @@ func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
 }
 
 // Status returns a string identifying the status of the instance.
-func (gi Instance) Status() string {
-	return gi.InstanceSummary.Status
-}
-
-// CurrentStatus returns a string identifying the status of the instance.
-func (gi Instance) CurrentStatus(client *Client) (string, error) {
-	// TODO(ericsnow) Do this a better way?
-
-	inst, err := client.Instance(gi.Name)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return inst.Status(), nil
+func (i *Instance) Status() string {
+	return i.InstanceSummary.Status
 }
 
 // Metadata returns the user-specified metadata for the instance.
-func (gi Instance) Metadata() map[string]string {
+func (i *Instance) Metadata() map[string]string {
 	// TODO*ericsnow) return a copy?
-	return gi.InstanceSummary.Metadata
+	return i.InstanceSummary.Metadata
+}
+
+// Disks returns the disk devices attached to the instance.
+func (i *Instance) Disks() map[string]DiskDevice {
+	disks := make(map[string]DiskDevice)
+	for name, device := range i.InstanceSummary.Devices {
+		if device["type"] != "disk" {
+			continue
+		}
+		disks[name] = DiskDevice{
+			Path:     device["path"],
+			Source:   device["source"],
+			Pool:     device["pool"],
+			ReadOnly: device["readonly"] == "true",
+		}
+	}
+	return disks
 }
 
 func resolveMetadata(metadata map[string]string) map[string]string {

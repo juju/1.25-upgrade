@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/hostkeyreporter"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/hostkeyreporter"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type Suite struct {

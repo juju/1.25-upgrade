@@ -8,27 +8,26 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/application"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/application"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/modelconfig"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/environs/manual/winrmprovisioner"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	jujuversion "github.com/juju/juju/version"
 )
-
-func init() {
-	common.RegisterStandardFacade("Client", 1, newClient)
-}
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
@@ -50,11 +49,18 @@ func (api *API) state() *state.State {
 	return api.stateAccessor.(stateShim).State
 }
 
+// caCerter implements the subset of common.APIAddresser
+// methods that we choose to expose in the client facade.
+type caCerter interface {
+	CACert() params.BytesResult
+}
+
 // Client serves client-specific API methods.
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPI
+	caCerter
 
 	api        *API
 	newEnviron func() (environs.Environ, error)
@@ -93,7 +99,8 @@ func (c *Client) checkCanWrite() error {
 	return nil
 }
 
-func newClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+// NewFacade provides the required signature for facade registration.
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
@@ -106,6 +113,7 @@ func newClient(st *state.State, resources facade.Resources, authorizer facade.Au
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	addresser := common.NewAPIAddresser(st, resources)
 	return NewClient(
 		NewStateBackend(st),
 		modelConfigAPI,
@@ -115,6 +123,7 @@ func newClient(st *state.State, resources facade.Resources, authorizer facade.Au
 		toolsFinder,
 		newEnviron,
 		blockChecker,
+		addresser,
 	)
 }
 
@@ -128,30 +137,47 @@ func NewClient(
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
+	caCerter caCerter,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	client := &Client{
-		modelConfigAPI,
-		&API{
+		ModelConfigAPI: modelConfigAPI,
+		caCerter:       caCerter,
+		api: &API{
 			stateAccessor: st,
 			auth:          authorizer,
 			resources:     resources,
 			statusSetter:  statusSetter,
 			toolsFinder:   toolsFinder,
 		},
-		newEnviron,
-		blockChecker,
+		newEnviron: newEnviron,
+		check:      blockChecker,
 	}
 	return client, nil
 }
 
+// WatchAll initiates a watcher for entities in the connected model.
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	w := c.api.stateAccessor.Watch()
+	model, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
+
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := c.api.auth.GetAuthTag().(names.UserTag)
+	isAdmin, err := common.HasModelAdmin(c.api.auth, apiUser, c.api.stateAccessor.ControllerTag(), model)
+	if err != nil {
+		return params.AllWatcherId{}, errors.Trace(err)
+	}
+	watchParams := state.WatchParams{IncludeOffers: isAdmin}
+
+	w := c.api.stateAccessor.Watch(watchParams)
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil
@@ -402,7 +428,18 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = sshprovisioner.ProvisioningScript(icfg)
+	osSeries, err := series.GetOSFromSeries(icfg.Series)
+	if err != nil {
+		return result, common.ServerError(errors.Annotatef(err,
+			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
+	}
+
+	getProvisioningScript := sshprovisioner.ProvisioningScript
+	if osSeries == os.Windows {
+		getProvisioningScript = winrmprovisioner.ProvisioningScript
+	}
+
+	result.Script, err = getProvisioningScript(icfg)
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting provisioning script",
@@ -427,7 +464,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 
 // ModelInfo returns information about the current model.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanRead(); err != nil {
 		return params.ModelInfo{}, err
 	}
 	state := c.api.stateAccessor
@@ -448,6 +485,9 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		UUID:          model.UUID(),
 		OwnerTag:      model.Owner().String(),
 		Life:          params.Life(model.Life().String()),
+	}
+	if agentVersion, exists := conf.AgentVersion(); exists {
+		info.AgentVersion = &agentVersion
 	}
 	if tag, ok := model.CloudCredential(); ok {
 		info.CloudCredentialTag = tag.String()

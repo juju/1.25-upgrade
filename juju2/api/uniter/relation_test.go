@@ -9,8 +9,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 )
 
 type relationSuite struct {
@@ -42,6 +42,10 @@ func (s *relationSuite) TestString(c *gc.C) {
 func (s *relationSuite) TestIdAndTag(c *gc.C) {
 	c.Assert(s.apiRelation.Id(), gc.Equals, s.stateRelation.Id())
 	c.Assert(s.apiRelation.Tag(), gc.Equals, s.stateRelation.Tag().(names.RelationTag))
+}
+
+func (s *relationSuite) TestOtherApplication(c *gc.C) {
+	c.Assert(s.apiRelation.OtherApplication(), gc.Equals, "mysql")
 }
 
 func (s *relationSuite) TestRefresh(c *gc.C) {
@@ -107,8 +111,8 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiRel, gc.DeepEquals, s.apiRelation)
 
-	// Add a relation to mysql service, which cannot be retrived.
-	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+	// Add a relation to mysql application, which cannot be retrived.
+	otherRel, _, _ := s.addRelatedApplication(c, "mysql", "logging", s.mysqlUnit)
 
 	// Test some invalid cases.
 	for _, relId := range []int{-1, 42, otherRel.Id()} {

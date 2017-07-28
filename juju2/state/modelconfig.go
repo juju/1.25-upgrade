@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 type attrValues map[string]interface{}
@@ -22,7 +22,11 @@ var disallowedModelConfigAttrs = [...]string{
 // ModelConfig returns the complete config for the model represented
 // by this state.
 func (st *State) ModelConfig() (*config.Config, error) {
-	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
+	return getModelConfig(st.db())
+}
+
+func getModelConfig(db Database) (*config.Config, error) {
+	modelSettings, err := readSettings(db, settingsC, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -142,13 +146,13 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 	} else {
 		key = controllerInheritedSettingsGlobalKey
 	}
-	settings, err := readSettings(st, globalSettingsC, key)
+	settings, err := readSettings(st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		// We haven't created settings for this region yet.
-		_, err := createSettings(st, globalSettingsC, key, attrs)
+		_, err := createSettings(st.db(), globalSettingsC, key, attrs)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -276,7 +280,7 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -313,7 +317,7 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	// been a concurrent update, the change may not be what
 	// the user asked for.
 
-	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
+	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -323,8 +327,8 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if additionalValidation != nil {
-		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+	for _, additionalValidationFunc := range additionalValidation {
+		err = additionalValidationFunc(updateAttrs, removeAttrs, oldConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -399,7 +403,7 @@ func (st *State) defaultInheritedConfig() (attrValues, error) {
 // controllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
 func (st *State) controllerInheritedConfig() (attrValues, error) {
-	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
+	settings, err := readSettings(st.db(), globalSettingsC, controllerInheritedSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -423,7 +427,7 @@ func (st *State) regionInheritedConfig(regionSpec *environs.RegionSpec) func() (
 		}
 	}
 	return func() (attrValues, error) {
-		settings, err := readSettings(st,
+		settings, err := readSettings(st.db(),
 			globalSettingsC,
 			regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region),
 		)

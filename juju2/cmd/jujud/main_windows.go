@@ -12,9 +12,9 @@ import (
 	"github.com/juju/utils/featureflag"
 	"golang.org/x/sys/windows/svc"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/service"
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/juju/cmd/service"
+	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 )
 
 // FLAGSFROMENVIRONMENT can control whether we read featureflags from the

@@ -17,8 +17,8 @@ import (
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure")
@@ -91,7 +91,7 @@ func SeriesImage(
 		offering = centOSOffering
 		switch series {
 		case "centos7":
-			sku = "7.1"
+			sku = "7.3"
 		default:
 			return nil, errors.NotSupportedf("deploying %s", series)
 		}

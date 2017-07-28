@@ -23,14 +23,14 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
-	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/api/base"
+	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/migrationtarget"
+	"github.com/juju/juju/apiserver/params"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ClientSuite struct {
@@ -252,6 +252,21 @@ func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=3&size=123&type=file", res.Fingerprint.Hex())
 	c.Assert(doer.url, gc.Equals, expectedURL)
 	c.Assert(doer.body, gc.Equals, "")
+}
+
+func (s *ClientSuite) TestCACert(c *gc.C) {
+	call := func(objType string, version int, id, request string, args, response interface{}) error {
+		c.Check(objType, gc.Equals, "MigrationTarget")
+		c.Check(request, gc.Equals, "CACert")
+		c.Check(args, gc.Equals, nil)
+		c.Check(response, gc.FitsTypeOf, (*params.BytesResult)(nil))
+		response.(*params.BytesResult).Result = []byte("foo cert")
+		return nil
+	}
+	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
+	r, err := client.CACert()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.Equals, "foo cert")
 }
 
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {

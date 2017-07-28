@@ -5,18 +5,18 @@ package featuretests
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	apicloud "github.com/juju/1.25-upgrade/juju2/api/cloud"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/commands"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
 )
 
 type cmdCredentialSuite struct {
@@ -24,9 +24,9 @@ type cmdCredentialSuite struct {
 }
 
 func (s *cmdCredentialSuite) run(c *gc.C, args ...string) *cmd.Context {
-	context := testing.Context(c)
+	context := cmdtesting.Context(c)
 	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	c.Assert(command.Run(context), jc.ErrorIsNil)
 	loggo.RemoveWriter("warning")
 	return context

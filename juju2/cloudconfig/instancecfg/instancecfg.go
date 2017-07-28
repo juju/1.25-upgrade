@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,23 +22,23 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/paths"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/state/multiwatcher"
+	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
@@ -184,11 +185,39 @@ type BootstrapConfig struct {
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 
+	// InitialSSHHostKeys contains the initial SSH host keys to configure
+	// on the bootstrap machine, indexed by algorithm. These will only be
+	// valid for the initial SSH connection. The first thing we do upon
+	// making the initial SSH connection is to replace each of these host
+	// keys, to avoid the host keys being extracted from the metadata
+	// service by a bad actor post-bootstrap.
+	//
+	// Any existing host keys on the machine with algorithms not specified
+	// in the map will be left alone. This is important so that we do not
+	// trample on the host keys of manually provisioned machines.
+	InitialSSHHostKeys SSHHostKeys
+
 	// StateServingInfo holds the information for serving the state.
 	// This is only specified for bootstrap; controllers started
 	// subsequently will acquire their serving info from another
 	// server.
 	StateServingInfo params.StateServingInfo
+}
+
+// SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
+type SSHHostKeys struct {
+	// RSA, if non-nil, contains the RSA key to configure as the initial
+	// SSH host key.
+	RSA *SSHKeyPair
+}
+
+// SSHKeyPair is an SSH host key pair.
+type SSHKeyPair struct {
+	// Private contains the private key, PEM-encoded.
+	Private string
+
+	// Public contains the public key in authorized_keys format.
+	Public string
 }
 
 // StateInitializationParams contains parameters for initializing the
@@ -199,6 +228,10 @@ type BootstrapConfig struct {
 type StateInitializationParams struct {
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
+
+	// ControllerModelEnvironVersion holds the initial controller model
+	// environ version.
+	ControllerModelEnvironVersion int
 
 	// ControllerCloud contains the properties of the cloud that Juju will
 	// be bootstrapped in.
@@ -258,6 +291,7 @@ type StateInitializationParams struct {
 type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
+	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
@@ -285,6 +319,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	internal := stateInitializationParamsInternal{
 		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
+		p.ControllerModelEnvironVersion,
 		p.ControllerInheritedConfig,
 		p.RegionInheritedConfig,
 		p.HostedModelConfig,
@@ -323,6 +358,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	*p = StateInitializationParams{
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
+		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,
@@ -434,6 +470,24 @@ func (cfg *InstanceConfig) APIHostAddrs() []string {
 	}
 	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
+	}
+	return hosts
+}
+
+func (cfg *InstanceConfig) APIHosts() []string {
+	var hosts []string
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, "localhost")
+	}
+	if cfg.APIInfo != nil {
+		for _, addr := range cfg.APIInfo.Addrs {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				logger.Errorf("Can't split API address %q to host:port - %q", host, err)
+				continue
+			}
+			hosts = append(hosts, host)
+		}
 	}
 	return hosts
 }
@@ -633,13 +687,9 @@ func (cfg *ControllerConfig) VerifyConfig() error {
 	return nil
 }
 
-// DefaultBridgePrefix is the prefix for all network bridge device
-// name used for LXC and KVM containers.
-const DefaultBridgePrefix = "br-"
-
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
-const DefaultBridgeName = DefaultBridgePrefix + "eth0"
+const DefaultBridgeName = "br-eth0"
 
 // NewInstanceConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
@@ -743,6 +793,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
 	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	icfg.ProxySettings = proxySettings
+	icfg.ProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
 	icfg.AptProxySettings = aptProxySettings
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates

@@ -10,9 +10,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/jujuclient"
 )
 
 type setDefaultRegionCommand struct {

@@ -6,7 +6,7 @@ package common
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/state"
 )
 
 type BlockGetter interface {

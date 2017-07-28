@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/arch"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/instance"
 )
 
 // The following constants list the supported constraint attribute names, as defined

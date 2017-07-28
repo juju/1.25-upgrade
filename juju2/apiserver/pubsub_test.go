@@ -4,30 +4,31 @@
 package apiserver_test
 
 import (
-	"bufio"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type pubsubSuite struct {
 	statetesting.StateSuite
+	pool       *state.StatePool
 	machineTag names.Tag
 	password   string
 	nonce      string
@@ -48,7 +49,9 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
-	_, s.server = newServerWithHub(c, s.State, s.hub)
+	s.pool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.pool.Close() })
+	_, s.server = newServerWithHub(c, s.pool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
 
 	// A net.TCPAddr cannot be directly stringified into a valid hostname.
@@ -97,9 +100,8 @@ func (s *pubsubSuite) TestRejectsIncorrectNonce(c *gc.C) {
 func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
-	assertJSONError(c, reader, message)
-	assertWebsocketClosed(c, reader)
+	websockettest.AssertJSONError(c, conn, message)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *pubsubSuite) TestMessage(c *gc.C) {
@@ -107,10 +109,10 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 	done := make(chan struct{})
 	loggo.GetLogger("pubsub").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, err := s.hub.Subscribe(pubsub.MatchAll, func(topic pubsub.Topic, data map[string]interface{}) {
+	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(topic string, data map[string]interface{}) {
 		c.Logf("topic: %q, data: %v", topic, data)
 		messages = append(messages, params.PubSubMessage{
-			Topic: string(topic),
+			Topic: topic,
 			Data:  data,
 		})
 		done <- struct{}{}
@@ -119,11 +121,9 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 
 	conn := s.dialWebsocket(c)
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
 
 	// Read back the nil error, indicating that all is well.
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.IsNil)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	message1 := params.PubSubMessage{
 		Topic: "first",
@@ -131,7 +131,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 			"origin":  "other",
 			"message": "first message",
 		}}
-	err = websocket.JSON.Send(conn, &message1)
+	err = conn.WriteJSON(&message1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	message2 := params.PubSubMessage{
@@ -140,18 +140,18 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 			"origin": "other",
 			"value":  false,
 		}}
-	err = websocket.JSON.Send(conn, &message2)
+	err = conn.WriteJSON(&message2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no first message")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no second message")
 	}
 

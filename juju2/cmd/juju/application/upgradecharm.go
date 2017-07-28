@@ -6,7 +6,6 @@ package application
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -19,18 +18,20 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/charms"
-	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourceadapters"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/storage"
 )
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
@@ -63,6 +64,7 @@ func NewUpgradeCharmCommand() cmd.Command {
 // by the upgrade-charm command.
 type CharmUpgradeClient interface {
 	GetCharmURL(string) (*charm.URL, error)
+	Get(string) (*params.ApplicationGetResults, error)
 	SetCharm(application.SetCharmConfig) error
 }
 
@@ -297,17 +299,17 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, c.Channel)
 	charmRepo := c.getCharmStore(bakeryClient, modelConfig)
-	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef)
+
+	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
 	if err != nil {
-		if termsErr, ok := errors.Cause(err).(*termsRequiredError); ok {
-			terms := strings.Join(termsErr.Terms, " ")
-			return errors.Wrap(
-				termsErr,
-				errors.Errorf(
-					`Declined: please agree to the following terms %s. Try: "juju agree %[1]s"`,
-					terms,
-				),
-			)
+		return errors.Trace(err)
+	}
+	deployedSeries := applicationInfo.Series
+
+	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries)
+	if err != nil {
+		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
+			return errors.Trace(termErr.UserErr())
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -499,10 +501,12 @@ func (c *upgradeCharmCommand) addCharm(
 	config *config.Config,
 	oldURL *charm.URL,
 	charmRef string,
+	deployedSeries string,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
-	// Charm may have been supplied via a path reference.
-	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(charmRef, oldURL.Series, c.ForceSeries)
+	// Charm may have been supplied via a path reference. If so, build a
+	// local charm URL from the deployed series.
+	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(charmRef, deployedSeries, c.ForceSeries)
 	if err == nil {
 		newName := ch.Meta().Name
 		if newName != oldURL.Name {
@@ -532,14 +536,15 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Trace(err)
 	}
 	id.Channel = channel
-	if !c.ForceSeries && oldURL.Series != "" && newURL.Series == "" && !isSeriesSupported(oldURL.Series, supportedSeries) {
+	_, seriesSupportedErr := charm.SeriesForCharm(deployedSeries, supportedSeries)
+	if !c.ForceSeries && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
 		if len(supportedSeries) > 0 {
 			series = supportedSeries
 		}
 		return id, nil, errors.Errorf(
 			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			oldURL.Series, series,
+			deployedSeries, series,
 		)
 	}
 	// If no explicit revision was set with either SwitchURL

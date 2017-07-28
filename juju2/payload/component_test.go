@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/payload"
 )
 
 type componentSuite struct {

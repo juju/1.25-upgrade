@@ -8,9 +8,9 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // Service represents the state of a service.
@@ -32,7 +32,7 @@ func (s *Application) Tag() names.ApplicationTag {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.facade, s.tag)
+	return common.Watch(s.st.facade, "Watch", s.tag)
 }
 
 // Life returns the service's current life state.

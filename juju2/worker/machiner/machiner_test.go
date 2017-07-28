@@ -14,14 +14,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/machiner"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/machiner"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -86,7 +87,7 @@ func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = stopWorker(w)
-	c.Assert(errors.Cause(err), gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(errors.Cause(err), gc.Equals, jworker.ErrTerminateAgent)
 	c.Assert(bool(machineDead), jc.IsFalse)
 }
 
@@ -115,7 +116,7 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
-	c.Assert(errors.Cause(err), gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(errors.Cause(err), gc.Equals, jworker.ErrTerminateAgent)
 
 	// the "machineDead" callback should not be invoked
 	// because we don't know whether the agent is
@@ -312,7 +313,7 @@ func (s *MachinerSuite) TestSetDead(c *gc.C) {
 	s.accessor.machine.watcher.changes <- struct{}{}
 
 	err := stopWorker(mr)
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
 	c.Assert(bool(machineDead), jc.IsTrue)
 }
 

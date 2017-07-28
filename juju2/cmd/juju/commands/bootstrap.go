@@ -19,28 +19,28 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/sync"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/provider/lxd/lxdnames"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/lxd/lxdnames"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind
 // feature flags.
-var provisionalProviders = map[string]string{
-	"vsphere": feature.VSphereProvider,
-}
+var provisionalProviders = map[string]string{}
 
 var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
@@ -149,6 +149,7 @@ type bootstrapCommand struct {
 	Cloud               string
 	Region              string
 	noGUI               bool
+	noSwitch            bool
 	interactive         bool
 }
 
@@ -180,9 +181,10 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
+	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -376,6 +378,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
+		if err == cmd.ErrSilent {
+			return err
+		}
 		return errors.Trace(err)
 	}
 
@@ -456,14 +461,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
-		return errors.Trace(err)
-	}
 
-	// Set the current controller so "juju status" can be run while
-	// bootstrapping is underway.
-	if err := store.SetCurrentController(c.controllerName); err != nil {
-		return errors.Trace(err)
+	if !c.noSwitch {
+		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentController(c.controllerName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	cloudRegion := c.Cloud
@@ -484,7 +489,12 @@ bootstrap failed but --keep-broken was specified so resources are not being dest
 When you have finished diagnosing the problem, remember to clean up the failed controller.
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
-				handleBootstrapError(ctx, resultErr, func() error {
+				logger.Errorf("%v", resultErr)
+				logger.Debugf("(error details: %v)", errors.Details(resultErr))
+				// Set resultErr to cmd.ErrSilent to prevent
+				// logging the error twice.
+				resultErr = cmd.ErrSilent
+				handleBootstrapError(ctx, func() error {
 					return environsDestroy(
 						c.controllerName, environ, store,
 					)
@@ -574,7 +584,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName)); err != nil {
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -582,8 +592,21 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, config.controller.APIPort(), environ)
+	addrs, err := common.BootstrapEndpointAddresses(environ)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerDetailsFromLogin(
+		c.ClientStore(),
+		c.controllerName,
+		juju.UpdateControllerParams{
+			AgentVersion:           agentVersion.String(),
+			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
+			MachineCount:           newInt(1),
+			ControllerMachineCount: newInt(1),
+			ModelCount:             newInt(2), // controller model + default model
+		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
@@ -1003,7 +1026,7 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cloud, err := jujucloud.CloudByName(c.Cloud)
+	cloud, err := common.CloudByName(c.Cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1042,7 +1065,7 @@ func checkProviderType(envType string) error {
 }
 
 // handleBootstrapError is called to clean up if bootstrap fails.
-func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
+func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	ch := make(chan os.Signal, 1)
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)
@@ -1052,6 +1075,7 @@ func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
 			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
+	logger.Debugf("cleaning up after failed bootstrap")
 	if err := cleanup(); err != nil {
 		logger.Errorf("error cleaning up: %v", err)
 	}
@@ -1066,4 +1090,15 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 		err, "juju update-clouds",
 	)
 	return cmd.ErrSilent
+}
+
+func newInt(i int) *int {
+	return &i
+}
+
+func newStringIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

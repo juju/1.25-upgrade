@@ -6,8 +6,8 @@ package action
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Client provides access to the action facade.
@@ -84,7 +84,7 @@ func (c *Client) ListCompleted(arg params.Entities) (params.ActionsByReceivers, 
 }
 
 // Cancel attempts to cancel a queued up Action from running.
-func (c *Client) Cancel(arg params.Actions) (params.ActionResults, error) {
+func (c *Client) Cancel(arg params.Entities) (params.ActionResults, error) {
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Cancel", arg, &results)
 	return results, err

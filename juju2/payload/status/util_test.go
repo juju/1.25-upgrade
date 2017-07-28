@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/payload"
 )
 
 func NewPayload(name, service string, machine, unit int, labels ...string) payload.FullPayloadInfo {

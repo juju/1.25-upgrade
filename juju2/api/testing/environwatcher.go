@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type ModelWatcherFacade interface {
@@ -57,24 +57,24 @@ func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 
 	// Change the model configuration by updating an existing attribute, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
-	err = s.state.UpdateModelConfig(newAttrs, nil, nil)
+	err = s.state.UpdateModelConfig(newAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the model configuration by adding a new attribute, check it's detected.
 	newAttrs = map[string]interface{}{"foo": "bar"}
-	err = s.state.UpdateModelConfig(newAttrs, nil, nil)
+	err = s.state.UpdateModelConfig(newAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the model configuration by removing an attribute, check it's detected.
-	err = s.state.UpdateModelConfig(map[string]interface{}{}, []string{"foo"}, nil)
+	err = s.state.UpdateModelConfig(map[string]interface{}{}, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
 	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
-	err = s.state.UpdateModelConfig(oldAttrs, nil, nil)
+	err = s.state.UpdateModelConfig(oldAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

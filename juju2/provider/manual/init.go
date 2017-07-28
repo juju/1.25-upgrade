@@ -3,13 +3,13 @@
 
 package manual
 
-import "github.com/juju/1.25-upgrade/juju2/environs"
+import "github.com/juju/juju/environs"
 
 const (
 	providerType = "manual"
 )
 
 func init() {
-	p := manualProvider{}
+	p := ManualProvider{}
 	environs.RegisterProvider(providerType, p, "null")
 }

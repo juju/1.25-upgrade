@@ -10,8 +10,8 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type RunCommandsSuite struct {

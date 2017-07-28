@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/manual/sshprovisioner"
-	"github.com/juju/1.25-upgrade/juju2/service"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/service"
 )
 
 // sshscript should only print the result on the first execution,

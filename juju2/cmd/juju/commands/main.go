@@ -20,37 +20,37 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/action"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/application"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/backups"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cachedimages"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/charmcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/controller"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/gui"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/machine"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/metricsdebug"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
-	rcmd "github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/commands"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/setmeterstatus"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/space"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/status"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/storage"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/subnet"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/user"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/juju"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/utils/proxy"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 	// Import the providers.
-	cloudfile "github.com/juju/1.25-upgrade/juju2/cloud"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
+	cloudfile "github.com/juju/juju/cloud"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/charmcmd"
+	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/gui"
+	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/metricsdebug"
+	"github.com/juju/juju/cmd/juju/model"
+	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
+	"github.com/juju/juju/cmd/juju/setmeterstatus"
+	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/juju/status"
+	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/utils/proxy"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.commands")
@@ -131,7 +131,7 @@ type main struct {
 func (m main) Run(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		return 2
 	}
 
@@ -140,12 +140,12 @@ func (m main) Run(args []string) int {
 	newInstall := m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return 2
 	}
 
 	if err := installProxy(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return 2
 	}
 
@@ -153,7 +153,7 @@ func (m main) Run(args []string) int {
 		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdateCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
-			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+			cmd.WriteError(ctx.Stderr, err)
 		}
 	}
 
@@ -275,11 +275,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(crossmodel.NewShowOfferedEndpointCommand())
 		r.Register(crossmodel.NewListEndpointsCommand())
 		r.Register(crossmodel.NewFindEndpointsCommand())
+		r.Register(application.NewConsumeCommand())
 	}
 
 	// Destruction commands.
 	r.Register(application.NewRemoveRelationCommand())
-	r.Register(application.NewRemoveServiceCommand())
+	r.Register(application.NewRemoveApplicationCommand())
 	r.Register(application.NewRemoveUnitCommand())
 
 	// Reporting commands.
@@ -363,6 +364,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewRunCommand())
 	r.Register(action.NewShowOutputCommand())
 	r.Register(action.NewListCommand())
+	r.Register(action.NewCancelCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())
@@ -370,7 +372,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage and control services
 	r.Register(application.NewAddUnitCommand())
 	r.Register(application.NewConfigCommand())
-	r.Register(application.NewDefaultDeployCommand())
+	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewServiceGetConstraintsCommand())
@@ -387,10 +389,16 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(storage.NewPoolCreateCommand())
 	r.Register(storage.NewPoolListCommand())
 	r.Register(storage.NewShowCommand())
+	r.Register(storage.NewRemoveStorageCommandWithAPI())
+	if featureflag.Enabled(feature.PersistentStorage) {
+		r.Register(storage.NewDetachStorageCommandWithAPI())
+		r.Register(storage.NewAttachStorageCommandWithAPI())
+	}
 
 	// Manage spaces
 	r.Register(space.NewAddCommand())
 	r.Register(space.NewListCommand())
+	r.Register(space.NewReloadCommand())
 	if featureflag.Enabled(feature.PostNetCLIMVP) {
 		r.Register(space.NewRemoveCommand())
 		r.Register(space.NewUpdateCommand())

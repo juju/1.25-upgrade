@@ -6,7 +6,7 @@ package bundle_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

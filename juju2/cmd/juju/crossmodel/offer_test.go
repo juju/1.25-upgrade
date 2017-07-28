@@ -5,14 +5,14 @@ package crossmodel_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/crossmodel"
 )
 
 type offerSuite struct {
@@ -34,30 +34,35 @@ func (s *offerSuite) TestOfferNoArgs(c *gc.C) {
 	s.assertOfferErrorOutput(c, ".*an offer must at least specify application endpoint.*")
 }
 
-func (s *offerSuite) TestOfferTooFewArgs(c *gc.C) {
-	s.args = []string{"tst:db"}
-	s.assertOfferErrorOutput(c, "an offer must specify a url")
+func (s *offerSuite) TestOfferTooManyArgs(c *gc.C) {
+	s.args = []string{"tst:db", "alias", "extra"}
+	s.assertOfferErrorOutput(c, `unrecognized args: \["extra"\]`)
 }
 
 func (s *offerSuite) TestOfferInvalidApplication(c *gc.C) {
-	s.args = []string{"123:", "local:/u/bob/testing/tst"}
+	s.args = []string{"123:"}
 	s.assertOfferErrorOutput(c, `.*application name "123" not valid.*`)
 }
 
+func (s *offerSuite) TestOfferInvalidModel(c *gc.C) {
+	s.args = []string{"$model.123:db"}
+	s.assertOfferErrorOutput(c, `.*model name "\$model" not valid.*`)
+}
+
+func (s *offerSuite) TestOfferNoCurrentModel(c *gc.C) {
+	s.store.Models["test-master"].CurrentModel = ""
+	s.args = []string{"app:db"}
+	s.assertOfferErrorOutput(c, `no current model, use juju switch to select a model on which to operate`)
+}
+
 func (s *offerSuite) TestOfferInvalidEndpoints(c *gc.C) {
-	s.args = []string{"tst/123", "local:/u/bob/testing/tst"}
+	s.args = []string{"tst/123"}
 	s.assertOfferErrorOutput(c, `.*endpoints must conform to format.*`)
 }
 
 func (s *offerSuite) TestOfferNoEndpoints(c *gc.C) {
-	s.args = []string{"tst:", "local:/u/bob/testing/tst"}
+	s.args = []string{"tst:"}
 	s.assertOfferErrorOutput(c, `.*specify endpoints for tst.*`)
-}
-
-func (s *offerSuite) TestOfferNoModel(c *gc.C) {
-	s.store.Models[s.store.CurrentControllerName].CurrentModel = ""
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
-	s.assertOfferErrorOutput(c, `current model for controller test-master not found`)
 }
 
 func (s *offerSuite) assertOfferErrorOutput(c *gc.C, expected string) {
@@ -66,62 +71,61 @@ func (s *offerSuite) assertOfferErrorOutput(c *gc.C, expected string) {
 }
 
 func (s *offerSuite) runOffer(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewOfferCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewOfferCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *offerSuite) TestOfferCallErred(c *gc.C) {
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
+	s.args = []string{"tst:db"}
 	s.mockAPI.errCall = true
 	s.assertOfferErrorOutput(c, ".*aborted.*")
 }
 
 func (s *offerSuite) TestOfferDataErred(c *gc.C) {
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
+	s.args = []string{"tst:db"}
 	s.mockAPI.errData = true
 	s.assertOfferErrorOutput(c, ".*failed.*")
 }
 
 func (s *offerSuite) TestOfferValid(c *gc.C) {
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
-	s.assertOfferOutput(c, "test", "tst", []string{"db"}, "local:/u/bob/testing/tst")
+	s.args = []string{"tst:db"}
+	s.assertOfferOutput(c, "test", "tst", "tst", []string{"db"})
+	c.Assert(s.mockAPI.modelUUID, gc.Equals, "fred-uuid")
+}
+
+func (s *offerSuite) TestOfferWithAlias(c *gc.C) {
+	s.args = []string{"tst:db", "hosted-tst"}
+	s.assertOfferOutput(c, "test", "hosted-tst", "tst", []string{"db"})
 }
 
 func (s *offerSuite) TestOfferExplicitModel(c *gc.C) {
-	s.args = []string{"prod.tst:db", "local:/u/bob/testing/tst"}
-	s.assertOfferOutput(c, "prod", "tst", []string{"db"}, "local:/u/bob/testing/tst")
-}
-
-func (s *offerSuite) TestOfferWithURL(c *gc.C) {
-	s.args = []string{"tst:db", "/u/user/offer"}
-	s.assertOfferOutput(c, "test", "tst", []string{"db"}, "/u/user/offer")
+	s.args = []string{"bob/prod.tst:db"}
+	s.assertOfferOutput(c, "prod", "tst", "tst", []string{"db"})
 }
 
 func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
-	s.args = []string{"tst:db,admin", "local:/u/bob/testing/tst"}
-	s.assertOfferOutput(c, "test", "tst", []string{"db", "admin"}, "local:/u/bob/testing/tst")
+	s.args = []string{"tst:db,admin"}
+	s.assertOfferOutput(c, "test", "tst", "tst", []string{"db", "admin"})
 }
 
-func (s *offerSuite) assertOfferOutput(c *gc.C, expectedModel, expectedApplication string, endpoints []string, url string) {
+func (s *offerSuite) assertOfferOutput(c *gc.C, expectedModel, expectedOffer, expectedApplication string, endpoints []string) {
 	_, err := s.runOffer(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.model, gc.Equals, expectedModel+"-uuid")
-	c.Assert(s.mockAPI.offers[expectedApplication], jc.SameContents, endpoints)
-	c.Assert(s.mockAPI.urls[expectedApplication], jc.DeepEquals, url)
+	c.Assert(s.mockAPI.offers[expectedOffer], jc.SameContents, endpoints)
 }
 
 type mockOfferAPI struct {
 	errCall, errData bool
-	model            string
+	modelUUID        string
 	offers           map[string][]string
-	urls             map[string]string
+	applications     map[string]string
 	descs            map[string]string
 }
 
 func newMockOfferAPI() *mockOfferAPI {
 	mock := &mockOfferAPI{}
 	mock.offers = make(map[string][]string)
-	mock.urls = make(map[string]string)
 	mock.descs = make(map[string]string)
+	mock.applications = make(map[string]string)
 	return mock
 }
 
@@ -129,8 +133,7 @@ func (s *mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s *mockOfferAPI) Offer(model, application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error) {
-	s.model = model
+func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, offerName, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}
@@ -139,8 +142,12 @@ func (s *mockOfferAPI) Offer(model, application string, endpoints []string, url 
 		result[0].Error = common.ServerError(errors.New("failed"))
 		return result, nil
 	}
-	s.offers[application] = endpoints
-	s.urls[application] = url
-	s.descs[application] = desc
+	s.modelUUID = modelUUID
+	if offerName == "" {
+		offerName = application
+	}
+	s.offers[offerName] = endpoints
+	s.applications[offerName] = application
+	s.descs[offerName] = desc
 	return result, nil
 }

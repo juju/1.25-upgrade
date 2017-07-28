@@ -15,9 +15,9 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	macaroon "gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/authentication"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 var (

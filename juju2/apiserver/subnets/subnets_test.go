@@ -10,15 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/networkingcommon"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/subnets"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	providercommon "github.com/juju/1.25-upgrade/juju2/provider/common"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/subnets"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	providercommon "github.com/juju/juju/provider/common"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type SubnetsSuite struct {
@@ -535,18 +535,21 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	}
 	expectedBackingInfos := []networkingcommon.BackingSubnetInfo{{
 		ProviderId:        "sn-ipv6",
+		ProviderNetworkId: "",
 		CIDR:              "2001:db8::/32",
 		VLANTag:           0,
 		AvailabilityZones: []string{"zone1"},
 		SpaceName:         "dmz",
 	}, {
 		ProviderId:        "vlan-42",
+		ProviderNetworkId: "",
 		CIDR:              "10.30.1.0/24",
 		VLANTag:           42,
 		AvailabilityZones: []string{"zone3"},
 		SpaceName:         "private",
 	}, {
 		ProviderId:        "sn-zadf00d",
+		ProviderNetworkId: "godspeed",
 		CIDR:              "10.10.0.0/24",
 		VLANTag:           0,
 		AvailabilityZones: []string{"zone1"},
@@ -792,21 +795,23 @@ func (s *SubnetsSuite) TestAddSubnetsWhenNetworkingEnvironNotSupported(c *gc.C) 
 
 func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 	expected := []params.Subnet{{
-		CIDR:       "10.10.0.0/24",
-		ProviderId: "sn-zadf00d",
-		VLANTag:    0,
-		Life:       "",
-		SpaceTag:   "space-private",
-		Zones:      []string{"zone1"},
-		Status:     "",
+		CIDR:              "10.10.0.0/24",
+		ProviderId:        "sn-zadf00d",
+		ProviderNetworkId: "godspeed",
+		VLANTag:           0,
+		Life:              "",
+		SpaceTag:          "space-private",
+		Zones:             []string{"zone1"},
+		Status:            "",
 	}, {
-		CIDR:       "2001:db8::/32",
-		ProviderId: "sn-ipv6",
-		VLANTag:    0,
-		Life:       "",
-		SpaceTag:   "space-dmz",
-		Zones:      []string{"zone1", "zone3"},
-		Status:     "",
+		CIDR:              "2001:db8::/32",
+		ProviderId:        "sn-ipv6",
+		ProviderNetworkId: "",
+		VLANTag:           0,
+		Life:              "",
+		SpaceTag:          "space-dmz",
+		Zones:             []string{"zone1", "zone3"},
+		Status:            "",
 	}}
 	// No filtering.
 	args := params.SubnetsFilters{}

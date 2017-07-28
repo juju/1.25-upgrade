@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -17,22 +18,21 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs/sync"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/sync"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/jujuclient"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type syncToolsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	fakeSyncToolsAPI *fakeSyncToolsAPI
-	store            *jujuclienttesting.MemStore
+	store            *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&syncToolsSuite{})
@@ -43,7 +43,7 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
@@ -58,7 +58,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 func (s *syncToolsSuite) runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmd := &syncToolsCommand{}
 	cmd.SetClientStore(s.store)
-	return coretesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var syncToolsCommandTests = []struct {

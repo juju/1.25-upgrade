@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/commands"
+	"github.com/juju/juju/cmd/juju/romulus/commands"
 )
 
 type commandSuite struct{}
@@ -34,13 +34,13 @@ func (s *commandSuite) TestRegister(c *gc.C) {
 	c.Assert(m.commands, gc.DeepEquals, []string{
 		"agree",
 		"agreements",
-		"allocate",
-		"budgets",
-		"create-budget",
+		"budget",
+		"create-wallet",
 		"plans",
-		"set-budget",
+		"set-wallet",
 		"set-plan",
-		"show-budget",
-		"update-allocation",
+		"show-wallet",
+		"sla",
+		"wallets",
 	})
 }

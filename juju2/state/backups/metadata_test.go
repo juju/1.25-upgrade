@@ -13,8 +13,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state/backups"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/testing"
 )
 
 type metadataSuite struct {

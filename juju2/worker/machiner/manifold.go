@@ -5,15 +5,15 @@ package machiner
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	apiagent "github.com/juju/1.25-upgrade/juju2/api/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apimachiner "github.com/juju/1.25-upgrade/juju2/api/machiner"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/agent"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
+	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

@@ -6,16 +6,16 @@ package application
 import (
 	"regexp"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
+	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 const endpointSeparator = ":"
@@ -43,11 +43,11 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationRemoteApplications(c *gc.C
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
-	s.assertAddedRelation(c, "applicationname", "local:/u/user/applicationname2")
+	s.assertAddedRelation(c, "applicationname", "othermodel.applicationname2")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
-	s.assertAddedRelation(c, "local:/u/user/applicationname2", "applicationname")
+	s.assertAddedRelation(c, "othermodel.applicationname2", "applicationname")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
@@ -56,7 +56,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 
-	err := s.runAddRelation(c, "local:/u/user/applicationname2", "applicationname")
+	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
 	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation", "Close")
 }
@@ -69,7 +69,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationClientRetrievalFailure(c *
 		return nil, errors.New(msg)
 	}
 
-	_, err := testing.RunCommand(c, modelcmd.Wrap(addRelationCmd), "local:/u/user/applicationname2", "applicationname")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -94,13 +94,13 @@ func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationRemoteApplications(c *gc.C
 }
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
-	err := s.runAddRelation(c, "applicationname", "local:/u/user/applicationname2")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [applicationname local:/u/user/applicationname2]: remote endpoints not supported"))
+	err := s.runAddRelation(c, "applicationname", "othermodel.applicationname2")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [applicationname othermodel.applicationname2]: remote endpoints not supported"))
 }
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
-	err := s.runAddRelation(c, "local:/u/user/applicationname2", "applicationname")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [local:/u/user/applicationname2 applicationname]: remote endpoints not supported"))
+	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [othermodel.applicationname2 applicationname]: remote endpoints not supported"))
 }
 
 // AddRelationValidationSuite has input validation tests.
@@ -166,12 +166,12 @@ func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) err
 	addRelationCmd.newAPIFunc = func() (ApplicationAddRelationAPI, error) {
 		return s.mockAPI, nil
 	}
-	_, err := testing.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
 	return err
 }
 
 func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(c *gc.C) {
-	err := s.runAddRelation(c, "local:/u/user/applicationname1", "local:/u/user/applicationname2")
+	err := s.runAddRelation(c, "othermodel.applicationname1", "othermodel.applicationname2")
 	c.Assert(err, gc.ErrorMatches, "providing more than one remote endpoints not supported")
 }
 

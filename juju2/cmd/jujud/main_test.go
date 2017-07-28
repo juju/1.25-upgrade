@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,47 +18,21 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/juju/names"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
-
-var caCertFile string
-
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
-func mktemp(prefix string, content string) string {
-	f, err := ioutil.TempFile("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.WriteString(content)
-	if err != nil {
-		panic(err)
-	}
-	f.Close()
-	return f.Name()
-}
 
 func TestPackage(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 
-	// Create a CA certificate available for all tests.
-	caCertFile = mktemp("juju-test-cert", coretesting.CACert)
-	defer os.Remove(caCertFile)
-
-	coretesting.MgoTestPackage(t)
+	coretesting.MgoSSLTestPackage(t)
 }
 
 type MainSuite struct{}
@@ -84,7 +57,7 @@ func checkMessage(c *gc.C, msg string, cmd ...string) {
 	c.Logf(string(output))
 	c.Assert(err, gc.ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
-	c.Assert(lines[len(lines)-2], gc.Equals, "error: "+msg)
+	c.Assert(lines[len(lines)-2], jc.Contains, msg)
 }
 
 func (s *MainSuite) TestParseErrors(c *gc.C) {
@@ -182,7 +155,7 @@ func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd
 	ps.Env = []string{
 		fmt.Sprintf("JUJU_AGENT_SOCKET=%s", sockPath),
 		fmt.Sprintf("JUJU_CONTEXT_ID=%s", contextId),
-		// Code that imports github.com/juju/1.25-upgrade/juju2/testing needs to
+		// Code that imports github.com/juju/juju/testing needs to
 		// be able to find that module at runtime (via build.Import),
 		// so we have to preserve that env variable.
 		os.ExpandEnv("GOPATH=${GOPATH}"),
@@ -212,6 +185,7 @@ func osDependentSockPath(c *gc.C) string {
 }
 
 func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
+	loggo.DefaultContext().AddWriter("default", cmd.NewWarningWriter(os.Stderr))
 	factory := func(contextId, cmdName string) (cmd.Command, error) {
 		if contextId != "bill" {
 			return nil, fmt.Errorf("bad context: %s", contextId)
@@ -241,14 +215,14 @@ var argsTests = []struct {
 	code   int
 	output string
 }{
-	{[]string{"jujuc", "whatever"}, 2, jujudDoc + "error: jujuc should not be called directly\n"},
+	{[]string{"jujuc", "whatever"}, 2, "jujuc should not be called directly\n"},
 	{[]string{"remote"}, 0, "success!\n"},
 	{[]string{"/path/to/remote"}, 0, "success!\n"},
 	{[]string{"remote", "--help"}, 0, expectUsage},
-	{[]string{"unknown"}, 1, "error: bad request: bad command: unknown\n"},
-	{[]string{"remote", "--error", "borken"}, 1, "error: borken\n"},
-	{[]string{"remote", "--unknown"}, 2, "error: flag provided but not defined: --unknown\n"},
-	{[]string{"remote", "unwanted"}, 2, `error: unrecognized args: ["unwanted"]` + "\n"},
+	{[]string{"unknown"}, 1, "bad request: bad command: unknown\n"},
+	{[]string{"remote", "--error", "borken"}, 1, "borken\n"},
+	{[]string{"remote", "--unknown"}, 2, "flag provided but not defined: --unknown\n"},
+	{[]string{"remote", "unwanted"}, 2, `unrecognized args: ["unwanted"]` + "\n"},
 }
 
 func (s *JujuCMainSuite) TestArgs(c *gc.C) {
@@ -258,7 +232,8 @@ func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 	for _, t := range argsTests {
 		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, nil, t.args...)
-		c.Assert(output, gc.Equals, t.output)
+		c.Assert(output, jc.Contains, t.output)
+
 	}
 }
 
@@ -267,7 +242,7 @@ func (s *JujuCMainSuite) TestNoClientId(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	output := run(c, s.sockPath, "", 1, nil, "remote")
-	c.Assert(output, gc.Equals, "error: JUJU_CONTEXT_ID not set\n")
+	c.Assert(output, jc.Contains, "JUJU_CONTEXT_ID not set\n")
 }
 
 func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
@@ -275,7 +250,7 @@ func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	output := run(c, s.sockPath, "ben", 1, nil, "remote")
-	c.Assert(output, gc.Equals, "error: bad request: bad context: ben\n")
+	c.Assert(output, jc.Contains, "bad request: bad context: ben\n")
 }
 
 func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
@@ -283,7 +258,7 @@ func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	output := run(c, "", "bill", 1, nil, "remote")
-	c.Assert(output, gc.Equals, "error: JUJU_AGENT_SOCKET not set\n")
+	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET not set\n")
 }
 
 func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
@@ -292,7 +267,7 @@ func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
 	}
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, nil, "remote")
-	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
+	err := fmt.Sprintf("^.* dial unix %s: .*\n", badSock)
 	c.Assert(output, gc.Matches, err)
 }
 

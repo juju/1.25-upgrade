@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/utils/os"
 
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

@@ -12,19 +12,19 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 // Register the state tracker as a new profile.
@@ -57,6 +57,10 @@ type OpenParams struct {
 	// be called after mgo/txn transactions are run, successfully
 	// or not.
 	RunTransactionObserver RunTransactionObserverFunc
+
+	// InitDatabaseFunc, if non-nil, is a function that will be called
+	// just after the state database is opened.
+	InitDatabaseFunc InitDatabaseFunc
 }
 
 // Validate validates the OpenParams.
@@ -89,6 +93,8 @@ func Open(args OpenParams) (*State, error) {
 		args.ControllerModelTag,
 		args.MongoInfo,
 		args.MongoDialOpts,
+		args.InitDatabaseFunc,
+		nil,
 		args.NewPolicy,
 		args.Clock,
 		args.RunTransactionObserver,
@@ -100,7 +106,7 @@ func Open(args OpenParams) (*State, error) {
 		if err := st.Close(); err != nil {
 			logger.Errorf("closing State for %s: %v", args.ControllerModelTag, err)
 		}
-		return nil, errors.Annotatef(err, "cannot read model %s", args.ControllerModelTag.Id())
+		return nil, maybeUnauthorized(err, fmt.Sprintf("cannot read model %s", args.ControllerModelTag.Id()))
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
@@ -114,6 +120,8 @@ func Open(args OpenParams) (*State, error) {
 func open(
 	controllerModelTag names.ModelTag,
 	info *mongo.MongoInfo, opts mongo.DialOpts,
+	initDatabase InitDatabaseFunc,
+	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -137,6 +145,14 @@ func open(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if initDatabase != nil {
+		if err := initDatabase(session, controllerModelTag.Id(), controllerConfig); err != nil {
+			session.Close()
+			return nil, errors.Trace(err)
+		}
+		logger.Debugf("mongodb initialised")
+	}
+
 	return st, nil
 }
 
@@ -240,6 +256,26 @@ func (p InitializeParams) Validate() error {
 	return nil
 }
 
+// InitDatabaseFunc defines a function used to
+// create the collections and indices in a Juju database.
+type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
+
+// InitDatabase creates all the collections and indices in a Juju database.
+func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.Config) error {
+	schema := allCollections()
+	err := schema.Create(
+		session.DB(jujuDB),
+		settings,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := InitDbLogs(session, modelUUID); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
@@ -248,10 +284,14 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.Annotate(err, "validating initialization args")
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock, nil)
+	if !names.IsValidModel(modelTag.Id()) {
+		return nil, errors.New("invalid model UUID")
+	}
+
+	st, err := open(
+		modelTag, args.MongoInfo, args.MongoDialOpts,
+		InitDatabase, &args.ControllerConfig, args.NewPolicy, args.Clock, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -275,7 +315,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(
+	modelOps, modelStatusDoc, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
 		&lineage{
@@ -350,6 +390,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
 	return st, nil
 }
 
@@ -361,19 +402,20 @@ type lineage struct {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, statusDoc, error) {
+	var modelStatusDoc statusDoc
 	if inherited != nil {
 		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
-			return nil, errors.Trace(err)
+			return nil, modelStatusDoc, errors.Trace(err)
 		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 
 	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
-	modelStatusDoc := statusDoc{
+	modelStatusDoc = statusDoc{
 		ModelUUID: modelUUID,
 		Updated:   st.clock.Now().UnixNano(),
 		Status:    status.Available,
@@ -394,7 +436,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	// Create the default storage pools for the model.
 	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	ops = append(ops, defaultStoragePoolsOps...)
 
@@ -428,7 +470,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	// Some values require marshalling before storage.
 	modelCfg = config.CoerceForStorage(modelCfg)
@@ -441,11 +483,12 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			modelUUID, controllerUUID,
 			args.CloudName, args.CloudRegion, args.CloudCredential,
 			args.MigrationMode,
+			args.EnvironVersion,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
-	return ops, nil
+	return ops, modelStatusDoc, nil
 }
 
 func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
@@ -498,6 +541,7 @@ func isUnauthorized(err error) bool {
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
+			err.Code == 13 ||
 			err.Message == "need to login" ||
 			err.Message == "unauthorized"
 	}
@@ -507,6 +551,7 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with no running workers or
 // controllerTag. You must start() the returned *State before it will
 // function correctly.
+// modelTag is used to filter all queries and transactions.
 //
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
@@ -524,18 +569,11 @@ func newState(
 		}
 	}()
 
-	// Set up database.
-	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(
-		rawDB,
-		modelTag.Id(),
-		runTransactionObserver,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := InitDbLogs(session); err != nil {
-		return nil, errors.Trace(err)
+	db := &database{
+		raw:                    session.DB(jujuDB),
+		schema:                 allCollections(),
+		modelUUID:              modelTag.Id(),
+		runTransactionObserver: runTransactionObserver,
 	}
 
 	// Create State.
@@ -545,7 +583,7 @@ func newState(
 		controllerModelTag:     controllerModelTag,
 		mongoInfo:              mongoInfo,
 		session:                session,
-		database:               database,
+		database:               db,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
 	}
@@ -571,35 +609,12 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 
-	var errs []error
-	handle := func(name string, err error) {
-		if err != nil {
-			errs = append(errs, errors.Annotatef(err, "error stopping %s", name))
-		}
-	}
 	if st.workers != nil {
-		handle("standard workers", worker.Stop(st.workers))
-	}
-
-	st.mu.Lock()
-	if st.allManager != nil {
-		handle("allwatcher manager", st.allManager.Stop())
-	}
-	if st.allModelManager != nil {
-		handle("allModelWatcher manager", st.allModelManager.Stop())
-	}
-	if st.allModelWatcherBacking != nil {
-		handle("allModelWatcher backing", st.allModelWatcherBacking.Release())
+		if err := worker.Stop(st.workers); err != nil {
+			return errors.Annotatef(err, "failed to stop workers")
+		}
 	}
 	st.session.Close()
-	st.mu.Unlock()
-
-	if len(errs) > 0 {
-		for _, err := range errs[1:] {
-			logger.Errorf("while closing state: %v", err)
-		}
-		return errs[0]
-	}
 	logger.Debugf("closed state without error")
 	// Remove the reference.
 	profileTracker.Remove(st)

@@ -26,28 +26,29 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	imagetesting "github.com/juju/1.25-upgrade/juju2/environs/imagemetadata/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/jujutest"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/provider/ec2"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/tags"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
@@ -55,6 +56,10 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"type":          "ec2",
 	"agent-version": coretesting.FakeVersionNumber.String(),
 })
+
+func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
+	return nil
+}
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -120,6 +125,7 @@ type localServer struct {
 
 	defaultVPC *amzec2.VPC
 	zones      []amzec2.AvailabilityZoneInfo
+	subnets    []amzec2.Subnet
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -368,29 +374,21 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
-		"output": map[interface{}]interface{}{
-			"all": "| tee -a /var/log/cloud-init-output.log",
-		},
-		"users": []interface{}{
-			map[interface{}]interface{}{
-				"name":        "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell":               "/bin/bash",
-				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
-			},
-		},
-		"runcmd": []interface{}{
-			"set -xe",
-			"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
-			"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
-			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-		},
+
+	var userDataMap map[string]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	var keys []string
+	for key := range userDataMap {
+		keys = append(keys, key)
+	}
+	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
+	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
+		"set -xe",
+		"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
+		"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
+		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -403,7 +401,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
+	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
@@ -453,29 +451,21 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
-		"output": map[interface{}]interface{}{
-			"all": "| tee -a /var/log/cloud-init-output.log",
-		},
-		"users": []interface{}{
-			map[interface{}]interface{}{
-				"name":        "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell":               "/bin/bash",
-				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
-			},
-		},
-		"runcmd": []interface{}{
-			"set -xe",
-			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-			"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
-			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-		},
+
+	var userDataMap map[string]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	var keys []string
+	for key := range userDataMap {
+		keys = append(keys, key)
+	}
+	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
+	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
+		"set -xe",
+		"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
+		"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
+		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -488,7 +478,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
+	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
@@ -747,7 +737,7 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-impaired")
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is impaired`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is "impaired"`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
@@ -758,12 +748,68 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.prepareAndBootstrap(c)
 
-	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone}
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone, StatusCallback: fakeCallback}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
 	}
 	return result.Instance, nil
+}
+
+func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
+	inst, err := t.testStartInstanceSubnet(c, "0.1.2.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+	ec2Inst := ec2.InstanceEC2(inst)
+	c.Assert(ec2Inst.AvailZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstanceSubnetUnavailable(c *gc.C) {
+	// See addTestingSubnets, 0.1.3.0/24 is in state "unavailable", but is in
+	// an AZ that would otherwise be available
+	_, err := t.testStartInstanceSubnet(c, "0.1.3.0/24")
+	c.Assert(err, gc.ErrorMatches, `subnet "0.1.3.0/24" is "unavailable"`)
+}
+
+func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
+	// See addTestingSubnets, 0.1.4.0/24 is in an AZ that is unavailable
+	_, err := t.testStartInstanceSubnet(c, "0.1.4.0/24")
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
+}
+
+func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (instance.Instance, error) {
+	subIDs, vpcId := t.addTestingSubnets(c)
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId, "vpc-id-force": true})
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Placement:      fmt.Sprintf("subnet=%s", subnet),
+		SubnetsToZones: map[network.Id][]string{
+			subIDs[0]: []string{"test-available"},
+			subIDs[1]: []string{"test-available"},
+			subIDs[2]: []string{"test-unavailable"},
+		},
+	}
+	result, err := testing.StartInstanceWithParams(env, "1", params)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
+}
+
+func (t *localServerSuite) TestStartInstanceSubnetWrongVPC(c *gc.C) {
+	subIDs, vpcId := t.addTestingSubnets(c)
+	c.Assert(vpcId, gc.Not(gc.Equals), "vpc-0")
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": "vpc-0", "vpc-id-force": true})
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Placement:      "subnet=0.1.2.0/24",
+		SubnetsToZones: map[network.Id][]string{
+			subIDs[0]: []string{"test-available"},
+			subIDs[1]: []string{"test-available"},
+			subIDs[2]: []string{"test-unavailable"},
+		},
+	}
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -856,6 +902,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 		DistributionGroup: func() ([]instance.Id, error) {
 			return expectedInstances, nil
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -879,6 +926,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		DistributionGroup: func() ([]instance.Id, error) {
 			return nil, dgErr
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
@@ -944,7 +992,8 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	var azArgs []string
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
@@ -959,8 +1008,9 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
 // server: 2 of the subnets are in the "test-available" AZ, the remaining - in
-// "test-unavailable". Returns a slice with the IDs of the created subnets.
-func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
+// "test-unavailable". Returns a slice with the IDs of the created subnets and
+// vpc id that those were added to
+func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]network.Id, string) {
 	vpc := t.srv.ec2srv.AddVPC(amzec2.VPC{
 		CIDRBlock: "0.1.0.0/16",
 		IsDefault: true,
@@ -970,6 +1020,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 		VPCId:        vpc.Id,
 		CIDRBlock:    "0.1.2.0/24",
 		AvailZone:    "test-available",
+		State:        "available",
 		DefaultForAZ: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -978,6 +1029,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 		VPCId:     vpc.Id,
 		CIDRBlock: "0.1.3.0/24",
 		AvailZone: "test-available",
+		State:     "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[1] = network.Id(sub2.Id)
@@ -986,14 +1038,21 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 		CIDRBlock:    "0.1.4.0/24",
 		AvailZone:    "test-unavailable",
 		DefaultForAZ: true,
+		State:        "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[2] = network.Id(sub3.Id)
-	return results
+	return results, vpc.Id
 }
 
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
-	env := t.Prepare(c)
+	return t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{})
+}
+
+func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretesting.Attrs) environs.Environ {
+	args := t.PrepareParams(c)
+	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
+	env := t.PrepareWithParams(c, args)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
@@ -1006,7 +1065,7 @@ func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
 func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) {
 	c.Skip("temporarily disabled")
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Expect an error because zone test-available isn't in SubnetsToZones
 	params := environs.StartInstanceParams{
@@ -1018,6 +1077,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 			subIDs[1]: []string{"zone3"},
 			subIDs[2]: []string{"zone4"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1025,7 +1085,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 
 func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Should work - test-available is in SubnetsToZones and in myspace.
 	params := environs.StartInstanceParams{
@@ -1036,6 +1096,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1043,7 +1104,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 
 func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Shoule work because zone is not specified so we can resolve the constraints
 	params := environs.StartInstanceParams{
@@ -1053,6 +1114,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1061,8 +1123,8 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	c.Skip("temporarily disabled")
 
-	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, vpcId := t.addTestingSubnets(c)
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
 	// We requested a space, but there are no subnets in SubnetsToZones, so we can't resolve
 	// the constraints
@@ -1072,6 +1134,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{""},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1103,12 +1166,13 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	// is constrained. The second attempt succeeds, and so allocates to az2.
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
 		}
-		return realRunInstances(e, ri)
+		return realRunInstances(e, ri, fakeCallback)
 	})
 	inst, hwc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
@@ -1351,7 +1415,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 	subnets, err := env.Subnets(instId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "")
 
 	interfaces, err := env.NetworkInterfaces(instId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1369,7 +1433,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "")
 }
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
@@ -1380,6 +1444,8 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
 }
 
 func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
+	// TODO(macgreagoir) Where do these magic length numbers come from?
+	c.Skip("Hard-coded InstanceTypes counts without explanation")
 	env := t.prepareEnviron(c)
 	types, err := env.InstanceTypes(constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1391,22 +1457,25 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
 
-func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
+func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 	// These are defined in the test server for the testing default
 	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-impaired"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
@@ -1420,7 +1489,7 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 		c.Assert(err, jc.ErrorIsNil)
 		// Don't know which AZ the subnet will end up in.
 		defaultSubnets[index].AvailabilityZones = subnet.AvailabilityZones
-		c.Assert(subnet, jc.DeepEquals, defaultSubnets[index])
+		c.Check(subnet, jc.DeepEquals, defaultSubnets[index])
 	}
 }
 
@@ -1430,12 +1499,12 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	subnets, err := env.Subnets(instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "vpc-0")
 
 	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 3)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "vpc-0")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
@@ -1668,7 +1737,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ModelConfig:      localConfigAttrs,
@@ -1706,7 +1775,7 @@ func patchEC2ForTesting(c *gc.C, region aws.Region) func() {
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
 // defined in ec2_test.
-func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern string, match bool) {
+func CheckScripts(c *gc.C, userDataMap map[string]interface{}, pattern string, match bool) {
 	scripts0 := userDataMap["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
@@ -1732,7 +1801,7 @@ func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern stri
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.  It's exported so it can be
 // used by tests defined outside the ec2 package.
-func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, match bool) {
+func CheckPackage(c *gc.C, userDataMap map[string]interface{}, pkg string, match bool) {
 	pkgs0 := userDataMap["packages"]
 	if pkgs0 == nil {
 		if match {

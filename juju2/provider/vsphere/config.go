@@ -1,34 +1,34 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/environs/config"
 )
 
 // The vmware-specific config keys.
 const (
 	cfgExternalNetwork = "external-network"
+	cfgDatastore       = "datastore"
 )
 
 // configFields is the spec for each vmware config value's type.
 var (
 	configFields = schema.Fields{
 		cfgExternalNetwork: schema.String(),
+		cfgDatastore:       schema.String(),
 	}
-
-	requiredFields = []string{}
 
 	configDefaults = schema.Defaults{
 		cfgExternalNetwork: "",
+		cfgDatastore:       schema.Omit,
 	}
 
+	configRequiredFields  = []string{}
 	configImmutableFields = []string{}
 )
 
@@ -48,14 +48,14 @@ func newConfig(cfg *config.Config) *environConfig {
 
 // newValidConfig builds a new environConfig from the provided Config
 // and returns it. The resulting config values are validated.
-func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*environConfig, error) {
+func newValidConfig(cfg *config.Config) (*environConfig, error) {
 	// Ensure that the provided config is valid.
 	if err := config.Validate(cfg, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Apply the defaults and coerce/validate the custom config attrs.
-	validated, err := cfg.ValidateUnknownAttrs(configFields, defaults)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,10 +79,15 @@ func (c *environConfig) externalNetwork() string {
 	return c.attrs[cfgExternalNetwork].(string)
 }
 
+func (c *environConfig) datastore() string {
+	ds, _ := c.attrs[cfgDatastore].(string)
+	return ds
+}
+
 // validate checks vmware-specific config values.
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
-	for _, field := range requiredFields {
+	for _, field := range configRequiredFields {
 		if c.attrs[field].(string) == "" {
 			return errors.Errorf("%s: must not be empty", field)
 		}
@@ -99,7 +104,7 @@ func (c *environConfig) update(cfg *config.Config) error {
 		return errors.Trace(err)
 	}
 
-	updates, err := newValidConfig(cfg, configDefaults)
+	updates, err := newValidConfig(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

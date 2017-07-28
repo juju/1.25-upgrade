@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,10 +20,10 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/logfwd/syslog"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/logfwd/syslog"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -84,6 +85,9 @@ const (
 	// FTPProxyKey stores the key for this setting.
 	FTPProxyKey = "ftp-proxy"
 
+	// NoProxyKey stores the key for this setting.
+	NoProxyKey = "no-proxy"
+
 	// AptHTTPProxyKey stores the key for this setting.
 	AptHTTPProxyKey = "apt-http-proxy"
 
@@ -93,8 +97,8 @@ const (
 	// AptFTPProxyKey stores the key for this setting.
 	AptFTPProxyKey = "apt-ftp-proxy"
 
-	// NoProxyKey stores the key for this setting.
-	NoProxyKey = "no-proxy"
+	// AptNoProxyKey stores the key for this setting.
+	AptNoProxyKey = "apt-no-proxy"
 
 	// NetBondReconfigureDelay is the key to pass when bridging
 	// the network for containers.
@@ -136,6 +140,17 @@ const (
 	// ExtraInfoKey is the key for arbitrary user specified string data that
 	// is stored against the model.
 	ExtraInfoKey = "extra-info"
+
+	// MaxStatusHistoryAge is the maximum age of status history values
+	// to keep when pruning, ef "72h"
+	MaxStatusHistoryAge = "max-status-history-age"
+
+	// MaxStatusHistorySize is the maximum size the status history
+	// collection can grow to before it is pruned, eg "5M"
+	MaxStatusHistorySize = "max-status-history-size"
+
+	// UpdateStatusHookInterval is how often to run the update-status hook.
+	UpdateStatusHookInterval = "update-status-hook-interval"
 
 	//
 	// Deprecated Settings Attributes
@@ -285,6 +300,17 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	return c, nil
 }
 
+const (
+	// DefaultStatusHistoryAge is the default value for MaxStatusHistoryAge.
+	DefaultStatusHistoryAge = "336h" // 2 weeks
+
+	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
+	DefaultStatusHistorySize = "5G"
+
+	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
+	DefaultUpdateStatusHookInterval = "5m"
+)
+
 var defaultConfigValues = map[string]interface{}{
 	// Network.
 	"firewall-mode":              FwInstance,
@@ -322,6 +348,7 @@ var defaultConfigValues = map[string]interface{}{
 	"development":              false,
 	"test-mode":                false,
 	TransmitVendorMetricsKey:   true,
+	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -336,11 +363,16 @@ var defaultConfigValues = map[string]interface{}{
 	HTTPProxyKey:     "",
 	HTTPSProxyKey:    "",
 	FTPProxyKey:      "",
-	NoProxyKey:       "",
+	NoProxyKey:       "127.0.0.1,localhost,::1",
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
+	AptNoProxyKey:    "",
 	"apt-mirror":     "",
+
+	// Status history settings
+	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
+	MaxStatusHistorySize: DefaultStatusHistorySize,
 }
 
 // ConfigDefaults returns the config default values
@@ -476,6 +508,31 @@ func Validate(cfg, old *Config) error {
 	// Ensure the resource tags have the expected k=v format.
 	if _, err := cfg.resourceTags(); err != nil {
 		return errors.Annotate(err, "validating resource tags")
+	}
+
+	if v, ok := cfg.defined[MaxStatusHistoryAge].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid max status history age in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxStatusHistorySize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max status history size in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[UpdateStatusHookInterval].(string); ok {
+		if f, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid update status hook interval in model configuration")
+		} else {
+			if f < 1*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", f)
+			}
+			if f > 60*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
+			}
+		}
 	}
 
 	// Check the immutable config values.  These can't change
@@ -616,7 +673,7 @@ func (c *Config) FTPProxy() string {
 	return c.asString(FTPProxyKey)
 }
 
-// NoProxy returns the 'no proxy' for the environment.
+// NoProxy returns the 'no-proxy' for the environment.
 func (c *Config) NoProxy() string {
 	return c.asString(NoProxyKey)
 }
@@ -640,9 +697,10 @@ func addSchemeIfMissing(defaultScheme string, url string) string {
 // AptProxySettings returns all three proxy settings; http, https and ftp.
 func (c *Config) AptProxySettings() proxy.Settings {
 	return proxy.Settings{
-		Http:  c.AptHTTPProxy(),
-		Https: c.AptHTTPSProxy(),
-		Ftp:   c.AptFTPProxy(),
+		Http:    c.AptHTTPProxy(),
+		Https:   c.AptHTTPSProxy(),
+		Ftp:     c.AptFTPProxy(),
+		NoProxy: c.AptNoProxy(),
 	}
 }
 
@@ -662,6 +720,11 @@ func (c *Config) AptHTTPSProxy() string {
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFTPProxy() string {
 	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
+}
+
+// AptNoProxy returns the 'apt-no-proxy' for the environment.
+func (c *Config) AptNoProxy() string {
+	return c.getWithFallback(AptNoProxyKey, NoProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -893,6 +956,38 @@ func (c *Config) resourceTags() (map[string]string, error) {
 	return v, nil
 }
 
+// MaxStatusHistoryAge is the maximum age of status history entries
+// before being pruned.
+func (c *Config) MaxStatusHistoryAge() time.Duration {
+	// Value has already been validated.
+	val, _ := time.ParseDuration(c.mustString(MaxStatusHistoryAge))
+	return val
+}
+
+// MaxStatusHistorySizeMB is the maximum size in MiB which the status history
+// collection can grow to before being pruned.
+func (c *Config) MaxStatusHistorySizeMB() uint {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxStatusHistorySize))
+	return uint(val)
+}
+
+// UpdateStatusHookInterval is how often to run the charm
+// update-status hook.
+func (c *Config) UpdateStatusHookInterval() time.Duration {
+	// TODO(wallyworld) - remove this work around when possible as
+	// we already have a defaulting mechanism for config.
+	// It's only here to guard against using Juju clients >= 2.2
+	// with Juju controllers running 2.1.x
+	raw := c.asString(UpdateStatusHookInterval)
+	if raw == "" {
+		raw = DefaultUpdateStatusHookInterval
+	}
+	// Value has already been validated.
+	val, _ := time.ParseDuration(raw)
+	return val
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -978,6 +1073,7 @@ var alwaysOptional = schema.Defaults{
 	AptHTTPProxyKey:              schema.Omit,
 	AptHTTPSProxyKey:             schema.Omit,
 	AptFTPProxyKey:               schema.Omit,
+	AptNoProxyKey:                schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	ResourceTagsKey:              schema.Omit,
@@ -997,6 +1093,9 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
 	NetBondReconfigureDelayKey:   schema.Omit,
+	MaxStatusHistoryAge:          schema.Omit,
+	MaxStatusHistorySize:         schema.Omit,
+	UpdateStatusHookInterval:     schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1104,6 +1203,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	addIfNotEmpty(settings, AptHTTPProxyKey, proxySettings.Http)
 	addIfNotEmpty(settings, AptHTTPSProxyKey, proxySettings.Https)
 	addIfNotEmpty(settings, AptFTPProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, AptNoProxyKey, proxySettings.NoProxy)
 	return settings
 }
 
@@ -1166,6 +1266,11 @@ var configSchema = environschema.Fields{
 	AptHTTPSProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT HTTPS proxy for the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	AptNoProxyKey: {
+		Description: "List of domain addresses not to be proxied for APT (comma-separated)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1360,6 +1465,21 @@ data of the store. (default false)`,
 	NetBondReconfigureDelayKey: {
 		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
 		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxStatusHistoryAge: {
+		Description: "The maximum age for status history entries before they are pruned, in human-readable time format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxStatusHistorySize: {
+		Description: "The maximum size for the status history collection, in human-readable memory format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	UpdateStatusHookInterval: {
+		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 }

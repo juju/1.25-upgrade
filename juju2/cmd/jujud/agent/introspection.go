@@ -7,15 +7,14 @@ import (
 	"os"
 	"runtime"
 
-	names "gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	names "gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	"github.com/juju/1.25-upgrade/juju2/worker/introspection"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/introspection"
 )
 
 // DefaultIntrospectionSocketName returns the socket name to use for the
@@ -85,6 +84,8 @@ func newPrometheusRegistry() (*prometheus.Registry, error) {
 }
 
 func (h *statePoolHolder) IntrospectionReport() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.pool == nil {
 		return "agent has no pool set"
 	}

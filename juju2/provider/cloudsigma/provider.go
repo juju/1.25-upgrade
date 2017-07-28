@@ -13,10 +13,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
@@ -57,6 +57,11 @@ func init() {
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
 }
 
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
+}
+
 // Open opens the environment and returns it.
 // The configuration must have come from a previously
 // prepared environment.
@@ -86,6 +91,11 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 // this provider does not support custom clouds, this always returns nil.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig is defined by EnvironProvider.

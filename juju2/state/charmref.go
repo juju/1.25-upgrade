@@ -15,8 +15,8 @@ var errCharmInUse = errors.New("charm in use")
 // to a charm and its per-application settings and storage constraints
 // documents. It will fail if the charm is not Alive.
 func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
-
-	charms, closer := st.getCollection(charmsC)
+	db := st.db()
+	charms, closer := db.GetCollection(charmsC)
 	defer closer()
 
 	// If we're migrating. charm document will not be present. But
@@ -33,7 +33,7 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 		checkOps = []txn.Op{checkOp}
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := db.GetCollection(refcountsC)
 	defer closer()
 
 	getIncRefOp := nsRefcounts.CreateOrIncRefOp
@@ -61,14 +61,14 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 
 // appCharmDecRefOps returns the operations necessary to delete a
 // reference to a charm and its per-application settings and storage
-// constraints document. If no references to a given (app, charm) pair
+// constraints document.
+// If maybeDoFinal is true, and no references to a given (app, charm) pair
 // remain, the operations returned will also remove the settings and
 // storage constraints documents for that pair, and schedule a cleanup
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
-func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.Op, error) {
-
-	refcounts, closer := st.getCollection(refcountsC)
+func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal bool) ([]txn.Op, error) {
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
 	charmKey := charmGlobalKey(curl)
@@ -90,7 +90,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 	}
 
 	ops := []txn.Op{settingsOp, storageConstraintsOp, charmOp}
-	if isFinal {
+	if isFinal && maybeDoFinal {
 		// XXX(fwereade): this construction, in common with ~all
 		// our refcount logic, is safe in parallel but not in
 		// serial. If this logic is used twice while composing a
@@ -118,16 +118,8 @@ func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 
 // charmDestroyOps implements the logic of charm.Destroy.
 func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-
-	if curl.Schema != "local" {
-		// it's not so much that it's bad to delete store
-		// charms; but we don't have a way to reinstate them
-		// once purged, so we don't allow removal in the first
-		// place.
-		return nil, errors.New("cannot destroy non-local charms")
-	}
-
-	charms, closer := st.getCollection(charmsC)
+	db := st.db()
+	charms, closer := db.GetCollection(charmsC)
 	defer closer()
 
 	charmKey := curl.String()
@@ -136,7 +128,7 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 		return nil, errors.Annotate(err, "charm")
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := db.GetCollection(refcountsC)
 	defer closer()
 
 	refcountKey := charmGlobalKey(curl)
@@ -150,20 +142,4 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	}
 
 	return []txn.Op{charmOp, refcountOp}, nil
-}
-
-// charmRemoveOps implements the logic of charm.Remove.
-func charmRemoveOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	charmKey := curl.String()
-
-	// Remove the charm document as long as the charm is dying.
-	charmOp, err := nsLife.dyingOp(charms, charmKey)
-	if err != nil {
-		return nil, errors.Annotate(err, "charm")
-	}
-	charmOp.Remove = true
-	return []txn.Op{charmOp}, nil
 }

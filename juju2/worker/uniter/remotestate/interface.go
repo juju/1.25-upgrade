@@ -4,7 +4,7 @@
 package remotestate
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"gopkg.in/juju/worker.v1"
 )
 
 type Watcher interface {

@@ -12,10 +12,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type WatcherSuite struct {
@@ -46,13 +46,13 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 				charmModifiedVersion:  5,
 				serviceWatcher:        newMockNotifyWatcher(),
 				leaderSettingsWatcher: newMockNotifyWatcher(),
-				relationsWatcher:      newMockStringsWatcher(),
 			},
 			unitWatcher:           newMockNotifyWatcher(),
 			addressesWatcher:      newMockNotifyWatcher(),
 			configSettingsWatcher: newMockNotifyWatcher(),
 			storageWatcher:        newMockStringsWatcher(),
 			actionWatcher:         newMockStringsWatcher(),
+			relationsWatcher:      newMockStringsWatcher(),
 		},
 		relations:                 make(map[names.RelationTag]*mockRelation),
 		storageAttachment:         make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -67,8 +67,8 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.clock = testing.NewClock(time.Now())
-	statusTicker := func() <-chan time.Time {
-		return s.clock.After(statusTickDuration)
+	statusTicker := func(wait time.Duration) remotestate.Waiter {
+		return dummyWaiter{s.clock.After(statusTickDuration)}
 	}
 
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
@@ -79,6 +79,14 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
+}
+
+type dummyWaiter struct {
+	c <-chan time.Time
+}
+
+func (w dummyWaiter) After() <-chan time.Time {
+	return w.c
 }
 
 func (s *WatcherSuite) TearDownTest(c *gc.C) {
@@ -109,7 +117,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.service.serviceWatcher.changes <- struct{}{}
 	s.st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
-	s.st.unit.service.relationsWatcher.changes <- []string{}
+	s.st.unit.relationsWatcher.changes <- []string{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
@@ -122,7 +130,7 @@ func signalAll(st *mockState, l *mockLeadershipTracker) {
 	st.unit.actionWatcher.changes <- []string{}
 	st.unit.service.serviceWatcher.changes <- struct{}{}
 	st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
-	st.unit.service.relationsWatcher.changes <- []string{}
+	st.unit.relationsWatcher.changes <- []string{}
 	l.claimTicket.ch <- struct{}{}
 }
 
@@ -180,7 +188,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
-	s.st.unit.service.relationsWatcher.changes <- []string{}
+	s.st.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
 	s.clock.Advance(statusTickDuration + 1)
@@ -427,7 +435,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 		id: 123, life: params.Alive,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
-	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 
 	// There should not be any signal until the relation units watcher has
 	// returned its initial event also.
@@ -450,14 +458,14 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	// If a relation is known, then updating it does not require any input
 	// from the relation units watcher.
 	s.st.relations[relationTag].life = params.Dying
-	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations[123].Life, gc.Equals, params.Dying)
 
 	// If a relation is not found, then it should be removed from the
 	// snapshot and its relation units watcher stopped.
 	delete(s.st.relations, relationTag)
-	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations, gc.HasLen, 0)
 	c.Assert(s.st.relationUnitsWatchers[relationTag].Stopped(), jc.IsTrue)
@@ -473,7 +481,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 
-	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}},
 	}
@@ -510,7 +518,7 @@ func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 
-	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}},
 	}

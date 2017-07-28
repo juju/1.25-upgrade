@@ -11,13 +11,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/charmrevision"
-	"github.com/juju/1.25-upgrade/juju2/worker/charmrevision/charmrevisionmanifold"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
-	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/charmrevision"
+	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
+	"github.com/juju/juju/worker/dependency"
+	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type ManifoldSuite struct {

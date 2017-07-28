@@ -1,18 +1,17 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/status"
 )
 
 type environInstance struct {
@@ -36,21 +35,23 @@ func (inst *environInstance) Id() instance.Id {
 
 // Status implements instance.Instance.
 func (inst *environInstance) Status() instance.InstanceStatus {
-	// TODO(perrito666) I wont change the commented line because it was
-	// there and I have not enough knowledge about this provider
-	// but that method does not exist.
-	// return inst.base.Status()
-	return instance.InstanceStatus{
-		Status: status.Pending,
+	instanceStatus := instance.InstanceStatus{
+		Status:  status.Empty,
+		Message: string(inst.base.Runtime.PowerState),
 	}
+	switch inst.base.Runtime.PowerState {
+	case types.VirtualMachinePowerStatePoweredOn:
+		instanceStatus.Status = status.Running
+	}
+	return instanceStatus
 }
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	if inst.base.Guest == nil || inst.base.Guest.IpAddress == "" {
+	if inst.base.Guest == nil {
 		return nil, nil
 	}
-	res := make([]network.Address, 0)
+	res := make([]network.Address, 0, len(inst.base.Guest.Net))
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
 			res = append(res, network.NewAddress(ip))
@@ -59,40 +60,31 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 	return res, nil
 }
 
-func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
-	for _, inst := range instances {
-		if id == inst.Id() {
-			return inst
-		}
-	}
-	return nil
-}
-
 // firewall stuff
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	return inst.changePorts(true, ports)
+func (inst *environInstance) OpenPorts(machineID string, rules []network.IngressRule) error {
+	return inst.changeIngressRules(true, rules)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	return inst.changePorts(false, ports)
+func (inst *environInstance) ClosePorts(machineID string, rules []network.IngressRule) error {
+	return inst.changeIngressRules(false, rules)
 }
 
-// Ports returns the set of ports open on the instance, which
+// IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
+func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
 	_, client, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.FindOpenPorts()
+	return client.FindIngressRules()
 }
 
-func (inst *environInstance) changePorts(insert bool, ports []network.PortRange) error {
+func (inst *environInstance) changeIngressRules(insert bool, rules []network.IngressRule) error {
 	if inst.env.ecfg.externalNetwork() == "" {
 		return errors.New("Can't close/open ports without external network")
 	}
@@ -103,7 +95,7 @@ func (inst *environInstance) changePorts(insert bool, ports []network.PortRange)
 
 	for _, addr := range addresses {
 		if addr.Scope == network.ScopePublic {
-			err = client.ChangePorts(addr.Value, insert, ports)
+			err = client.ChangeIngressRules(addr.Value, insert, rules)
 			if err != nil {
 				return errors.Trace(err)
 			}

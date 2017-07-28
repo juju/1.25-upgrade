@@ -8,11 +8,12 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/worker"
 	"github.com/juju/replicaset"
+	"gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
+	jworker "github.com/juju/juju/worker"
 )
 
 // StopMongo represents a function that can issue a stop
@@ -26,7 +27,7 @@ func New(st *state.State, machineID string, maybeStopMongo StopMongo) (worker.Wo
 	upgradeWorker := func(stopch <-chan struct{}) error {
 		return upgradeMongoWatcher(st, stopch, machineID, maybeStopMongo)
 	}
-	return worker.NewSimpleWorker(upgradeWorker), nil
+	return jworker.NewSimpleWorker(upgradeWorker), nil
 }
 
 func upgradeMongoWatcher(st *state.State, stopch <-chan struct{}, machineID string, maybeStopMongo StopMongo) error {

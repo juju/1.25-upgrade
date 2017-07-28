@@ -4,8 +4,8 @@
 package factory
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/container"
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/instance"
 )
 
 // DefaultNetworkBridge returns the correct network device name for the

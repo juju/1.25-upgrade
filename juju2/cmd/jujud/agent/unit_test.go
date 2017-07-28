@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -21,19 +22,19 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
+	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 type UnitSuite struct {
@@ -93,22 +94,25 @@ func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
+	s.primeAgent(c)
+	// Now init actually reads the agent configuration file.
+	// So use the prime agent call which installs a wordpress unit.
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	err = coretesting.InitCommand(a, []string{
-		"--data-dir", "jd",
-		"--unit-name", "w0rd-pre55/1",
+	err = cmdtesting.InitCommand(a, []string{
+		"--data-dir", s.DataDir(),
+		"--unit-name", "wordpress/0",
 		"--log-to-stderr",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(a.AgentConf.DataDir(), gc.Equals, "jd")
-	c.Check(a.UnitName, gc.Equals, "w0rd-pre55/1")
+	c.Check(a.AgentConf.DataDir(), gc.Equals, s.DataDir())
+	c.Check(a.UnitName, gc.Equals, "wordpress/0")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
 	uc, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	err = coretesting.InitCommand(uc, []string{
+	err = cmdtesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
 
@@ -126,8 +130,8 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
-		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
+		err = cmdtesting.InitCommand(a, append(args, "--data-dir", "jc"))
+		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<application>/<n>" argument`)
 	}
 }
 
@@ -135,7 +139,7 @@ func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = coretesting.InitCommand(a, []string{
+	err = cmdtesting.InitCommand(a, []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
@@ -334,6 +338,26 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *UnitSuite) TestLoggingOverride(c *gc.C) {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+	agentConf := FakeAgentConfig{
+		values: map[string]string{agent.LoggingOverride: "test=trace"},
+	}
+
+	a := UnitAgent{
+		AgentConf: agentConf,
+		ctx:       ctx,
+		UnitName:  "mysql/25",
+	}
+
+	err = a.Init(nil)
+	c.Assert(err, gc.IsNil)
+
+	test := loggo.GetLogger("test")
+	c.Assert(test.LogLevel(), gc.Equals, loggo.TRACE)
 }
 
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {

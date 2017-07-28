@@ -10,9 +10,14 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
 )
+
+// PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
+// used to provide an alternative to PreUpgradeSteps to the upgrade steps
+// worker.
+type PreUpgradeStepsFunc func(_ *state.State, _ agent.Config, isController, isMaster bool) error
 
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.

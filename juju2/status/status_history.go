@@ -8,24 +8,31 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
 type StatusHistoryFilter struct {
-	Size  int
-	Date  *time.Time
+	// Size indicates how many results are expected at most.
+	Size int
+	// FromDate indicates the earliest date from which logs are expected.
+	FromDate *time.Time
+	// Delta indicates the age of the oldest log expected.
 	Delta *time.Duration
+	// Exclude indicates the status messages that should be excluded
+	// from the returned result.
+	Exclude set.Strings
 }
 
 // Validate checks that the minimum requirements of a StatusHistoryFilter are met.
 func (f *StatusHistoryFilter) Validate() error {
 	s := f.Size > 0
-	t := f.Date != nil
+	t := f.FromDate != nil
 	d := f.Delta != nil
 
 	switch {
 	case !(s || t || d):
-		return errors.NotValidf("empty struct")
+		return errors.NotValidf("missing filter parameters")
 	case s && t:
 		return errors.NotValidf("Size and Date together")
 	case s && d:
@@ -48,15 +55,15 @@ type InstanceStatusHistoryGetter interface {
 
 // DetailedStatus holds status info about a machine or unit agent.
 type DetailedStatus struct {
-	Status  Status
-	Info    string
-	Data    map[string]interface{}
-	Since   *time.Time
-	Kind    HistoryKind
-	Version string
+	Status Status
+	Info   string
+	Data   map[string]interface{}
+	Since  *time.Time
+	Kind   HistoryKind
 	// TODO(perrito666) make sure this is not used and remove.
-	Life string
-	Err  error
+	Version string
+	Life    string
+	Err     error
 }
 
 // History holds many DetailedStatus,
@@ -154,13 +161,13 @@ const (
 	// KindWorkload represents a charm workload status history entry.
 	KindWorkload HistoryKind = "workload"
 	// KindMachineInstance represents an entry for a machine instance.
-	KindMachineInstance = "machine"
+	KindMachineInstance HistoryKind = "machine"
 	// KindMachine represents an entry for a machine agent.
-	KindMachine = "juju-machine"
+	KindMachine HistoryKind = "juju-machine"
 	// KindContainerInstance represents an entry for a container instance.
-	KindContainerInstance = "container"
+	KindContainerInstance HistoryKind = "container"
 	// KindContainer represents an entry for a container agent.
-	KindContainer = "juju-container"
+	KindContainer HistoryKind = "juju-container"
 )
 
 // String returns a string representation of the HistoryKind.

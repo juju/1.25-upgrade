@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type ConstraintsSuite struct {

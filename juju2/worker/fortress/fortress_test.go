@@ -11,10 +11,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/fortress"
 )
 
 type FortressSuite struct {

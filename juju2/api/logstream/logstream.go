@@ -12,10 +12,10 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common/stream"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/logfwd"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common/stream"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/logfwd"
 )
 
 // jsonReadCloser provides the functionality to send JSON-serialized

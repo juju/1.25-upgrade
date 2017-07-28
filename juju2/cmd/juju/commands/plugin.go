@@ -17,9 +17,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/osenv"
 )
 
 const JujuPluginPrefix = "juju-"
@@ -93,9 +94,11 @@ func (c *PluginCommand) Init(args []string) error {
 
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
-	command.Env = append(os.Environ(), []string{
-		osenv.JujuModelEnvKey + "=" + c.ConnectionName()}...,
-	)
+
+	// Ignore the error from ModelName - if we can't find the model
+	// we'll run the plugin anyway.
+	modelName, _ := c.ModelName()
+	command.Env = utils.Setenv(os.Environ(), osenv.JujuModelEnvKey+"="+modelName)
 
 	// Now hook up stdin, stdout, stderr
 	command.Stdin = ctx.Stdin

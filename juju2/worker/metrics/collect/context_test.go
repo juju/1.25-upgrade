@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/metrics/collect"
+	"github.com/juju/juju/worker/metrics/collect"
 )
 
 type ContextSuite struct {

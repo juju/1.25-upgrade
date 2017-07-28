@@ -4,18 +4,18 @@
 package cloud_test
 
 import (
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	cloudfacade "github.com/juju/1.25-upgrade/juju2/apiserver/cloud"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/errors"
+	cloudfacade "github.com/juju/juju/apiserver/cloud"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	_ "github.com/juju/juju/provider/dummy"
 )
 
 type cloudSuite struct {

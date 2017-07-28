@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
@@ -15,8 +16,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/agree"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cmd/juju/romulus/agree"
+	"github.com/juju/juju/jujuclient"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -49,7 +51,7 @@ func (s *agreeSuite) TestAgreementNothingToSign(c *gc.C) {
 	s.client.user = "test-user"
 	s.client.setUnsignedTerms([]wireformat.GetTermsResponse{})
 
-	ctx, err := cmdtesting.RunCommand(c, agree.NewAgreeCommand(), "test-term/1")
+	ctx, err := s.runCommand(c, "test-term/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `Already agreed
 `)
@@ -207,7 +209,7 @@ Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-owner/t
 		if test.answer != "" {
 			answer = test.answer
 		}
-		ctx, err := cmdtesting.RunCommand(c, agree.NewAgreeCommand(), test.args...)
+		ctx, err := s.runCommand(c, test.args...)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
@@ -220,6 +222,12 @@ Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-owner/t
 			s.client.CheckCalls(c, test.apiCalls)
 		}
 	}
+}
+
+func (s *agreeSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := agree.NewAgreeCommand()
+	cmd.SetClientStore(newMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 type mockClient struct {
@@ -264,4 +272,13 @@ func (c *mockClient) GetUnsignedTerms(p *wireformat.CheckAgreementsRequest) ([]w
 func (c *mockClient) GetUsersAgreements() ([]wireformat.AgreementResponse, error) {
 	c.MethodCall(c, "GetUsersAgreements")
 	return []wireformat.AgreementResponse{}, nil
+}
+
+func newMockStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	return store
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/payload"
 )
 
 // StatusSetCmdName is the name of the payload status-set command.

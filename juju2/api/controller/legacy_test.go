@@ -14,22 +14,22 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/controller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // legacySuite has the tests for the controller client-side facade
@@ -216,17 +216,20 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        testing.ServerCert,
-		Key:         testing.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		Hub:         pubsub.NewStructuredHub(nil),
-		DataDir:     c.MkDir(),
-		LogDir:      c.MkDir(),
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(s.State),
+	statePool := state.NewStatePool(s.State)
+	defer statePool.Close()
+
+	srv, err := apiserver.NewServer(statePool, lis, apiserver.ServerConfig{
+		Clock:           clock.WallClock,
+		Cert:            testing.ServerCert,
+		Key:             testing.ServerKey,
+		Tag:             names.NewMachineTag("0"),
+		Hub:             pubsub.NewStructuredHub(nil),
+		DataDir:         c.MkDir(),
+		LogDir:          c.MkDir(),
+		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:     "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 	})
 	c.Assert(err, gc.IsNil)
 

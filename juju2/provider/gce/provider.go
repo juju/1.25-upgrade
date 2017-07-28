@@ -9,9 +9,9 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 type environProvider struct {
@@ -19,6 +19,11 @@ type environProvider struct {
 }
 
 var providerInstance environProvider
+
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
+}
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
@@ -33,6 +38,11 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 // this provider does not support custom clouds, this always returns nil.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig implements environs.EnvironProvider.

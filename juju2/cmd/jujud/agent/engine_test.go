@@ -11,14 +11,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/machine"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/model"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/unit"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/cmd/jujud/agent/unit"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
 )
 
 var (
@@ -32,9 +32,10 @@ var (
 		"api-config-watcher",
 		"clock",
 		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
 		"not-alive-flag",
 		"not-dead-flag",
-		"spaces-imported-gate",
 	}
 	aliveModelWorkers = []string{
 		"charm-revision-updater",
@@ -48,18 +49,21 @@ var (
 		"migration-inactive-flag",
 		"migration-master",
 		"application-scaler",
-		"space-importer",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
 		"remote-relations",
+		"log-forwarder",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"log-forwarder",
 	}
 	// ReallyLongTimeout should be long enough for the model-tracker
 	// tests that depend on a hosted model; its backing state is not
@@ -96,7 +100,6 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"log-forwarder",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",

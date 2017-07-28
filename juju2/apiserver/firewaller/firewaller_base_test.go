@@ -8,14 +8,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 // firewallerBaseSuite implements common testing suite for all API
@@ -24,10 +24,11 @@ import (
 type firewallerBaseSuite struct {
 	testing.JujuConnSuite
 
-	machines []*state.Machine
-	service  *state.Application
-	charm    *state.Charm
-	units    []*state.Unit
+	machines  []*state.Machine
+	service   *state.Application
+	charm     *state.Charm
+	units     []*state.Unit
+	relations []*state.Relation
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -58,6 +59,15 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		s.units = append(s.units, unit)
 	}
+
+	// Create a relation.
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.relations = make([]*state.Relation, 1)
+	s.relations[0], err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
@@ -101,6 +111,7 @@ func (s *firewallerBaseSuite) testLife(
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
 		{Tag: s.machines[2].Tag().String()},
+		{Tag: s.relations[0].Tag().String()},
 	}})
 	result, err := facade.Life(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,6 +119,7 @@ func (s *firewallerBaseSuite) testLife(
 		Results: []params.LifeResult{
 			{Life: "alive"},
 			{Life: "dead"},
+			{Life: "alive"},
 			{Life: "alive"},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},

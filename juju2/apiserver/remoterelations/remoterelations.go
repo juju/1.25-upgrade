@@ -4,50 +4,42 @@
 package remoterelations
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/feature"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.remoterelations")
 
-func init() {
-	common.RegisterStandardFacadeForFeature("RemoteRelations", 1, NewStateRemoteRelationsAPI, feature.CrossModelRelations)
-}
-
 // RemoteRelationsAPI provides access to the Provisioner API facade.
 type RemoteRelationsAPI struct {
 	st         RemoteRelationsState
+	pool       StatePool
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
 
 // NewRemoteRelationsAPI creates a new server-side RemoteRelationsAPI facade
 // backed by global state.
-func NewStateRemoteRelationsAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*RemoteRelationsAPI, error) {
-	return NewRemoteRelationsAPI(stateShim{st}, resources, authorizer)
+func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error) {
+	return NewRemoteRelationsAPI(stateShim{ctx.State()}, statePoolShim{ctx.StatePool()}, ctx.Resources(), ctx.Auth())
 }
 
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
+	pool StatePool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*RemoteRelationsAPI, error) {
@@ -56,9 +48,34 @@ func NewRemoteRelationsAPI(
 	}
 	return &RemoteRelationsAPI{
 		st:         st,
+		pool:       pool,
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil
+}
+
+// ImportRemoteEntities adds entities to the remote entities collection with the specified opaque tokens.
+func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := api.importRemoteEntity(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) importRemoteEntity(arg params.RemoteEntityArg) error {
+	entityTag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.st.ImportRemoteEntity(modelTag, entityTag, arg.Token)
 }
 
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
@@ -83,6 +100,55 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 			ModelUUID: api.st.ModelUUID(),
 			Token:     token,
 		}
+	}
+	return results, nil
+}
+
+// RemoveRemoteEntities removes the specified entities from the remote entities collection.
+func (api *RemoteRelationsAPI) RemoveRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := api.removeRemoteEntity(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) removeRemoteEntity(arg params.RemoteEntityArg) error {
+	entityTag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.st.RemoveRemoteEntity(modelTag, entityTag)
+}
+
+// GetToken returns the token associated with the entity with the given tag for the current model.
+func (api *RemoteRelationsAPI) GetTokens(args params.GetTokenArgs) (params.StringResults, error) {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		entityTag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		token, err := api.st.GetToken(modelTag, entityTag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+		results.Results[i].Result = token
 	}
 	return results, nil
 }
@@ -136,54 +202,57 @@ func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.Relatio
 	return results, nil
 }
 
+func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.RemoteRelation, error) {
+	tag, err := names.ParseRelationTag(entity.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rel, err := api.st.KeyRelation(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := &params.RemoteRelation{
+		Id:   rel.Id(),
+		Life: params.Life(rel.Life().String()),
+		Key:  tag.Id(),
+	}
+	for _, ep := range rel.Endpoints() {
+		// Try looking up the info for the remote application.
+		remoteApp, err := api.st.RemoteApplication(ep.ApplicationName)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		} else if err == nil {
+			result.RemoteEndpointName = ep.Name
+			result.SourceModelUUID = remoteApp.SourceModel().Id()
+			continue
+		}
+		// Try looking up the info for the local application.
+		_, err = api.st.Application(ep.ApplicationName)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		} else if err == nil {
+			result.ApplicationName = ep.ApplicationName
+			result.Endpoint = params.RemoteEndpoint{
+				Name:      ep.Name,
+				Interface: ep.Interface,
+				Role:      ep.Role,
+				Scope:     ep.Scope,
+				Limit:     ep.Limit,
+			}
+			continue
+		}
+	}
+	return result, nil
+}
+
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
 func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.RemoteRelationResults, error) {
 	results := params.RemoteRelationResults{
 		Results: make([]params.RemoteRelationResult, len(entities.Entities)),
 	}
-	one := func(entity params.Entity) (*params.RemoteRelation, error) {
-		tag, err := names.ParseRelationTag(entity.Tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		rel, err := api.st.KeyRelation(tag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result := &params.RemoteRelation{
-			Id:   rel.Id(),
-			Life: params.Life(rel.Life().String()),
-			Key:  tag.Id(),
-		}
-		for _, ep := range rel.Endpoints() {
-			// Try looking up the info for the remote application.
-			_, err := api.st.RemoteApplication(ep.ApplicationName)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			} else if err == nil {
-				result.RemoteEndpointName = ep.Name
-				continue
-			}
-			// Try looking up the info for the local application.
-			_, err = api.st.Application(ep.ApplicationName)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			} else if err == nil {
-				result.LocalEndpoint = params.RemoteEndpoint{
-					Name:      ep.Name,
-					Interface: ep.Interface,
-					Role:      ep.Role,
-					Scope:     ep.Scope,
-					Limit:     ep.Limit,
-				}
-				continue
-			}
-		}
-		return result, nil
-	}
 	for i, entity := range entities.Entities {
-		remoteRelation, err := one(entity)
+		remoteRelation, err := api.remoteRelation(entity)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -214,10 +283,11 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		}
 		return &params.RemoteApplication{
 			Name:       remoteApp.Name(),
+			OfferName:  remoteApp.OfferName(),
 			Life:       params.Life(remoteApp.Life().String()),
 			Status:     status.Status.String(),
 			ModelUUID:  remoteApp.SourceModel().Id(),
-			Registered: remoteApp.Registered(),
+			Registered: remoteApp.IsConsumerProxy(),
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -231,107 +301,16 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 	return results, nil
 }
 
-// ConsumeRemoteApplicationChange consumes remote changes to applications into the local model.
-func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
-	changes params.RemoteApplicationChanges,
-) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(changes.Changes)),
-	}
-	handleRemoteRelationsChange := func(change params.RemoteRelationsChange) error {
-		// For any relations that have been removed on the offering
-		// side, destroy them on the consuming side.
-		for _, relId := range change.RemovedRelations {
-			rel, err := api.st.Relation(relId)
-			if errors.IsNotFound(err) {
-				continue
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			if err := rel.Destroy(); err != nil {
-				return errors.Trace(err)
-			}
-			// TODO(axw) remove remote relation units.
-		}
-		for _, change := range change.ChangedRelations {
-			rel, err := api.st.Relation(change.RelationId)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if change.Life != params.Alive {
-				if err := rel.Destroy(); err != nil {
-					return errors.Trace(err)
-				}
-			}
-			for _, unitId := range change.DepartedUnits {
-				ru, err := rel.RemoteUnit(unitId)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if err := ru.LeaveScope(); err != nil {
-					return errors.Trace(err)
-				}
-			}
-			for unitId, change := range change.ChangedUnits {
-				ru, err := rel.RemoteUnit(unitId)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				inScope, err := ru.InScope()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if !inScope {
-					err = ru.EnterScope(change.Settings)
-				} else {
-					err = ru.ReplaceSettings(change.Settings)
-				}
-				if err != nil {
-					return errors.Trace(err)
-				}
-			}
-		}
-		return nil
-	}
-	handleApplicationChange := func(change params.RemoteApplicationChange) error {
-		applicationTag, err := names.ParseApplicationTag(change.ApplicationTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		application, err := api.st.RemoteApplication(applicationTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// TODO(axw) update application status, lifecycle state.
-		_ = application
-		return handleRemoteRelationsChange(change.Relations)
-	}
-	for i, change := range changes.Changes {
-		if err := handleApplicationChange(change); err != nil {
-			results.Results[i].Error = common.ServerError(err)
-		}
-	}
-	return results, nil
-}
-
 // PublishLocalRelationChange publishes local relations changes to the
 // remote side offering those relations.
 func (api *RemoteRelationsAPI) PublishLocalRelationChange(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotImplementedf("PublishLocalRelationChange")
-}
-
-// RegisterRemoteRelations sets up the local model to participate
-// in the specified relations. This operation is idempotent.
-func (api *RemoteRelationsAPI) RegisterRemoteRelations(
-	relations params.RegisterRemoteRelations,
-) (params.ErrorResults, error) {
 	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(relations.Relations)),
+		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
-	for i, relation := range relations.Relations {
-		if err := api.registerRemoteRelation(relation); err != nil {
+	for i, change := range changes.Changes {
+		if err := api.publishRelationChange(change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -339,35 +318,162 @@ func (api *RemoteRelationsAPI) RegisterRemoteRelations(
 	return results, nil
 }
 
-func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelation) error {
+func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelationChangeEvent) error {
+	logger.Debugf("publish into model %v change: %+v", api.st.ModelUUID(), change)
+
+	relationTag, err := api.getRemoteEntityTag(change.RelationId)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Debugf("not found relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+
+	// Ensure the relation exists.
+	rel, err := api.st.KeyRelation(relationTag.Id())
+	if errors.IsNotFound(err) {
+		if change.Life != params.Alive {
+			return nil
+		}
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Look up the application on the remote side of this relation
+	// ie from the model which published this change.
+	applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
+
+	// If the remote model has destroyed the relation, do it here also.
+	if change.Life != params.Alive {
+		logger.Debugf("remote side of %v died", relationTag)
+		if err := rel.Destroy(); err != nil {
+			return errors.Trace(err)
+		}
+		// See if we need to remove the remote application proxy - we do this
+		// on the offering side as there is 1:1 between proxy and consuming app.
+		if applicationTag != nil {
+			remoteApp, err := api.st.RemoteApplication(applicationTag.Id())
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if err == nil && remoteApp.IsConsumerProxy() {
+				logger.Debugf("destroy consuming app proxy for %v", remoteApp.Name())
+				if err := remoteApp.Destroy(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+
+	// TODO(wallyworld) - deal with remote application being removed
+	if applicationTag == nil {
+		logger.Infof("no remote application found for %v", relationTag.Id())
+		return nil
+	}
+	logger.Debugf("remote applocation for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
+
+	for _, id := range change.DepartedUnits {
+		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
+		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), relationTag.Id())
+		ru, err := rel.RemoteUnit(unitTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("%s leaving scope", unitTag.Id())
+		if err := ru.LeaveScope(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	for _, change := range change.ChangedUnits {
+		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
+		logger.Debugf("changed unit tag for remote id %v is %v", change.UnitId, unitTag)
+		ru, err := rel.RemoteUnit(unitTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		inScope, err := ru.InScope()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		settings := make(map[string]interface{})
+		for k, v := range change.Settings {
+			settings[k] = v
+		}
+		if !inScope {
+			logger.Debugf("%s entering scope (%v)", unitTag.Id(), settings)
+			err = ru.EnterScope(settings)
+		} else {
+			logger.Debugf("%s updated settings (%v)", unitTag.Id(), settings)
+			err = ru.ReplaceSettings(settings)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (api *RemoteRelationsAPI) getRemoteEntityTag(id params.RemoteEntityId) (names.Tag, error) {
+	modelTag := names.NewModelTag(id.ModelUUID)
+	return api.st.GetRemoteEntity(modelTag, id.Token)
+}
+
+// RegisterRemoteRelations sets up the local model to participate
+// in the specified relations. This operation is idempotent.
+func (api *RemoteRelationsAPI) RegisterRemoteRelations(
+	relations params.RegisterRemoteRelations,
+) (params.RemoteEntityIdResults, error) {
+	results := params.RemoteEntityIdResults{
+		Results: make([]params.RemoteEntityIdResult, len(relations.Relations)),
+	}
+	for i, relation := range relations.Relations {
+		if id, err := api.registerRemoteRelation(relation); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		} else {
+			results.Results[i].Result = id
+		}
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelation) (*params.RemoteEntityId, error) {
+	logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
 
-	// The name the consuming side knows the application by is not necessarily
-	// what it has been deployed as locally.
-	localApplicationName := relation.OfferedApplicationName
-	appOffer, err := api.st.ListOffers(crossmodel.OfferedApplicationFilter{ApplicationName: relation.OfferedApplicationName})
+	// Look up the offer record so get the local application to which we need to relate.
+	appOffers, err := api.st.ListOffers(crossmodel.ApplicationOfferFilter{
+		OfferName: relation.OfferName,
+	})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	if len(appOffer) == 0 {
-		// TODO(wallyworld) - we don't yet record the offer
-		// return errors.NotFoundf("offered application %q", relation.OfferedApplicationName)
-	} else {
-		// TODO(wallyworld) - charm name should be service name
-		localApplicationName = appOffer[0].CharmName
+	if len(appOffers) == 0 {
+		return nil, errors.NotFoundf("application offer %v", relation.OfferName)
 	}
+	localApplicationName := appOffers[0].ApplicationName
 
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferName)
 	}
 	if localApp.Life() != state.Alive {
-		return errors.NotFoundf("application %v", localApplicationName)
+		// We don't want to leak the application name so just log it.
+		logger.Warningf("local application for offer %v not found", localApplicationName)
+		return nil, errors.NotFoundf("local application for offer %v", relation.OfferName)
 	}
 	eps, err := localApp.Endpoints()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Does the requested local endpoint exist?
@@ -379,7 +485,7 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 		}
 	}
 	if localEndpoint == nil {
-		return errors.NotFoundf("relation endpoint %v", relation.LocalEndpointName)
+		return nil, errors.NotFoundf("relation endpoint %v", relation.LocalEndpointName)
 	}
 
 	// Add the remote application reference. We construct a unique, opaque application name based on the
@@ -399,40 +505,55 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 
 	remoteModelTag := names.NewModelTag(relation.ApplicationId.ModelUUID)
 	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        uniqueRemoteApplicationName,
-		SourceModel: names.NewModelTag(relation.ApplicationId.ModelUUID),
-		Token:       relation.ApplicationId.Token,
-		Endpoints:   []charm.Relation{remoteEndpoint.Relation},
-		Registered:  true,
+		Name:            uniqueRemoteApplicationName,
+		OfferName:       relation.OfferName,
+		SourceModel:     names.NewModelTag(relation.ApplicationId.ModelUUID),
+		Token:           relation.ApplicationId.Token,
+		Endpoints:       []charm.Relation{remoteEndpoint.Relation},
+		IsConsumerProxy: true,
 	})
 	// If it already exists, that's fine.
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
+		return nil, errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
 	}
-	logger.Debugf("added remote application %v to local model", uniqueRemoteApplicationName)
+	logger.Debugf("added remote application %v to local model with token %v", uniqueRemoteApplicationName, relation.ApplicationId.Token)
 
-	// Now add the relation.
-	_, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
-	// Again, if it already exists, that's fine.
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotate(err, "adding remote relation")
-	}
+	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
-	if err != nil {
-		return errors.Trace(err)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
-	logger.Debugf("added remote relation %v to local environment", localRel.Id())
+	if err != nil {
+		localRel, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
+		// Again, if it already exists, that's fine.
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, errors.Annotate(err, "adding remote relation")
+		}
+		logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
+	}
 
 	// Ensure we have references recorded.
-	err = api.st.ImportRemoteEntity(remoteModelTag, names.NewApplicationTag(uniqueRemoteApplicationName), relation.ApplicationId.Token)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotatef(err, "importing remote application %v to local model", uniqueRemoteApplicationName)
-	}
+	logger.Debugf("importing remote relation into model %v", api.st.ModelUUID())
+	logger.Debugf("remote model is %v", remoteModelTag.Id())
+
 	err = api.st.ImportRemoteEntity(remoteModelTag, localRel.Tag(), relation.RelationId.Token)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
+		return nil, errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
-	return nil
+	logger.Debugf("relation token %v exported for %v ", relation.RelationId.Token, localRel.Tag().Id())
+
+	// Export the local application from this model so we can tell the caller what the remote id is.
+	// NB we need to export the application last so that everything else is in place when the worker is
+	// woken up by the watcher.
+	token, err := api.st.ExportLocalEntity(names.NewApplicationTag(localApp.Name()))
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return nil, errors.Annotatef(err, "exporting local application %v", localApp.Name())
+	}
+	logger.Debugf("local application %v from model %v exported with token %v ", localApp.Name(), api.st.ModelUUID(), token)
+	return &params.RemoteEntityId{
+		ModelUUID: api.st.ModelUUID(),
+		Token:     token,
+	}, nil
 }
 
 // WatchRemoteApplications starts a strings watcher that notifies of the addition,
@@ -533,335 +654,17 @@ func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entit
 	return results, nil
 }
 
-// TODO(wallyworld) - the the stuff below is currently used.
-
-func (api *RemoteRelationsAPI) watchApplication(applicationTag names.ApplicationTag) (*applicationRelationsWatcher, error) {
-	// TODO(axw) subscribe to changes sent by the offering side.
-	applicationName := applicationTag.Id()
-	relationsWatcher, err := api.st.WatchRemoteApplicationRelations(applicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
+// WatchRemoteRelations starts a strings watcher that notifies of the addition,
+// removal, and lifecycle changes of remote relations in the model; and
+// returns the watcher ID and initial IDs of remote relations, or an error if
+// watching failed.
+func (api *RemoteRelationsAPI) WatchRemoteRelations() (params.StringsWatchResult, error) {
+	w := api.st.WatchRemoteRelations()
+	if changes, ok := <-w.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: api.resources.Register(w),
+			Changes:          changes,
+		}, nil
 	}
-	return newRemoteRelationsWatcher(api.st, applicationName, relationsWatcher), nil
-}
-
-// applicationRelationsWatcher watches the relations of a application, and the
-// *counterpart* endpoint units for each of those relations.
-type applicationRelationsWatcher struct {
-	tomb                  tomb.Tomb
-	st                    RemoteRelationsState
-	applicationName       string
-	relationsWatcher      state.StringsWatcher
-	relationUnitsChanges  chan relationUnitsChange
-	relationUnitsWatchers map[string]*relationWatcher
-	relations             map[string]relationInfo
-	out                   chan params.RemoteRelationsChange
-}
-
-func newRemoteRelationsWatcher(
-	st RemoteRelationsState,
-	applicationName string,
-	rw state.StringsWatcher,
-) *applicationRelationsWatcher {
-	w := &applicationRelationsWatcher{
-		st:                    st,
-		applicationName:       applicationName,
-		relationsWatcher:      rw,
-		relationUnitsChanges:  make(chan relationUnitsChange),
-		relationUnitsWatchers: make(map[string]*relationWatcher),
-		relations:             make(map[string]relationInfo),
-		out:                   make(chan params.RemoteRelationsChange),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		defer close(w.relationUnitsChanges)
-		defer watcher.Stop(rw, &w.tomb)
-		defer func() {
-			for _, ruw := range w.relationUnitsWatchers {
-				watcher.Stop(ruw, &w.tomb)
-			}
-		}()
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-func (w *applicationRelationsWatcher) loop() error {
-	var out chan<- params.RemoteRelationsChange
-	var value params.RemoteRelationsChange
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-
-		case change, ok := <-w.relationsWatcher.Changes():
-			if !ok {
-				return watcher.EnsureErr(w.relationsWatcher)
-			}
-			for _, relationKey := range change {
-				relation, err := w.st.KeyRelation(relationKey)
-				if errors.IsNotFound(err) {
-					r, ok := w.relations[relationKey]
-					if !ok {
-						// Relation was not previously known, so
-						// don't report it as removed.
-						continue
-					}
-					delete(w.relations, relationKey)
-					relationId := r.relationId
-
-					// Relation has been removed, so stop and remove its
-					// relation units watcher, and then add the relation
-					// ID to the removed relations list.
-					watcher, ok := w.relationUnitsWatchers[relationKey]
-					if ok {
-						if err := watcher.Stop(); err != nil {
-							return errors.Trace(err)
-						}
-						delete(w.relationUnitsWatchers, relationKey)
-					}
-					value.RemovedRelations = append(
-						value.RemovedRelations, relationId,
-					)
-					continue
-				} else if err != nil {
-					return errors.Trace(err)
-				}
-
-				relationId := relation.Id()
-				relationChange, _ := getRelationChange(&value, relationId)
-				relationChange.Life = params.Life(relation.Life().String())
-				w.relations[relationKey] = relationInfo{relationId, relationChange.Life}
-				if _, ok := w.relationUnitsWatchers[relationKey]; !ok {
-					// Start a relation units watcher, wait for the initial
-					// value before informing the client of the relation.
-					ruw, err := relation.WatchUnits(w.applicationName)
-					if err != nil {
-						return errors.Trace(err)
-					}
-					var knownUnits set.Strings
-					select {
-					case <-w.tomb.Dying():
-						return tomb.ErrDying
-					case change, ok := <-ruw.Changes():
-						if !ok {
-							return watcher.EnsureErr(ruw)
-						}
-						ru := relationUnitsChange{
-							relationKey: relationKey,
-						}
-						knownUnits = make(set.Strings)
-						if err := updateRelationUnits(
-							w.st, relation, knownUnits, change, &ru,
-						); err != nil {
-							watcher.Stop(ruw, &w.tomb)
-							return errors.Trace(err)
-						}
-						w.updateRelationUnits(ru, &value)
-					}
-					w.relationUnitsWatchers[relationKey] = newRelationWatcher(
-						w.st, relation, relationKey, knownUnits,
-						ruw, w.relationUnitsChanges,
-					)
-				}
-			}
-			out = w.out
-
-		case change := <-w.relationUnitsChanges:
-			w.updateRelationUnits(change, &value)
-			out = w.out
-
-		case out <- value:
-			out = nil
-			value = params.RemoteRelationsChange{}
-		}
-	}
-}
-
-func (w *applicationRelationsWatcher) updateRelationUnits(change relationUnitsChange, value *params.RemoteRelationsChange) {
-	relationInfo, ok := w.relations[change.relationKey]
-	r, ok := getRelationChange(value, relationInfo.relationId)
-	if !ok {
-		r.Life = relationInfo.life
-	}
-	if r.ChangedUnits == nil && len(change.changedUnits) > 0 {
-		r.ChangedUnits = make(map[string]params.RemoteRelationUnitChange)
-	}
-	for unitId, unitChange := range change.changedUnits {
-		r.ChangedUnits[unitId] = unitChange
-	}
-	if r.ChangedUnits != nil {
-		for _, unitId := range change.departedUnits {
-			delete(r.ChangedUnits, unitId)
-		}
-	}
-	r.DepartedUnits = append(r.DepartedUnits, change.departedUnits...)
-}
-
-func getRelationChange(value *params.RemoteRelationsChange, relationId int) (*params.RemoteRelationChange, bool) {
-	for i, r := range value.ChangedRelations {
-		if r.RelationId == relationId {
-			return &value.ChangedRelations[i], true
-		}
-	}
-	value.ChangedRelations = append(
-		value.ChangedRelations, params.RemoteRelationChange{RelationId: relationId},
-	)
-	return &value.ChangedRelations[len(value.ChangedRelations)-1], false
-}
-
-func (w *applicationRelationsWatcher) updateRelation(change params.RemoteRelationChange, value *params.RemoteRelationsChange) {
-	for i, r := range value.ChangedRelations {
-		if r.RelationId == change.RelationId {
-			value.ChangedRelations[i] = change
-			return
-		}
-	}
-}
-
-func (w *applicationRelationsWatcher) Changes() <-chan params.RemoteRelationsChange {
-	return w.out
-}
-
-func (w *applicationRelationsWatcher) Err() error {
-	return w.tomb.Err()
-}
-
-func (w *applicationRelationsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-// relationWatcher watches the counterpart endpoint units for a relation.
-type relationWatcher struct {
-	tomb        tomb.Tomb
-	st          RemoteRelationsState
-	relation    Relation
-	relationKey string
-	knownUnits  set.Strings
-	watcher     state.RelationUnitsWatcher
-	out         chan<- relationUnitsChange
-}
-
-func newRelationWatcher(
-	st RemoteRelationsState,
-	relation Relation,
-	relationKey string,
-	knownUnits set.Strings,
-	ruw state.RelationUnitsWatcher,
-	out chan<- relationUnitsChange,
-) *relationWatcher {
-	w := &relationWatcher{
-		st:          st,
-		relation:    relation,
-		relationKey: relationKey,
-		knownUnits:  knownUnits,
-		watcher:     ruw,
-		out:         out,
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer watcher.Stop(ruw, &w.tomb)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-func (w *relationWatcher) loop() error {
-	value := relationUnitsChange{relationKey: w.relationKey}
-	var out chan<- relationUnitsChange
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-
-		case change, ok := <-w.watcher.Changes():
-			if !ok {
-				return watcher.EnsureErr(w.watcher)
-			}
-			if err := w.update(change, &value); err != nil {
-				return errors.Trace(err)
-			}
-			out = w.out
-
-		case out <- value:
-			out = nil
-			value = relationUnitsChange{relationKey: w.relationKey}
-		}
-	}
-}
-
-func (w *relationWatcher) update(change params.RelationUnitsChange, value *relationUnitsChange) error {
-	return updateRelationUnits(w.st, w.relation, w.knownUnits, change, value)
-}
-
-// updateRelationUnits updates a relationUnitsChange structure with the
-// params.RelationUnitsChange.
-func updateRelationUnits(
-	st RemoteRelationsState,
-	relation Relation,
-	knownUnits set.Strings,
-	change params.RelationUnitsChange,
-	value *relationUnitsChange,
-) error {
-	if value.changedUnits == nil && len(change.Changed) > 0 {
-		value.changedUnits = make(map[string]params.RemoteRelationUnitChange)
-	}
-	if value.changedUnits != nil {
-		for _, unitId := range change.Departed {
-			delete(value.changedUnits, unitId)
-		}
-	}
-	for _, unitId := range change.Departed {
-		if knownUnits == nil || !knownUnits.Contains(unitId) {
-			// Unit hasn't previously been seen. This could happen
-			// if the unit is removed between the watcher firing
-			// when it was present and reading the unit's settings.
-			continue
-		}
-		knownUnits.Remove(unitId)
-		value.departedUnits = append(value.departedUnits, unitId)
-	}
-
-	// Fetch settings for each changed relation unit.
-	for unitId := range change.Changed {
-		ru, err := relation.Unit(unitId)
-		if errors.IsNotFound(err) {
-			// Relation unit removed between watcher firing and
-			// reading the unit's settings.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		settings, err := ru.Settings()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		value.changedUnits[unitId] = params.RemoteRelationUnitChange{Settings: settings}
-		if knownUnits != nil {
-			knownUnits.Add(unitId)
-		}
-	}
-	return nil
-}
-
-func (w *relationWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-func (w *relationWatcher) Err() error {
-	return w.tomb.Err()
-}
-
-type relationInfo struct {
-	relationId int
-	life       params.Life
-}
-
-type relationUnitsChange struct {
-	relationKey   string
-	changedUnits  map[string]params.RemoteRelationUnitChange
-	departedUnits []string
+	return params.StringsWatchResult{}, watcher.EnsureErr(w)
 }

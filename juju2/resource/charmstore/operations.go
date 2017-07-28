@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/resource"
 )
 
 // StoreResourceGetter provides the functionality for getting a resource
@@ -97,6 +97,9 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		Revision: res.Revision,
 	}
 	data, err := args.Client.GetResource(req)
+	// (anastasiamac 2017-05-25) This might not work all the time
+	// as the error types may be lost after call to some clients, for example http.
+	// But for these cases, the next block will bubble an un-annotated error up.
 	if errors.IsNotFound(err) {
 		msg := "while getting resource from the charm store"
 		return resource.Resource{}, nil, errors.Annotate(err, msg)

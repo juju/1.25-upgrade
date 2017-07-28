@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/network"
 )
 
 // TargetInfo holds the details required to connect to a
@@ -57,10 +57,6 @@ func (info *TargetInfo) Validate() error {
 		if err != nil {
 			return errors.NotValidf("%q in Addrs", addr)
 		}
-	}
-
-	if info.CACert == "" {
-		return errors.NotValidf("empty CACert")
 	}
 
 	if info.AuthTag.Id() == "" {

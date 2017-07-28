@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -13,12 +12,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/authentication"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
 )
 
 var (
@@ -28,8 +28,8 @@ var (
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
+	GUIURLPathPrefix      = guiURLPathPrefix
 	SpritePath            = spritePath
-	DefaultIcon           = defaultIcon
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -58,7 +58,10 @@ func APIHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
 }
 
-const LoginRateLimit = loginRateLimit
+const (
+	LoginRateLimit = defaultLoginRateLimit
+	LoginRetyPause = defaultLoginRetryPause
+)
 
 // DelayLogins changes how the Login code works so that logins won't proceed
 // until they get a message on the returned channel.
@@ -85,19 +88,19 @@ func NewErrRoot(err error) *errRoot {
 // TestingAPIRoot gives you an APIRoot as a rpc.Methodfinder that is
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
-func TestingAPIRoot(st *state.State) rpc.Root {
-	return newAPIRoot(st, state.NewStatePool(st), common.NewResources(), nil)
+func TestingAPIRoot(facades *facade.Registry) rpc.Root {
+	return newAPIRoot(nil, state.NewStatePool(nil), facades, common.NewResources(), nil)
 }
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Resources) {
-	authCtxt, err := newAuthContext(srvSt)
+func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
+	authCtxt, err := newAuthContext(pool.SystemState())
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
-		authCtxt: authCtxt,
-		state:    srvSt,
-		tag:      names.NewMachineTag("0"),
+		authCtxt:  authCtxt,
+		statePool: pool,
+		tag:       names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,63 +110,50 @@ func TestingAPIHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
 // TestingAPIHandler but sets the passed entity as the apiHandler
 // entity.
-func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, srvSt, st)
+func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
+	h, hr := TestingAPIHandler(c, pool, st)
 	h.entity = entity
 	return h, hr
 }
 
 // TestingUpgradingRoot returns a resricted srvRoot in an upgrade
 // scenario.
-func TestingUpgradingRoot(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
+func TestingUpgradingRoot() rpc.Root {
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, upgradeMethodsOnly)
 }
 
 // TestingMigratingRoot returns a resricted srvRoot in a migration
 // scenario.
-func TestingMigratingRoot(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
+func TestingMigratingRoot() rpc.Root {
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, migrationClientMethodsOnly)
 }
 
 // TestingControllerOnlyRoot returns a restricted srvRoot as if
 // logged in to the root of the API path.
 func TestingControllerOnlyRoot() rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, controllerFacadesOnly)
 }
 
 // TestingModelOnlyRoot returns a restricted srvRoot as if
 // logged in to a model.
 func TestingModelOnlyRoot() rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, modelFacadesOnly)
 }
 
 // TestingRestrictedRoot returns a restricted srvRoot.
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, check)
-}
-
-func SetAdminAPIVersions(srv *Server, versions ...int) {
-	factories := make(map[int]adminAPIFactory)
-	for _, n := range versions {
-		switch n {
-		case 3:
-			factories[n] = newAdminAPIV3
-		default:
-			panic(fmt.Errorf("unknown admin API version %d", n))
-		}
-	}
-	srv.adminAPIFactories = factories
 }
 
 // TestingAboutToRestoreRoot returns a limited root which allows
 // methods as per when a restore is about to happen.
 func TestingAboutToRestoreRoot() rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, aboutToRestoreMethodsOnly)
 }
 

@@ -25,15 +25,15 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	"github.com/juju/1.25-upgrade/juju2/environs/tools"
-	toolstesting "github.com/juju/1.25-upgrade/juju2/environs/tools/testing"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tools"
+	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/keys"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

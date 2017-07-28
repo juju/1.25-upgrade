@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/state"
 )
 
 // machineErrorRetry is a notify watcher that fires when it is

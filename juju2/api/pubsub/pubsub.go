@@ -8,8 +8,8 @@ package pubsub
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // MessageWriter is the interface that allows sending pub/sub messges to the
@@ -37,11 +37,24 @@ func (api *API) OpenMessageWriter() (MessageWriter, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /pubsub")
 	}
-	return &writer{conn}, nil
+	messageWriter := &writer{conn}
+	go messageWriter.readLoop()
+	return messageWriter, nil
 }
 
 type writer struct {
 	conn base.Stream
+}
+
+// readLoop is necessary for the client to process websocket control messages.
+// Close() is safe to call concurrently.
+func (w *writer) readLoop() {
+	for {
+		if _, _, err := w.conn.NextReader(); err != nil {
+			w.conn.Close()
+			break
+		}
+	}
 }
 
 func (w *writer) ForwardMessage(m *params.PubSubMessage) error {

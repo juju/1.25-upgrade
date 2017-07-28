@@ -4,10 +4,10 @@
 package manual
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/environs/manual"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type manualBootstrapInstance struct {
@@ -38,14 +38,14 @@ func (inst manualBootstrapInstance) Addresses() (addresses []network.Address, er
 	return []network.Address{addr}, nil
 }
 
-func (manualBootstrapInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (manualBootstrapInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	return nil
 }
 
-func (manualBootstrapInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (manualBootstrapInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	return nil
 }
 
-func (manualBootstrapInstance) Ports(machineId string) ([]network.PortRange, error) {
+func (manualBootstrapInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return nil, nil
 }

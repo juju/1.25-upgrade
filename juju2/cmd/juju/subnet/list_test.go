@@ -13,8 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/subnet"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cmd/juju/subnet"
 )
 
 type ListSuite struct {
@@ -25,8 +24,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewListCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = subnet.NewListCommand
 }
 
 func (s *ListSuite) TestInit(c *gc.C) {
@@ -83,19 +81,16 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectFormat: "yaml",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewListCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*subnet.ListCommand)
+			c.Check(command.SpaceName, gc.Equals, test.expectSpace)
+			c.Check(command.ZoneName, gc.Equals, test.expectZone)
+			c.Check(command.Out.Name(), gc.Equals, test.expectFormat)
 		}
-		c.Check(command.SpaceName, gc.Equals, test.expectSpace)
-		c.Check(command.ZoneName, gc.Equals, test.expectZone)
-		c.Check(command.Out.Name(), gc.Equals, test.expectFormat)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
@@ -123,6 +118,7 @@ subnets:
   2001:db8::/32:
     type: ipv6
     provider-id: subnet-bar
+    provider-network-id: network-yay
     status: terminating
     space: dmz
     zones:
@@ -145,6 +141,7 @@ subnets:
 		`"2001:db8::/32":{` +
 		`"type":"ipv6",` +
 		`"provider-id":"subnet-bar",` +
+		`"provider-network-id":"network-yay",` +
 		`"status":"terminating",` +
 		`"space":"dmz",` +
 		`"zones":["zone2"]}}}
@@ -327,6 +324,26 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
 
 	s.AssertRunFails(c, `subnet "10.20.0.0/24" has invalid space: "foo" is not a valid tag`)
 
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
+}
+
+func (s *ListSuite) TestRunWhenSubnetHasBlankSpace(c *gc.C) {
+	s.api.Subnets = s.api.Subnets[0:1]
+	s.api.Subnets[0].SpaceTag = ""
+
+	expectedYAML := `
+subnets:
+  10.20.0.0/24:
+    type: ipv4
+    provider-id: subnet-foo
+    status: in-use
+    space: ""
+    zones:
+    - zone1
+    - zone2
+`[1:]
+	s.AssertRunSucceeds(c, "", expectedYAML)
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }

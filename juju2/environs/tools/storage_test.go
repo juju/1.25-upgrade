@@ -8,11 +8,11 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/environs/filestorage"
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 type StorageSuite struct {
@@ -102,25 +102,4 @@ func (s *StorageSuite) TestReadListLegacyPPC64(c *gc.C) {
 		tool.SHA256 = ""
 	}
 	c.Assert(list, gc.DeepEquals, expected)
-}
-
-var setenvTests = []struct {
-	set    string
-	expect []string
-}{
-	{"foo=1", []string{"foo=1", "arble="}},
-	{"foo=", []string{"foo=", "arble="}},
-	{"arble=23", []string{"foo=bar", "arble=23"}},
-	{"zaphod=42", []string{"foo=bar", "arble=", "zaphod=42"}},
-}
-
-func (*StorageSuite) TestSetenv(c *gc.C) {
-	env0 := []string{"foo=bar", "arble="}
-	for i, t := range setenvTests {
-		c.Logf("test %d", i)
-		env := make([]string, len(env0))
-		copy(env, env0)
-		env = envtools.Setenv(env, t.set)
-		c.Check(env, gc.DeepEquals, t.expect)
-	}
 }

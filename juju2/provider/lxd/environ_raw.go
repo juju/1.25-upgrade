@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type rawProvider struct {
@@ -21,6 +21,7 @@ type rawProvider struct {
 	lxdInstances
 	lxdProfiles
 	lxdImages
+	lxdStorage
 	common.Firewaller
 
 	remote lxdclient.Remote
@@ -44,6 +45,8 @@ type lxdInstances interface {
 	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
 	Addresses(string) ([]network.Address, error)
+	AttachDisk(string, string, lxdclient.DiskDevice) error
+	RemoveDevice(string, string) error
 }
 
 type lxdProfiles interface {
@@ -54,6 +57,13 @@ type lxdProfiles interface {
 
 type lxdImages interface {
 	EnsureImageExists(series, arch string, sources []lxdclient.Remote, copyProgressHandler func(string)) (string, error)
+}
+
+type lxdStorage interface {
+	StorageSupported() bool
+	VolumeCreate(pool, volume string, config map[string]string) error
+	VolumeDelete(pool, volume string) error
+	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
@@ -87,6 +97,7 @@ func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
 		lxdInstances: client,
 		lxdProfiles:  client,
 		lxdImages:    client,
+		lxdStorage:   client,
 		Firewaller:   common.NewFirewaller(),
 		remote:       config.Remote,
 	}, nil

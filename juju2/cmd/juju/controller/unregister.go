@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewUnregisterCommand returns a command to allow the user to unregister a controller.
@@ -26,7 +26,7 @@ func NewUnregisterCommand(store jujuclient.ClientStore) cmd.Command {
 
 // unregisterCommand removes a Juju controller from the local store.
 type unregisterCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 	controllerName string
 	assumeYes      bool
 	store          jujuclient.ClientStore
@@ -53,7 +53,7 @@ func (c *unregisterCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unregister",
 		Args:    "<controller name>",
-		Purpose: "Unregisters a Juju controller",
+		Purpose: "Unregisters a Juju controller.",
 		Doc:     usageUnregisterDetails,
 	}
 }

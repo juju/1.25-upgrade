@@ -5,19 +5,19 @@ package cloud
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/interact"
-	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/interact"
+	"github.com/juju/juju/environs"
 )
 
 type CloudMetadataStore interface {
@@ -53,7 +53,9 @@ Examples:
 See also: 
     clouds`
 
-type addCloudCommand struct {
+// AddCloudCommand is the command that allows you to add a cloud configuration
+// for use with juju bootstrap.
+type AddCloudCommand struct {
 	cmd.CommandBase
 
 	// Replace, if true, existing cloud information is overwritten.
@@ -65,18 +67,28 @@ type addCloudCommand struct {
 	// CloudFile is the name of the cloud YAML file.
 	CloudFile string
 
+	// Ping contains the logic for pinging a cloud endpoint to know whether or
+	// not it really has a valid cloud of the same type as the provider.  By
+	// default it just calls the correct provider's Ping method.
+	Ping func(p environs.EnvironProvider, endpoint string) error
+
 	cloudMetadataStore CloudMetadataStore
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
-func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
-	return &addCloudCommand{
+func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
+	// Ping is provider.Ping except in tests where we don't actually want to
+	// require a valid cloud.
+	return &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
+		Ping: func(p environs.EnvironProvider, endpoint string) error {
+			return p.Ping(endpoint)
+		},
 	}
 }
 
 // Info returns help information about the command.
-func (c *addCloudCommand) Info() *cmd.Info {
+func (c *AddCloudCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-cloud",
 		Args:    "<cloud name> <cloud definition file>",
@@ -86,17 +98,21 @@ func (c *addCloudCommand) Info() *cmd.Info {
 }
 
 // SetFlags initializes the flags supported by the command.
-func (c *addCloudCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
+	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 }
 
 // Init populates the command with the args from the command line.
-func (c *addCloudCommand) Init(args []string) (err error) {
+func (c *AddCloudCommand) Init(args []string) (err error) {
 	if len(args) > 0 {
 		c.Cloud = args[0]
 	}
 	if len(args) > 1 {
+		if c.CloudFile != args[1] && c.CloudFile != "" {
+			return errors.BadRequestf("cannot specify cloud file with flag and argument")
+		}
 		c.CloudFile = args[1]
 	}
 	if len(args) > 2 {
@@ -107,10 +123,11 @@ func (c *addCloudCommand) Init(args []string) (err error) {
 
 // Run executes the add cloud command, adding a cloud based on a passed-in yaml
 // file or interactive queries.
-func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
+func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.CloudFile == "" {
 		return c.runInteractive(ctxt)
 	}
+
 	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
 	if err != nil {
 		return err
@@ -123,6 +140,26 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
 	}
 
+	// first validate cloud input
+	data, err := ioutil.ReadFile(c.CloudFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = cloud.ValidateCloudSet([]byte(data)); err != nil {
+		ctxt.Warningf(err.Error())
+	}
+
+	// validate cloud data
+	provider, err := environs.Provider(newCloud.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	schemas := provider.CredentialSchemas()
+	for _, authType := range newCloud.AuthTypes {
+		if _, defined := schemas[authType]; !defined {
+			return errors.NotSupportedf("auth type %q", authType)
+		}
+	}
 	if err := c.verifyName(c.Cloud); err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +167,7 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 	return addCloud(c.cloudMetadataStore, newCloud)
 }
 
-func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
+func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	errout := interact.NewErrWriter(ctxt.Stdout)
 	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
 
@@ -139,7 +176,7 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	name, err := queryName(c.cloudMetadataStore, cloudType, pollster)
+	name, err := queryName(c.cloudMetadataStore, c.Cloud, cloudType, pollster)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -147,6 +184,14 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	provider, err := environs.Provider(cloudType)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	pollster.VerifyURLs = func(s string) (ok bool, msg string, err error) {
+		err = c.Ping(provider, s)
+		if err != nil {
+			return false, "Can't validate endpoint: " + err.Error(), nil
+		}
+		return true, "", nil
 	}
 
 	v, err := pollster.QuerySchema(provider.CloudSchema())
@@ -174,6 +219,7 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 
 func queryName(
 	cloudMetadataStore CloudMetadataStore,
+	cloudName string,
 	cloudType string,
 	pollster *interact.Pollster,
 ) (string, error) {
@@ -187,48 +233,52 @@ func queryName(
 	}
 
 	for {
-		name, err := pollster.Enter(fmt.Sprintf("a name for your %s cloud", cloudType))
-		if err != nil {
-			return "", errors.Trace(err)
+		if cloudName == "" {
+			name, err := pollster.Enter(fmt.Sprintf("a name for your %s cloud", cloudType))
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			cloudName = name
 		}
-		if _, ok := personal[name]; ok {
-			override, err := pollster.YN(fmt.Sprintf("A cloud named %q already exists. Do you want to replace that definition", name), false)
+		if _, ok := personal[cloudName]; ok {
+			override, err := pollster.YN(fmt.Sprintf("A cloud named %q already exists. Do you want to replace that definition", cloudName), false)
 			if err != nil {
 				return "", errors.Trace(err)
 			}
 			if override {
-				return name, nil
+				return cloudName, nil
 			}
 			// else, ask again
+			cloudName = ""
 			continue
 		}
-		msg, err := nameExists(name, public)
+		msg, err := nameExists(cloudName, public)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 		if msg == "" {
-			return name, nil
+			return cloudName, nil
 		}
 		override, err := pollster.YN(msg+", do you want to override that definition", false)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 		if override {
-			return name, nil
+			return cloudName, nil
 		}
 		// else, ask again
 	}
 }
 
-func queryCloudType(pollster *interact.Pollster) (string, error) {
+// addableCloudProviders returns the names of providers supported by add-cloud,
+// and also the names of those which are not supported.
+func addableCloudProviders() (providers []string, unsupported []string, _ error) {
 	allproviders := environs.RegisteredProviders()
-	var unsupported []string
-	var providers []string
 	for _, name := range allproviders {
 		provider, err := environs.Provider(name)
 		if err != nil {
 			// should be impossible
-			return "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 
 		if provider.CloudSchema() != nil {
@@ -238,7 +288,15 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 		}
 	}
 	sort.Strings(providers)
+	return providers, unsupported, nil
+}
 
+func queryCloudType(pollster *interact.Pollster) (string, error) {
+	providers, unsupported, err := addableCloudProviders()
+	if err != nil {
+		// should be impossible
+		return "", errors.Trace(err)
+	}
 	supportedCloud := interact.VerifyOptions("cloud type", providers, false)
 
 	cloudVerify := func(s string) (ok bool, errmsg string, err error) {
@@ -266,7 +324,7 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 	}, cloudVerify)
 }
 
-func (c *addCloudCommand) verifyName(name string) error {
+func (c *AddCloudCommand) verifyName(name string) error {
 	if c.Replace {
 		return nil
 	}

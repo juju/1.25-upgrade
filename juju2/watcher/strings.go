@@ -6,7 +6,7 @@ package watcher
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // StringsChannel is a change channel as described in the CoreWatcher docs.

@@ -8,14 +8,14 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
-	"github.com/juju/1.25-upgrade/juju2/payload/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/payload/status"
 )
 
 var _ = gc.Suite(&listSuite{})
@@ -50,7 +50,7 @@ func (s *listSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
-		Purpose: "display status information about known payloads",
+		Purpose: "Display status information about known payloads.",
 		Doc: `
 This command will report on the runtime state of defined payloads.
 
@@ -210,7 +210,7 @@ another-application/1  2        eggs           running  docker  ideggs
 }
 
 func runList(c *gc.C, command *status.ListCommand, args ...string) (int, string, string) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(command, ctx, args)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr := ctx.Stderr.(*bytes.Buffer).Bytes()

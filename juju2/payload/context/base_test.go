@@ -11,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/payload"
-	"github.com/juju/1.25-upgrade/juju2/payload/context"
-	jujuctesting "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/payload/context"
+	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
 
 type baseSuite struct {

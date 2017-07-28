@@ -112,6 +112,9 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 func (r *RemoteEntities) ImportRemoteEntity(
 	sourceModel names.ModelTag, entity names.Tag, token string,
 ) error {
+	if token == "" {
+		return errors.NotValidf("empty token for %v in model %v", entity.Id(), sourceModel.Id())
+	}
 	ops := r.importRemoteEntityOps(sourceModel, entity, token)
 	err := r.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -154,6 +157,7 @@ func (r *RemoteEntities) RemoveRemoteEntity(
 	ops := func(attempt int) ([]txn.Op, error) {
 		token, err := r.GetToken(sourceModel, entity)
 		if errors.IsNotFound(err) {
+			logger.Debugf("remote entity %v from %v in model %v not found", entity, sourceModel, r.st.ModelUUID())
 			return nil, jujutxn.ErrNoOperations
 		}
 		ops := []txn.Op{r.removeRemoteEntityOp(sourceModel, entity)}
@@ -184,7 +188,7 @@ func (r *RemoteEntities) removeRemoteEntityOp(
 // GetToken returns the token associated with the entity with the given tag
 // and model.
 func (r *RemoteEntities) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
-	remoteEntities, closer := r.st.getCollection(remoteEntitiesC)
+	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
 	defer closer()
 
 	var doc remoteEntityDoc
@@ -209,7 +213,7 @@ func (r *RemoteEntities) GetToken(sourceModel names.ModelTag, entity names.Tag) 
 // GetRemoteEntity returns the tag of the entity associated with the given
 // token and model.
 func (r *RemoteEntities) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
-	remoteEntities, closer := r.st.getCollection(remoteEntitiesC)
+	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
 	defer closer()
 
 	var doc remoteEntityDoc
@@ -237,7 +241,7 @@ func (r *RemoteEntities) docID(sourceModel names.ModelTag, entity names.Tag) str
 }
 
 func (r *RemoteEntities) tokenExists(token string) (bool, error) {
-	tokens, closer := r.st.getCollection(tokensC)
+	tokens, closer := r.st.db().GetCollection(tokensC)
 	defer closer()
 	n, err := tokens.FindId(token).Count()
 	if err != nil {

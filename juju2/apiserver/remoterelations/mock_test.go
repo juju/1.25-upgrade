@@ -12,22 +12,32 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/remoterelations"
-	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/remoterelations"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
+
+type mockStatePool struct {
+	st *mockState
+}
+
+func (st *mockStatePool) Get(modelUUID string) (remoterelations.RemoteRelationsState, func(), error) {
+	return st.st, func() {}, nil
+}
 
 type mockState struct {
 	testing.Stub
 	relations                    map[string]*mockRelation
 	remoteApplications           map[string]*mockRemoteApplication
 	applications                 map[string]*mockApplication
+	offers                       []crossmodel.ApplicationOffer
 	remoteApplicationsWatcher    *mockStringsWatcher
+	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
-	remoteEntities               map[string]string
+	remoteEntities               map[names.Tag]string
 }
 
 func newMockState() *mockState {
@@ -36,17 +46,14 @@ func newMockState() *mockState {
 		remoteApplications:           make(map[string]*mockRemoteApplication),
 		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
+		remoteRelationsWatcher:       newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
-		remoteEntities:               make(map[string]string),
+		remoteEntities:               make(map[names.Tag]string),
 	}
 }
 
-func (st *mockState) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	result := make([]crossmodel.OfferedApplication, len(filter))
-	for i, f := range filter {
-		result[i] = crossmodel.OfferedApplication{CharmName: "application-" + f.ApplicationName}
-	}
-	return result, nil
+func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	return st.offers, nil
 }
 
 func (st *mockState) ModelUUID() string {
@@ -68,7 +75,7 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.R
 }
 
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (remoterelations.RemoteApplication, error) {
-	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, registered: params.Registered}
+	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, consumerproxy: params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
 }
@@ -78,10 +85,19 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 	if err := st.NextErr(); err != nil {
 		return err
 	}
-	if _, ok := st.remoteEntities[entity.Id()]; ok {
+	if _, ok := st.remoteEntities[entity]; ok {
 		return errors.AlreadyExistsf(entity.Id())
 	}
-	st.remoteEntities[entity.Id()] = token
+	st.remoteEntities[entity] = token
+	return nil
+}
+
+func (st *mockState) RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error {
+	st.MethodCall(st, "RemoveRemoteEntity", sourceModel, entity)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	delete(st.remoteEntities, entity)
 	return nil
 }
 
@@ -90,11 +106,11 @@ func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	if token, ok := st.remoteEntities[entity.Id()]; ok {
+	if token, ok := st.remoteEntities[entity]; ok {
 		return token, errors.AlreadyExistsf(entity.Id())
 	}
 	token := "token-" + entity.Id()
-	st.remoteEntities[entity.Id()] = token
+	st.remoteEntities[entity] = token
 	return token, nil
 }
 
@@ -103,7 +119,12 @@ func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	return nil, errors.NotImplementedf("GetRemoteEntity")
+	for e, t := range st.remoteEntities {
+		if t == token {
+			return e, nil
+		}
+	}
+	return nil, errors.NotFoundf("token %v", token)
 }
 
 func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
@@ -111,7 +132,7 @@ func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (str
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	return "", errors.NotImplementedf("GetToken")
+	return "token-" + entity.String(), nil
 }
 
 func (st *mockState) KeyRelation(key string) (remoterelations.Relation, error) {
@@ -178,6 +199,11 @@ func (st *mockState) WatchRemoteApplicationRelations(applicationName string) (st
 		return nil, errors.NotFoundf("application %q", applicationName)
 	}
 	return w, nil
+}
+
+func (st *mockState) WatchRemoteRelations() state.StringsWatcher {
+	st.MethodCall(st, "WatchRemoteRelations")
+	return st.remoteRelationsWatcher
 }
 
 type mockRelation struct {
@@ -262,17 +288,18 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name       string
-	url        string
-	life       state.Life
-	status     status.Status
-	eps        []charm.Relation
-	registered bool
+	name          string
+	alias         string
+	url           string
+	life          state.Life
+	status        status.Status
+	eps           []charm.Relation
+	consumerproxy bool
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
-		name: name, url: url, life: state.Alive,
+		name: name, alias: name + "-alias", url: url, life: state.Alive,
 	}
 }
 
@@ -281,14 +308,19 @@ func (r *mockRemoteApplication) Name() string {
 	return r.name
 }
 
+func (r *mockRemoteApplication) OfferName() string {
+	r.MethodCall(r, "OfferName")
+	return r.alias
+}
+
 func (r *mockRemoteApplication) Tag() names.Tag {
 	r.MethodCall(r, "Tag")
 	return names.NewApplicationTag(r.name)
 }
 
-func (r *mockRemoteApplication) Registered() bool {
-	r.MethodCall(r, "Registered")
-	return r.registered
+func (r *mockRemoteApplication) IsConsumerProxy() bool {
+	r.MethodCall(r, "IsConsumerProxy")
+	return r.consumerproxy
 }
 
 func (r *mockRemoteApplication) Life() state.Life {

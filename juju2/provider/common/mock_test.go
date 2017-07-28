@@ -6,20 +6,21 @@ package common_test
 import (
 	"io"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
-	jujustorage "github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/tools"
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
+type instancesFunc func([]instance.Id) ([]instance.Instance, error)
 type startInstanceFunc func(string, constraints.Value, []string, tools.List, *instancecfg.InstanceConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
@@ -29,6 +30,7 @@ type setConfigFunc func(*config.Config) error
 type mockEnviron struct {
 	storage          storage.Storage
 	allInstances     allInstancesFunc
+	instances        instancesFunc
 	startInstance    startInstanceFunc
 	stopInstances    stopInstancesFunc
 	getToolsSources  getToolsSourcesFunc
@@ -46,8 +48,8 @@ func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
 
-func (env *mockEnviron) BootstrapMessage() string {
-	return "Some message"
+func (env *mockEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	return env.instances(ids)
 }
 
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -122,11 +124,16 @@ type mockInstance struct {
 	addressesErr      error
 	dnsName           string
 	dnsNameErr        error
+	status            instance.InstanceStatus
 	instance.Instance // stub out other methods with panics
 }
 
 func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
+}
+
+func (inst *mockInstance) Status() instance.InstanceStatus {
+	return inst.status
 }
 
 func (inst *mockInstance) Addresses() ([]network.Address, error) {

@@ -11,18 +11,18 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/client"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type statusSuite struct {
@@ -42,11 +42,13 @@ func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
+	s.State.SetSLA("essential", "test-user", []byte(""))
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
+	c.Check(status.Model.SLA, gc.Equals, "essential")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
@@ -84,10 +86,12 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 		host.Id(): {host, container},
 	}
 
-	statuses := client.ProcessMachines(machines)
+	// TODO(macgreagoir) Pass in more than nil
+	statuses := client.ProcessMachines(machines, nil, nil, nil)
 	c.Assert(statuses, gc.Not(gc.IsNil))
 
-	containerStatus := client.MakeMachineStatus(container)
+	// TODO(macgreagoir) Pass in more than nil
+	containerStatus := client.MakeMachineStatus(container, nil, nil, nil)
 	c.Check(statuses[host.Id()].Containers[container.Id()].Id, gc.Equals, containerStatus.Id)
 }
 
@@ -103,7 +107,8 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 		},
 	}
 
-	statuses := client.ProcessMachines(machines)
+	// TODO(macgreagoir) Pass in more than nil
+	statuses := client.ProcessMachines(machines, nil, nil, nil)
 	c.Assert(statuses, gc.Not(gc.IsNil))
 
 	hostContainer := statuses[host.Id()].Containers
@@ -128,6 +133,18 @@ var testUnits = []struct {
 	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
 	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
 }, {},
+}
+
+func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
+	s.State.SetModelMeterStatus("RED", "thing")
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	modelMeterStatus := status.Model.MeterStatus
+	c.Assert(modelMeterStatus.Color, gc.Equals, "red")
+	c.Assert(modelMeterStatus.Message, gc.Equals, "thing")
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
@@ -321,7 +338,10 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	checkMigStatus := func(expected string) {
 		status, err := client.Status(nil)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(status.Model.Migration, gc.Equals, expected)
+		if expected != "" {
+			expected = "migrating: " + expected
+		}
+		c.Check(status.Model.ModelStatus.Info, gc.Equals, expected)
 	}
 
 	// Migration status should be empty when no migration is happening.

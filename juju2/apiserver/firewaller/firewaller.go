@@ -7,20 +7,15 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common/cloudspec"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 )
-
-func init() {
-	// Version 0 is no longer supported.
-	common.RegisterStandardFacade("Firewaller", 3, NewFirewallerAPI)
-}
 
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
@@ -56,12 +51,13 @@ func NewFirewallerAPI(
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
-	accessUnitApplicationOrMachine := common.AuthAny(accessUnit, accessApplication, accessMachine)
+	accessRelation := common.AuthFuncForTagKind(names.RelationTagKind)
+	accessUnitApplicationOrMachineOrRelation := common.AuthAny(accessUnit, accessApplication, accessMachine, accessRelation)
 
 	// Life() is supported for units, applications or machines.
 	lifeGetter := common.NewLifeGetter(
 		st,
-		accessUnitApplicationOrMachine,
+		accessUnitApplicationOrMachineOrRelation,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.

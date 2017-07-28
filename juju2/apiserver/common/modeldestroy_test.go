@@ -10,15 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type destroyModelSuite struct {
@@ -139,6 +139,20 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
+}
+
+func (s *destroyModelSuite) TestDestroyImportingModel(c *gc.C) {
+	modelSt := s.Factory.MakeModel(c, nil)
+	defer modelSt.Close()
+
+	model, err := modelSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = common.DestroyModel(s.modelManager, model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {

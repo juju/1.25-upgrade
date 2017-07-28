@@ -12,12 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type InterfaceSuite struct {
@@ -88,14 +88,21 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
-func (s *InterfaceSuite) TestUnitNetworkConfig(c *gc.C) {
+func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	// Only the error case is tested to ensure end-to-end integration, the rest
 	// of the cases are tested separately for network-get, api/uniter, and
 	// apiserver/uniter, respectively.
 	ctx := s.GetContext(c, -1, "")
-	netConfig, err := ctx.NetworkConfig("unknown")
-	c.Check(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
-	c.Check(netConfig, gc.IsNil)
+	netInfo, err := ctx.NetworkInfo([]string{"unknown"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
+		"unknown": params.NetworkInfoResult{
+			Error: &params.Error{
+				Message: "binding name \"unknown\" not defined by the unit's charm",
+			},
+		},
+	},
+	)
 }
 
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {

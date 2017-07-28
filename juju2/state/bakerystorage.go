@@ -4,8 +4,8 @@
 package state
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state/bakerystorage"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // NewBakeryStorage returns a new bakery.Storage. By default, items
@@ -15,7 +15,7 @@ import (
 func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 	return bakerystorage.New(bakerystorage.Config{
 		GetCollection: func() (mongo.Collection, func()) {
-			return st.getCollection(bakeryStorageItemsC)
+			return st.db().GetCollection(bakeryStorageItemsC)
 		},
 	})
 }

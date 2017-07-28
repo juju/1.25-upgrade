@@ -18,22 +18,22 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/migration"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/fortress"
-	"github.com/juju/1.25-upgrade/juju2/worker/migrationmaster"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource/resourcetesting"
+	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type Suite struct {
@@ -713,48 +713,6 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 			abortCall,
 			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
-		},
-	))
-}
-
-func (s *Suite) TestExternalControl(c *gc.C) {
-	status := s.makeStatus(coremigration.QUIESCE)
-	status.ExternalControl = true
-	s.facade.queueStatus(status)
-
-	status.Phase = coremigration.DONE
-	s.facade.queueStatus(status)
-
-	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
-	s.stub.CheckCalls(c, joinCalls(
-		// Wait for migration to start.
-		watchStatusLockdownCalls,
-
-		// Wait for migration to end.
-		[]jujutesting.StubCall{
-			{"facade.Watch", nil},
-			{"facade.MigrationStatus", nil},
-		},
-	))
-}
-
-func (s *Suite) TestExternalControlABORT(c *gc.C) {
-	status := s.makeStatus(coremigration.QUIESCE)
-	status.ExternalControl = true
-	s.facade.queueStatus(status)
-
-	status.Phase = coremigration.ABORTDONE
-	s.facade.queueStatus(status)
-
-	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-	s.stub.CheckCalls(c, joinCalls(
-		// Wait for migration to start.
-		watchStatusLockdownCalls,
-
-		// Wait for migration to end.
-		[]jujutesting.StubCall{
-			{"facade.Watch", nil},
-			{"facade.MigrationStatus", nil},
 		},
 	))
 }

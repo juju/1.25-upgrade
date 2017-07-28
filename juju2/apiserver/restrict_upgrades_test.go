@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/testing"
 )
 
 type restrictUpgradesSuite struct {
@@ -20,7 +20,7 @@ type restrictUpgradesSuite struct {
 var _ = gc.Suite(&restrictUpgradesSuite{})
 
 func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
-	root := apiserver.TestingUpgradingRoot(nil)
+	root := apiserver.TestingUpgradingRoot()
 	checkAllowed := func(facade, method string) {
 		caller, err := root.FindMethod(facade, 1, method)
 		c.Check(err, jc.ErrorIsNil)
@@ -34,7 +34,7 @@ func (r *restrictUpgradesSuite) TestAllowedMethods(c *gc.C) {
 }
 
 func (r *restrictUpgradesSuite) TestFindDisallowedMethod(c *gc.C) {
-	root := apiserver.TestingUpgradingRoot(nil)
+	root := apiserver.TestingUpgradingRoot()
 	caller, err := root.FindMethod("Client", 1, "ModelSet")
 	c.Assert(errors.Cause(err), gc.Equals, params.UpgradeInProgressError)
 	c.Assert(caller, gc.IsNil)

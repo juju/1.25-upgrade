@@ -11,13 +11,13 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	apideployer "github.com/juju/1.25-upgrade/juju2/api/deployer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/agent"
+	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.deployer")

@@ -4,8 +4,9 @@
 package common_test
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/provider/common"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/provider/common"
 )
 
 type DiskSuite struct{}
@@ -20,6 +21,7 @@ func (s *DiskSuite) TestMinRootDiskSizeGiB(c *gc.C) {
 		{"trusty", 8},
 		{"win2012r2", 40},
 		{"centos7", 8},
+		{"opensuseleap", 8},
 		{"fake-series", 8},
 	}
 	for _, t := range diskTests {

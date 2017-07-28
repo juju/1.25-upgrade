@@ -12,10 +12,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/constraints"
 )
 
 var usageGetConstraintsSummary = `
@@ -68,7 +68,7 @@ See also:
     set-model-constraints`
 
 // NewServiceGetConstraintsCommand returns a command which gets application constraints.
-func NewServiceGetConstraintsCommand() cmd.Command {
+func NewServiceGetConstraintsCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&serviceGetConstraintsCommand{})
 }
 
@@ -155,7 +155,7 @@ type serviceSetConstraintsCommand struct {
 }
 
 // NewServiceSetConstraintsCommand returns a command which sets application constraints.
-func NewServiceSetConstraintsCommand() cmd.Command {
+func NewServiceSetConstraintsCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&serviceSetConstraintsCommand{})
 }
 

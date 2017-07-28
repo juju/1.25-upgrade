@@ -22,15 +22,15 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/component/all"
-	"github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type UniterSuite struct {
@@ -738,9 +738,9 @@ resources:
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
+	coretesting.SkipIfWindowsBug(c, "lp:1403084")
+	//TODO(hml): Fix this on S390X, intermittent there.
+	coretesting.SkipIfS390X(c, "lp:1534637")
 	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
 		return ut(description,
 			createCharm{
@@ -1833,8 +1833,17 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			err := f.Close()
 			c.Assert(err, jc.ErrorIsNil)
 		}()
-		_, err = io.WriteString(f, "storage:\n  wp-content:\n    type: filesystem\n")
+		_, err = io.WriteString(f, `
+storage:
+  wp-content:
+    type: filesystem
+    multiple:
+      range: 0-
+`[1:])
 		c.Assert(err, jc.ErrorIsNil)
+	}
+	storageConstraints := map[string]state.StorageConstraints{
+		"wp-content": {Count: 1},
 	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1842,7 +1851,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1853,7 +1862,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1870,7 +1879,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			// provision and destroy the storage before the uniter starts,
 			// to ensure it never sees the storage as attached
 			provisionStorage{},
@@ -1887,7 +1896,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			startUniter{},
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
@@ -1899,7 +1908,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			unitDying,
 			startUniter{},
 			// no hooks should be run, and unit agent should terminate

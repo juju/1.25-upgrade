@@ -10,8 +10,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,27 +25,27 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	charmstore "gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	macaroon "gopkg.in/macaroon.v1"
 
-	"strings"
-
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/charms"
-	jujucharmstore "github.com/juju/1.25-upgrade/juju2/charmstore"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/resource/resourceadapters"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/apiserver/params"
+	jujucharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type UpgradeCharmSuite struct {
@@ -118,21 +120,23 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	s.modelConfigGetter = mockModelConfigGetter{}
 	s.resourceLister = mockResourceLister{}
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
-	store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
 		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
 	}
-	apiOpener := modelcmd.OpenFunc(func(store jujuclient.ClientStore, controller, model string) (api.Connection, error) {
-		s.AddCall("OpenAPI", store, controller, model)
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
-	})
+	}
 
 	s.cmd = NewUpgradeCharmCommandForTest(
 		store,
-		apiOpener,
+		apiOpen,
 		s.deployResources,
 		s.resolveCharm,
 		func(conn api.Connection, bakeryClient *httpbakery.Client, channel csclientparams.Channel) CharmAdder {
@@ -162,14 +166,14 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, s.cmd, args...)
+	return cmdtesting.RunCommand(c, s.cmd, args...)
 }
 
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -204,8 +208,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -260,7 +264,7 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
 	return err
 }
 
@@ -283,7 +287,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidService(c *gc.C) {
 
 func (s *UpgradeCharmErrorsStateSuite) deployService(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "quantal")
+	_, err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -351,7 +355,7 @@ var _ = gc.Suite(&UpgradeCharmSuccessStateSuite{})
 func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	err := runDeploy(c, s.path, "--series", "quantal")
+	_, err := runDeploy(c, s.path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	s.riak, err = s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -403,7 +407,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c 
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "multi-series")
-	err := runDeploy(c, path, "multi-series", "--series", "precise")
+	_, err := runDeploy(c, path, "multi-series", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
@@ -465,7 +469,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	d := upgradeCharmCommand{}
 	args := []string{"dummy", "--resource", res1, "--resource", res2}
 
-	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
@@ -570,18 +574,18 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
-	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
+	_, err := runDeploy(c, "cs:~other/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
@@ -601,7 +605,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-0", "riak")
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-7", "riak")
-	err := runDeploy(c, "cs:~other/trusty/riak-0")
+	_, err := runDeploy(c, "cs:~other/trusty/riak-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	riak, err := s.State.Application("riak")
@@ -630,7 +634,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) {
 	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
-	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
+	_, err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Upload a new revision of the charm, but publish it
@@ -654,7 +658,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
 	id, ch := testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
-	err := runDeploy(c, "quantal/terms1")
+	_, err := runDeploy(c, "quantal/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	id.Revision = id.Revision + 1
 	err = s.client.UploadCharmWithRevision(id, ch, -1)
@@ -665,7 +669,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C
 		Message: "term agreement required: term/1 term/2",
 		Code:    "term agreement required",
 	}
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	err = runUpgradeCharm(c, "terms1")
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -674,6 +678,27 @@ type mockAPIConnection struct {
 	api.Connection
 	bestFacadeVersion int
 	serverVersion     *version.Number
+}
+
+func (m *mockAPIConnection) Addr() string {
+	return "0.1.2.3:1234"
+}
+
+func (m *mockAPIConnection) IPAddr() string {
+	return "0.1.2.3:1234"
+}
+
+func (m *mockAPIConnection) AuthTag() names.Tag {
+	return names.NewUserTag("testuser")
+}
+
+func (m *mockAPIConnection) PublicDNSName() string {
+	return ""
+}
+
+func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
+	p, _ := network.ParseHostPorts(m.Addr())
+	return [][]network.HostPort{p}
 }
 
 func (m *mockAPIConnection) BestFacadeVersion(name string) int {
@@ -729,6 +754,11 @@ func (m *mockCharmUpgradeClient) GetCharmURL(applicationName string) (*charm.URL
 func (m *mockCharmUpgradeClient) SetCharm(cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", cfg)
 	return m.NextErr()
+}
+
+func (m *mockCharmUpgradeClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+	m.MethodCall(m, "Get", applicationName)
+	return &params.ApplicationGetResults{}, m.NextErr()
 }
 
 type mockModelConfigGetter struct {

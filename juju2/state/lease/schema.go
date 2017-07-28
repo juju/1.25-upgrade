@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 // These constants define the field names and type values used by documents in

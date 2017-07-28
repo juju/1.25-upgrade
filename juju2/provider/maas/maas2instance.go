@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/gomaasapi"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type maas2Instance struct {
@@ -75,17 +75,17 @@ func (mi *maas2Instance) Status() instance.InstanceStatus {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maas2Instance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (mi *maas2Instance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (mi *maas2Instance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) Ports(machineId string) ([]network.PortRange, error) {
-	logger.Debugf("unimplemented Ports() called")
+func (mi *maas2Instance) IngressRules(machineId string) ([]network.IngressRule, error) {
+	logger.Debugf("unimplemented Rules() called")
 	return nil, nil
 }

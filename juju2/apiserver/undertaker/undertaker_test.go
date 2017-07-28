@@ -8,12 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/undertaker"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/undertaker"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type undertakerSuite struct {
@@ -40,15 +40,11 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, envName strin
 }
 
 func (s *undertakerSuite) TestNoPerms(c *gc.C) {
-	for _, authorizer := range []apiservertesting.FakeAuthorizer{
-		{
-			Tag: names.NewMachineTag("0"),
-		},
-		{
-			Tag:        names.NewUserTag("bob"),
-			Controller: true,
-		},
-	} {
+	for _, authorizer := range []apiservertesting.FakeAuthorizer{{
+		Tag: names.NewMachineTag("0"),
+	}, {
+		Tag: names.NewUserTag("bob"),
+	}} {
 		st := newMockState(names.NewUserTag("admin"), "admin", true)
 		_, err := undertaker.NewUndertaker(
 			st,

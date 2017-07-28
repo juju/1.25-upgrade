@@ -6,7 +6,7 @@ package machine
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var usageListMachinesSummary = `

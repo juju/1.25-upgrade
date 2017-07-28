@@ -16,26 +16,27 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/controller"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade/facadetest"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type controllerSuite struct {
 	statetesting.StateSuite
 
+	statePool  *state.StatePool
 	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -50,6 +51,13 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.StateSuite.SetUpTest(c)
+
+	s.statePool = state.NewStatePool(s.State)
+	s.AddCleanup(func(c *gc.C) {
+		err := s.statePool.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -61,6 +69,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	controller, err := controller.NewControllerAPI(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.statePool,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
 		})
@@ -394,7 +403,6 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					Macaroons:     string(macsJSON),
 					Password:      "secret2",
 				},
-				ExternalControl: true,
 			},
 		},
 	}
@@ -419,7 +427,6 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
 		c.Check(mig.InitiatedBy(), gc.Equals, s.Owner.Id())
-		c.Check(mig.ExternalControl(), gc.Equals, args.Specs[i].ExternalControl)
 
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)
@@ -541,34 +548,6 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	active, err := st.IsMigrationActive()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(active, jc.IsFalse)
-}
-
-func (s *controllerSuite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	controller.SetPrecheckResult(s, errors.New("should not happen"))
-
-	args := params.InitiateMigrationArgs{
-		Specs: []params.MigrationSpec{
-			{
-				ModelTag: st.ModelTag().String(),
-				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomControllerTag(),
-					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
-					CACert:        "cert",
-					AuthTag:       names.NewUserTag("admin").String(),
-					Password:      "secret",
-				},
-				ExternalControl:      true,
-				SkipInitialPrechecks: true,
-			},
-		},
-	}
-	out, err := s.controller.InitiateMigration(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.Results, gc.HasLen, 1)
-	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag().String())
-	c.Check(out.Results[0].Error, gc.IsNil)
 }
 
 func randomControllerTag() string {

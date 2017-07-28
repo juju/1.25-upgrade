@@ -5,17 +5,17 @@ package remotestate
 
 import (
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/core/leadership"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/watcher"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
@@ -32,7 +32,7 @@ type RemoteStateWatcher struct {
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
 	leadershipTracker         leadership.Tracker
-	updateStatusChannel       func() <-chan time.Time
+	updateStatusChannel       UpdateStatusTimerFunc
 	commandChannel            <-chan string
 	retryHookChannel          <-chan struct{}
 
@@ -48,7 +48,7 @@ type RemoteStateWatcher struct {
 type WatcherConfig struct {
 	State               State
 	LeadershipTracker   leadership.Tracker
-	UpdateStatusChannel func() <-chan time.Time
+	UpdateStatusChannel UpdateStatusTimerFunc
 	CommandChannel      <-chan string
 	RetryHookChannel    <-chan struct{}
 	UnitTag             names.UnitTag
@@ -156,7 +156,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
-			err = worker.ErrTerminateAgent
+			err = jworker.ErrTerminateAgent
 		}
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
@@ -207,7 +207,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenRelationsChange bool
-	relationsw, err := w.service.WatchRelations()
+	relationsw, err := w.unit.WatchRelations()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -297,6 +297,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitLeader = w.leadershipTracker.WaitLeader().Ready()
 		}
 		observedEvent(&seenLeadershipChange)
+	}
+
+	// TODO(wallyworld) - listen for changes to this value
+	updateStatusInterval, err := w.st.UpdateStatusHookInterval()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	for {
@@ -412,7 +418,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 
-		case <-w.updateStatusChannel():
+		case <-w.updateStatusChannel(updateStatusInterval).After():
 			logger.Debugf("update status timer triggered")
 			if err := w.updateStatusChanged(); err != nil {
 				return errors.Trace(err)

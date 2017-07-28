@@ -16,13 +16,13 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
+	jujuos "github.com/juju/utils/os"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/juju/sockets"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter"
-	jujuos "github.com/juju/utils/os"
+	"github.com/juju/juju/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/worker/uniter"
 )
 
 type RunCommand struct {
@@ -143,7 +143,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	}
 	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "dialing juju run socket")
 	}
 	defer client.Close()
 

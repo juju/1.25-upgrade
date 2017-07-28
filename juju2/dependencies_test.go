@@ -23,7 +23,7 @@ type dependenciesTest struct{}
 var _ = gc.Suite(&dependenciesTest{})
 
 func projectRoot(c *gc.C) string {
-	p, err := build.Import("github.com/juju/1.25-upgrade/juju2", "", build.FindOnly)
+	p, err := build.Import("github.com/juju/juju", "", build.FindOnly)
 	c.Assert(err, jc.ErrorIsNil)
 	return p.Dir
 }

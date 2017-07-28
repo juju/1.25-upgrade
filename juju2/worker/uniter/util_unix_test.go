@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	jujudBuildArgs = []string{"go", "build", "github.com/juju/1.25-upgrade/juju2/cmd/jujud"}
+	jujudBuildArgs = []string{"go", "build", "github.com/juju/juju/cmd/jujud"}
 
 	// Command suffix for the hooks
 	cmdSuffix = ""

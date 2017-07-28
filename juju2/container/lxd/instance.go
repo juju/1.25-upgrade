@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type lxdInstance struct {
@@ -63,17 +63,17 @@ func (lxd *lxdInstance) Status() instance.InstanceStatus {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (lxd *lxdInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (lxd *lxdInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (lxd *lxdInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (lxd *lxdInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
-// Ports implements instance.Instance.Ports.
-func (lxd *lxdInstance) Ports(machineId string) ([]network.PortRange, error) {
+// IngressRules implements instance.Instance.IngressRules.
+func (lxd *lxdInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

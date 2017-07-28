@@ -4,7 +4,7 @@
 package context
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/payload"
 )
 
 func AddPayload(ctx *Context, id string, pl payload.Payload) {

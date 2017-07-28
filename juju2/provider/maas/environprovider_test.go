@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -11,15 +12,17 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
 type EnvironProviderSuite struct {
@@ -146,6 +149,7 @@ func (suite *EnvironProviderSuite) testMAASServerFromEndpoint(c *gc.C, endpoint 
 // up at the end of the test calling this method.
 func createTempFile(c *gc.C, content []byte) string {
 	file, err := ioutil.TempFile(c.MkDir(), "")
+	defer file.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, content, 0644)
@@ -183,6 +187,87 @@ endpoint: http://foo.com/openstack
 	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type MaasPingSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&MaasPingSuite{})
+
+func (MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
+	endpoint := "https://foo.com/MAAS"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, endpoint)
+			return nil, errors.New("nope")
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/2.0/",
+		"https://foo.com/MAAS/api/1.0/",
+	})
+}
+
+func (MaasPingSuite) TestPingOK(c *gc.C) {
+	endpoint := "https://foo.com/MAAS"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, endpoint)
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/2.0/",
+	})
+}
+
+func (MaasPingSuite) TestPingVersionURLOK(c *gc.C) {
+	endpoint := "https://foo.com/MAAS/api/10.1/"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/10.1/",
+	})
+}
+
+func (MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
+	endpoint := "https://foo.com/MAAS/api/10.1/"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
+			return nil, errors.New("nope")
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/10.1/",
+	})
+}
+
+func ping(c *gc.C, endpoint string, getCapabilities MaasCapabilities) error {
+	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
+	m, ok := p.(MaasEnvironProvider)
+	c.Assert(ok, jc.IsTrue)
+	m.GetCapabilities = getCapabilities
+	return m.Ping(endpoint)
 }

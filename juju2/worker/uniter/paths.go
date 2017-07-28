@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/os"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent/tools"
+	"github.com/juju/juju/agent/tools"
 )
 
 // Paths represents the set of filesystem paths a uniter worker has reason to

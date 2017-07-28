@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying"
@@ -209,13 +209,31 @@ type RemoteApplicationInfo struct {
 	Status         StatusInfo `json:"status"`
 }
 
-// EntityId returns a unique identifier for a remote application across
-// environments.
+// EntityId returns a unique identifier for a remote application across models.
 func (i *RemoteApplicationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "remoteApplication",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
+	}
+}
+
+// ApplicationOfferInfo holds the information about an application offer that is
+// tracked by multiwatcherStore.
+type ApplicationOfferInfo struct {
+	ModelUUID       string `json:"model-uuid"`
+	OfferName       string `json:"offer-name"`
+	ApplicationName string `json:"application-name"`
+	CharmName       string `json:"charm-name"`
+	ConnectedCount  int    `json:"connected-count"`
+}
+
+// EntityId returns a unique identifier for an application offer across models.
+func (i *ApplicationOfferInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "applicationOffer",
+		ModelUUID: i.ModelUUID,
+		Id:        i.OfferName,
 	}
 }
 

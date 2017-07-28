@@ -13,9 +13,9 @@ import (
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 )
 
 var (

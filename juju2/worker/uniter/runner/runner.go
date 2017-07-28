@@ -17,12 +17,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
-
-	"github.com/juju/1.25-upgrade/juju2/core/actions"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/debug"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 	jujuos "github.com/juju/utils/os"
+
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/debug"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.runner")
@@ -275,7 +275,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	}
 	srv, err := jujuc.NewServer(getCmd, runner.paths.GetJujucSocket())
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "starting jujuc server")
 	}
 	go srv.Run()
 	return srv, nil

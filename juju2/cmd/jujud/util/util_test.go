@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 var (
@@ -52,6 +52,12 @@ var isFatalTests = []struct {
 		isFatal: true,
 	}, {
 		err:     errors.Trace(worker.ErrTerminateAgent),
+		isFatal: true,
+	}, {
+		err:     worker.ErrRestartAgent,
+		isFatal: true,
+	}, {
+		err:     errors.Trace(worker.ErrRestartAgent),
 		isFatal: true,
 	}, {
 		err:     &upgrader.UpgradeReadyError{},

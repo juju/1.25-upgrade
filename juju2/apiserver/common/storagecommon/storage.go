@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/environs/tags"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 // StorageInterface is an interface for obtaining information about storage
@@ -91,7 +91,13 @@ func volumeStorageAttachmentInfo(
 ) (*storage.StorageAttachmentInfo, error) {
 	storageTag := storageInstance.StorageTag()
 	volume, err := st.StorageInstanceVolume(storageTag)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		// If the unit of the storage attachment is not
+		// assigned to a machine, there will be no volume
+		// yet. Handle this gracefully by saying that the
+		// volume is not yet provisioned.
+		return nil, errors.NotProvisionedf("volume for storage %q", storageTag.Id())
+	} else if err != nil {
 		return nil, errors.Annotate(err, "getting volume")
 	}
 	volumeInfo, err := volume.Info()
@@ -143,7 +149,13 @@ func filesystemStorageAttachmentInfo(
 ) (*storage.StorageAttachmentInfo, error) {
 	storageTag := storageInstance.StorageTag()
 	filesystem, err := st.StorageInstanceFilesystem(storageTag)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		// If the unit of the storage attachment is not
+		// assigned to a machine, there will be no filesystem
+		// yet. Handle this gracefully by saying that the
+		// filesystem is not yet provisioned.
+		return nil, errors.NotProvisionedf("filesystem for storage %q", storageTag.Id())
+	} else if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem")
 	}
 	filesystemAttachment, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
@@ -217,7 +229,10 @@ func volumeAttachmentDevicePath(
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
 	blockDevice state.BlockDeviceInfo,
 ) (string, error) {
-	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" || volumeAttachmentInfo.DeviceLink != "" {
+	if volumeInfo.HardwareId != "" ||
+		volumeInfo.WWN != "" ||
+		volumeAttachmentInfo.DeviceName != "" ||
+		volumeAttachmentInfo.DeviceLink != "" {
 		// Prefer the volume attachment's information over what is
 		// in the published block device information.
 		var deviceLinks []string
@@ -226,6 +241,7 @@ func volumeAttachmentDevicePath(
 		}
 		return storage.BlockDevicePath(storage.BlockDevice{
 			HardwareId:  volumeInfo.HardwareId,
+			WWN:         volumeInfo.WWN,
 			DeviceName:  volumeAttachmentInfo.DeviceName,
 			DeviceLinks: deviceLinks,
 		})
@@ -263,7 +279,9 @@ func storageTags(
 	)
 	if storageInstance != nil {
 		storageTags[tags.JujuStorageInstance] = storageInstance.Tag().Id()
-		storageTags[tags.JujuStorageOwner] = storageInstance.Owner().Id()
+		if owner, ok := storageInstance.Owner(); ok {
+			storageTags[tags.JujuStorageOwner] = owner.Id()
+		}
 	}
 	return storageTags, nil
 }

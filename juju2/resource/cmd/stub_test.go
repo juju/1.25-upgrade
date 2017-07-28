@@ -1,15 +1,16 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"io"
 
-	"github.com/juju/1.25-upgrade/juju2/charmstore"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/charmstore"
 )
 
 type stubCharmStore struct {

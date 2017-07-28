@@ -8,37 +8,42 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/testing"
 )
 
 type addCredentialSuite struct {
 	testing.BaseSuite
 
-	store           *jujuclienttesting.MemStore
+	store           *jujuclient.MemStore
 	schema          map[jujucloud.AuthType]jujucloud.CredentialSchema
 	authTypes       []jujucloud.AuthType
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 }
 
 var _ = gc.Suite(&addCredentialSuite{
-	store: jujuclienttesting.NewMemStore(),
+	store: jujuclient.NewMemStore(),
 })
 
 func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	environs.RegisterProvider("mock-addcredential-provider", &mockProvider{credSchemas: &s.schema})
+	unreg := environs.RegisterProvider("mock-addcredential-provider", &mockProvider{credSchemas: &s.schema})
+	s.AddCleanup(func(_ *gc.C) {
+		unreg()
+	})
 	s.cloudByNameFunc = func(cloud string) (*jujucloud.Cloud, error) {
 		if cloud != "somecloud" && cloud != "anothercloud" {
 			return nil, errors.NotFoundf("cloud %v", cloud)
@@ -59,11 +64,11 @@ func (s *addCredentialSuite) SetUpTest(c *gc.C) {
 
 func (s *addCredentialSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
-	err := testing.InitCommand(addCmd, args)
+	err := cmdtesting.InitCommand(addCmd, args)
 	if err != nil {
 		return nil, err
 	}
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
 	return ctx, addCmd.Run(ctx)
 }
@@ -92,16 +97,20 @@ func (s *addCredentialSuite) TestNoCredentialsRequired(c *gc.C) {
 }
 
 func (s *addCredentialSuite) createTestCredentialData(c *gc.C) string {
+	return s.createTestCredentialDataWithAuthType(c, "access-key")
+}
+
+func (s *addCredentialSuite) createTestCredentialDataWithAuthType(c *gc.C, authType string) string {
 	dir := c.MkDir()
 	credsFile := filepath.Join(dir, "cred.yaml")
-	data := `
+	data := fmt.Sprintf(`
 credentials:
   somecloud:
     me:
-      auth-type: access-key
+      auth-type: %v
       access-key: <key>
       secret-key: <secret>
-`[1:]
+`[1:], authType)
 	err := ioutil.WriteFile(credsFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	return credsFile
@@ -125,6 +134,7 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	s.store.Credentials = map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
@@ -147,6 +157,7 @@ func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,6 +170,22 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 				})},
 		},
 	})
+}
+
+func (s *addCredentialSuite) TestAddInvalidAuth(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
+	sourceFile := s.createTestCredentialDataWithAuthType(c, "invalid auth")
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	c.Assert(err, gc.ErrorMatches,
+		regexp.QuoteMeta(`credential "me" contains invalid auth type "invalid auth", valid auth types for cloud "somecloud" are [access-key]`))
+}
+
+func (s *addCredentialSuite) TestAddCloudUnsupportedAuth(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
+	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	c.Assert(err, gc.ErrorMatches,
+		regexp.QuoteMeta(`credential "me" contains invalid auth type "jsonfile", valid auth types for cloud "somecloud" are [access-key]`))
 }
 
 // TODO(wallyworld) - these tests should also validate that the prompts and messages are as expected.
@@ -219,9 +246,16 @@ func (s *addCredentialSuite) TestAddCredentialInteractive(c *gc.C) {
 	ctx, err := s.run(c, stdin, "somecloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(testing.Stderr(ctx), gc.Equals, `
-Enter credential name: Using auth-type "interactive".
-Enter username: generating userpass credential
+	// there's an extra line return after Using auth-type because the rest get a
+	// second line return from the user hitting return when they enter a value
+	// (which is not shown here), but that one does not.
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Enter credential name: 
+Using auth-type "interactive".
+
+Enter username: 
+Credentials added for cloud somecloud.
+
 `[1:])
 
 	// FinalizeCredential should have generated a userpass credential
@@ -270,9 +304,9 @@ func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey str
 
 	stdin := strings.NewReader(fmt.Sprintf(input, filename))
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
-	err = testing.InitCommand(addCmd, []string{"somecloud"})
+	err = cmdtesting.InitCommand(addCmd, []string{"somecloud"})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	ctx.Stdin = stdin
 	err = addCmd.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)

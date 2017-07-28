@@ -8,7 +8,7 @@ package ec2instancetypes
 import (
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/juju/environs/instances"
 )
 
 // RegionInstanceTypes returns the instance types for the named region.

@@ -6,13 +6,14 @@ package proxyupdater
 import (
 	"fmt"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const proxyUpdaterFacade = "ProxyUpdater"

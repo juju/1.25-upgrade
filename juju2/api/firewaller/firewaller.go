@@ -7,12 +7,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/api/common/cloudspec"
-	apiwatcher "github.com/juju/1.25-upgrade/juju2/api/watcher"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const firewallerFacade = "Firewaller"
@@ -116,4 +116,17 @@ func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// Relation provides access to methods of a state.Relation through the
+// facade.
+func (st *State) Relation(tag names.RelationTag) (*Relation, error) {
+	life, err := st.life(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &Relation{
+		tag:  tag,
+		life: life,
+	}, nil
 }

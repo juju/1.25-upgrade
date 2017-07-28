@@ -6,12 +6,13 @@ package main
 import (
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
-	components "github.com/juju/1.25-upgrade/juju2/component/all"
+	"github.com/juju/juju/cmd/juju/commands"
+	components "github.com/juju/juju/component/all"
 	// Import the providers.
-	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
+	_ "github.com/juju/juju/provider/all"
 )
 
 var log = loggo.GetLogger("juju.cmd.juju")
@@ -24,5 +25,9 @@ func init() {
 }
 
 func main() {
+	_, err := loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(os.Stderr))
+	if err != nil {
+		panic(err)
+	}
 	os.Exit(commands.Main(os.Args))
 }

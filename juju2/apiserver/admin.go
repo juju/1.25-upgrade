@@ -5,23 +5,25 @@ package apiserver
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/authentication"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/presence"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/rpc"
-	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statepresence "github.com/juju/1.25-upgrade/juju2/state/presence"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/presence"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/state"
+	statepresence "github.com/juju/juju/state/presence"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
@@ -54,7 +56,13 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	// apiRoot is the API root exposed to the client after authentication.
-	var apiRoot rpc.Root = newAPIRoot(a.root.state, a.srv.statePool, a.root.resources, a.root)
+	var apiRoot rpc.Root = newAPIRoot(
+		a.root.state,
+		a.srv.statePool,
+		a.srv.facades,
+		a.root.resources,
+		a.root,
+	)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
@@ -79,10 +87,19 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		var err error
 		kind, err = names.TagKind(req.AuthTag)
 		if err != nil || kind != names.UserTagKind {
+			addCount := func(delta int64) {
+				atomic.AddInt64(&a.srv.loginAttempts, delta)
+			}
+			addCount(1)
+			defer addCount(-1)
+
 			isUser = false
 			// Users are not rate limited, all other entities are.
 			if !a.srv.limiter.Acquire() {
 				logger.Debugf("rate limiting for agent %s", req.AuthTag)
+				select {
+				case <-time.After(a.srv.loginRetryPause):
+				}
 				return fail, common.ErrTryAgain
 			}
 			defer a.srv.limiter.Release()
@@ -194,14 +211,15 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		ControllerTag: model.ControllerTag().String(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: jujuversion.Current.String(),
+		PublicDNSName: a.srv.publicDNSName(),
 	}
 
 	if controllerOnlyLogin {
-		loginResult.Facades = filterFacades(isControllerFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, IsControllerFacade)
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 	} else {
 		loginResult.ModelTag = model.Tag().String()
-		loginResult.Facades = filterFacades(isModelFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, IsModelFacade)
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
 	}
 
@@ -243,14 +261,13 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		// no authorisation to access this model, unless the user is controller
 		// admin.
 
-		modelUser, err := a.root.state.UserAccess(userTag, a.root.state.ModelTag())
+		var err error
+		modelAccess, err = a.root.state.UserPermission(userTag, a.root.state.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, common.ErrPerm)
 		}
 		if err != nil && controllerAccess == permission.SuperuserAccess {
 			modelAccess = permission.AdminAccess
-		} else {
-			modelAccess = modelUser.Access
 		}
 	}
 
@@ -280,8 +297,8 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 	}, nil
 }
 
-func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {
-	allFacades := DescribeFacades()
+func filterFacades(registry *facade.Registry, allowFacade func(name string) bool) []params.FacadeVersions {
+	allFacades := DescribeFacades(registry)
 	out := make([]params.FacadeVersions, 0, len(allFacades))
 	for _, facade := range allFacades {
 		if allowFacade(facade.Name) {
@@ -296,7 +313,7 @@ func (a *admin) checkCreds(req params.LoginRequest, lookForModelUser bool) (stat
 }
 
 func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
-	return checkControllerMachineCreds(a.srv.state, req, a.authenticator())
+	return checkControllerMachineCreds(a.srv.statePool.SystemState(), req, a.authenticator())
 }
 
 func (a *admin) authenticator() authentication.EntityAuthenticator {
@@ -414,14 +431,38 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return f.st.FindEntity(tag)
 	}
 
-	modelUser, controllerUser, err := common.UserAccess(f.st, utag)
-	if err != nil {
+	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
+	// No model user found, so see if the user has been granted
+	// access to the controller.
+	if permission.IsEmptyUserAccess(modelUser) {
+		controllerUser, err := state.ControllerAccess(f.st, utag)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// TODO(perrito666) remove the following section about everyone group
+		// when groups are implemented, this accounts only for the lack of a local
+		// ControllerUser when logging in from an external user that has not been granted
+		// permissions on the controller but there are permissions for the special
+		// everyone group.
+		if permission.IsEmptyUserAccess(controllerUser) && !utag.IsLocal() {
+			everyoneTag := names.NewUserTag(common.EveryoneTagName)
+			controllerUser, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
+			}
+		}
+		if permission.IsEmptyUserAccess(controllerUser) {
+			return nil, errors.NotFoundf("model or controller user")
+		}
+	}
+
 	u := &modelUserEntity{
-		st:             f.st,
-		modelUser:      modelUser,
-		controllerUser: controllerUser,
+		st:        f.st,
+		modelUser: modelUser,
+		tag:       utag,
 	}
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
@@ -443,9 +484,9 @@ var _ loginEntity = &modelUserEntity{}
 type modelUserEntity struct {
 	st *state.State
 
-	controllerUser permission.UserAccess
-	modelUser      permission.UserAccess
-	user           *state.User
+	modelUser permission.UserAccess
+	user      *state.User
+	tag       names.Tag
 }
 
 // Refresh implements state.Authenticator.Refresh.
@@ -475,14 +516,7 @@ func (u *modelUserEntity) PasswordValid(pass string) bool {
 
 // Tag implements state.Entity.Tag.
 func (u *modelUserEntity) Tag() names.Tag {
-	if u.user != nil {
-		return u.user.UserTag()
-	}
-	if !permission.IsEmptyUserAccess(u.modelUser) {
-		return u.modelUser.UserTag
-	}
-	return u.controllerUser.UserTag
-
+	return u.tag
 }
 
 // LastLogin implements loginEntity.LastLogin.

@@ -10,13 +10,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/cert"
 	"github.com/juju/utils/set"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/watcher/legacy"
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/legacy"
 )
 
 var logger = loggo.GetLogger("juju.worker.certupdater")

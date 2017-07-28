@@ -10,15 +10,15 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/uniter"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.relation")
@@ -72,12 +72,14 @@ func (s *relationsResolver) NextOp(
 
 // relations implements Relations.
 type relations struct {
-	st           *uniter.State
-	unit         *uniter.Unit
-	charmDir     string
-	relationsDir string
-	relationers  map[int]*Relationer
-	abort        <-chan struct{}
+	st            *uniter.State
+	unit          *uniter.Unit
+	subordinate   bool
+	principalName string
+	charmDir      string
+	relationsDir  string
+	relationers   map[int]*Relationer
+	abort         <-chan struct{}
 }
 
 // NewRelations returns a new Relations instance.
@@ -86,13 +88,19 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	principalName, subordinate, err := unit.PrincipalName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	r := &relations{
-		st:           st,
-		unit:         unit,
-		charmDir:     charmDir,
-		relationsDir: relationsDir,
-		relationers:  make(map[int]*Relationer),
-		abort:        abort,
+		st:            st,
+		unit:          unit,
+		subordinate:   subordinate,
+		principalName: principalName,
+		charmDir:      charmDir,
+		relationsDir:  relationsDir,
+		relationers:   make(map[int]*Relationer),
+		abort:         abort,
 	}
 	if err := r.init(); err != nil {
 		return nil, errors.Trace(err)
@@ -108,6 +116,8 @@ func (r *relations) init() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Keep the relations ordered for reliable testing.
+	var orderedIds []int
 	joinedRelations := make(map[int]*uniter.Relation)
 	for _, tag := range joinedRelationTags {
 		relation, err := r.st.Relation(tag)
@@ -115,6 +125,7 @@ func (r *relations) init() error {
 			return errors.Trace(err)
 		}
 		joinedRelations[relation.Id()] = relation
+		orderedIds = append(orderedIds, relation.Id())
 	}
 	knownDirs, err := ReadAllStateDirs(r.relationsDir)
 	if err != nil {
@@ -129,7 +140,8 @@ func (r *relations) init() error {
 			return errors.Trace(err)
 		}
 	}
-	for id, rel := range joinedRelations {
+	for _, id := range orderedIds {
+		rel := joinedRelations[id]
 		if _, ok := knownDirs[id]; ok {
 			continue
 		}
@@ -407,14 +419,20 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			return errors.Trace(removeErr)
 		}
 	}
-	if ok, err := r.unit.IsPrincipal(); err != nil {
-		return errors.Trace(err)
-	} else if ok {
+	if !r.subordinate {
 		return nil
 	}
-	// If no Alive relations remain between a subordinate unit's service
-	// and its principal's service, the subordinate must become Dying.
+
+	// If no Alive relations remain between a subordinate unit's application
+	// and its principal's application, the subordinate must become Dying.
+	principalApp, err := names.UnitApplication(r.principalName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, relationer := range r.relationers {
+		if relationer.ru.Relation().OtherApplication() != principalApp {
+			continue
+		}
 		scope := relationer.ru.Endpoint().Scope
 		if scope == corecharm.ScopeContainer && !relationer.dying {
 			return nil

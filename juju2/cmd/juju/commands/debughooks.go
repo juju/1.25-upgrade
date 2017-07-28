@@ -13,10 +13,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/application"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/network/ssh"
-	unitdebug "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/debug"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network/ssh"
+	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {

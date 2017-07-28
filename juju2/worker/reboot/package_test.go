@@ -6,7 +6,7 @@ package reboot_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {

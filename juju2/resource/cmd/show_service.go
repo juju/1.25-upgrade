@@ -9,8 +9,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/resource"
 )
 
 // ShowServiceClient has the API client methods needed by ShowServiceCommand.
@@ -51,7 +51,7 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
 		Args:    "application-or-unit",
-		Purpose: "show the resources for a service or unit",
+		Purpose: "Show the resources for an application or unit.",
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
@@ -90,7 +90,7 @@ func (c *ShowServiceCommand) Init(args []string) error {
 func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.deps.NewClient(c)
 	if err != nil {
-		return errors.Annotatef(err, "can't connect to %s", c.ConnectionName())
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 

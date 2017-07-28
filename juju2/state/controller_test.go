@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/state"
 )
 
 type ControllerConfigSuite struct {
@@ -29,6 +29,7 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 		controller.AutocertURLKey:      true,
 		controller.AutocertDNSNameKey:  true,
 		controller.AllowModelAccessKey: true,
+		controller.MongoMemoryProfile:  true,
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

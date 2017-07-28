@@ -5,8 +5,7 @@ package dependency
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/1.25-upgrade/juju2/worker"
+	"gopkg.in/juju/worker.v1"
 )
 
 // Installer exposes an Engine's Install method.

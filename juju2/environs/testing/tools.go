@@ -19,17 +19,17 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/juju/names"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	coretools "github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker/upgrader"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 // toolsltsseries records the known ubuntu lts series.
@@ -563,6 +563,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
+	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

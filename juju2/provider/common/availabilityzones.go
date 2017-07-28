@@ -6,8 +6,8 @@ package common
 import (
 	"sort"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 )
 
 // AvailabilityZone describes a provider availability zone.

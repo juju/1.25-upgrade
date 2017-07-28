@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/juju/constraints"
 )
 
 // PrecheckInstance verifies that the provided series and constraints

@@ -7,13 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")
@@ -35,11 +36,6 @@ func NewClient(st base.APICallCloser) *Client {
 		facade:         backend,
 		ModelStatusAPI: common.NewModelStatusAPI(backend),
 	}
-}
-
-// Close closes the api connection.
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
 }
 
 // CreateModel creates a new model using the model config,
@@ -108,6 +104,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		CloudCredential: credential,
 		Owner:           ownerTag.Id(),
 		Life:            string(modelInfo.Life),
+		AgentVersion:    modelInfo.AgentVersion,
 	}
 	result.Status = base.Status{
 		Status: modelInfo.Status.Status,
@@ -201,7 +198,43 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 }
 
 // DumpModel returns the serialized database agnostic model representation.
-func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error) {
+func (c *Client) DumpModel(model names.ModelTag, simplified bool) (map[string]interface{}, error) {
+	if bestVer := c.BestAPIVersion(); bestVer < 3 {
+		logger.Debugf("calling older dump model on v%d", bestVer)
+		if simplified {
+			logger.Warningf("simplified dump-model not available, server too old")
+		}
+		return c.dumpModelV2(model)
+	}
+
+	var results params.StringResults
+	entities := params.DumpModelRequest{
+		Entities:   []params.Entity{{Tag: model.String()}},
+		Simplified: simplified,
+	}
+
+	err := c.facade.FacadeCall("DumpModels", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	// Parse back into a map.
+	var asMap map[string]interface{}
+	err = yaml.Unmarshal([]byte(result.Result), &asMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return asMap, nil
+}
+
+func (c *Client) dumpModelV2(model names.ModelTag) (map[string]interface{}, error) {
 	var results params.MapResults
 	entities := params.Entities{
 		Entities: []params.Entity{{Tag: model.String()}},

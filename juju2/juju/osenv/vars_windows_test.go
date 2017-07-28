@@ -9,7 +9,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/juju/juju/osenv"
 )
 
 func (s *varsSuite) TestJujuXDGDataHome(c *gc.C) {

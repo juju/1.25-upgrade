@@ -15,10 +15,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apibackups "github.com/juju/1.25-upgrade/juju2/api/backups"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/backups"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
+	apibackups "github.com/juju/juju/api/backups"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/backups"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 // MetaResultString is the expected output of running dumpMetadata() on

@@ -11,15 +11,22 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/romulus/api/budget"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+)
+
+const (
+	slaUnsupported = "unsupported"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.model")
@@ -51,6 +58,7 @@ type destroyCommand struct {
 	envName   string
 	assumeYes bool
 	api       DestroyModelAPI
+	configApi ModelConfigAPI
 }
 
 var destroyDoc = `
@@ -82,6 +90,13 @@ type DestroyModelAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
+// ModelConfigAPI defines the methods on the modelconfig
+// API that the destroy command calls. It is exported for mocking in tests.
+type ModelConfigAPI interface {
+	Close() error
+	SLALevel() (string, error)
+}
+
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -105,7 +120,7 @@ func (c *destroyCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no model specified")
 	case 1:
-		return c.SetModelName(args[0])
+		return c.SetModelName(args[0], false)
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
@@ -122,11 +137,28 @@ func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 	return modelmanager.NewClient(root), nil
 }
 
+func (c *destroyCommand) getModelConfigAPI() (ModelConfigAPI, error) {
+	if c.configApi != nil {
+		return c.configApi, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
+}
+
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
-	controllerName := c.ControllerName()
-	modelName := c.ModelName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
@@ -163,6 +195,21 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
+	configApi, err := c.getModelConfigAPI()
+	if err != nil {
+		return errors.Annotate(err, "cannot connect to API")
+	}
+	defer configApi.Close()
+
+	// Check if the model has an SLA set.
+	slaIsSet := false
+	slaLevel, err := configApi.SLALevel()
+	if err == nil {
+		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
+	} else {
+		logger.Debugf("could not determine model SLA level: %v", err)
+	}
+
 	// Attempt to destroy the model.
 	ctx.Infof("Destroying model")
 	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
@@ -182,6 +229,33 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	err = store.RemoveModel(controllerName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
+	}
+
+	// Check if the model has an sla auth.
+	if slaIsSet {
+		err = c.removeModelBudget(modelDetails.ModelUUID)
+		if err != nil {
+			ctx.Warningf("model allocation not removed: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *destroyCommand) removeModelBudget(uuid string) error {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	budgetClient := getBudgetAPIClient(bakeryClient)
+
+	resp, err := budgetClient.DeleteBudget(uuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if resp != "" {
+		logger.Infof(resp)
 	}
 	return nil
 }
@@ -237,4 +311,15 @@ func (c *destroyCommand) handleError(err error, modelName string) error {
 	}
 	logger.Errorf(`failed to destroy model %q`, modelName)
 	return err
+}
+
+var getBudgetAPIClient = getBudgetAPIClientImpl
+
+func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) BudgetAPIClient {
+	return budget.NewClient(bakeryClient)
+}
+
+// BudgetAPIClient defines the budget API client interface.
+type BudgetAPIClient interface {
+	DeleteBudget(string) (string, error)
 }

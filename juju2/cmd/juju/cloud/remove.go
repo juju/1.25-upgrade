@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/juju/cloud"
 )
 
 var usageRemoveCloudSummary = `

@@ -13,8 +13,8 @@ import (
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // TODO integration tests, but how?
@@ -360,8 +360,39 @@ var ctests = []struct {
 			0644,
 		)
 	},
-},
-}
+}, {
+	"ManageEtcHosts",
+	map[string]interface{}{"manage_etc_hosts": true},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.ManageEtcHosts(true)
+	},
+}, {
+	"SetSSHKeys",
+	map[string]interface{}{"ssh_keys": map[string]interface{}{
+		"rsa_private": "private",
+		"rsa_public":  "public",
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHKeys(cloudinit.SSHKeys{
+			RSA: &cloudinit.SSHKey{
+				Private: "private",
+				Public:  "public",
+			},
+		})
+	},
+}, {
+	"SetSSHKeys unsets keys",
+	map[string]interface{}{},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHKeys(cloudinit.SSHKeys{
+			RSA: &cloudinit.SSHKey{
+				Private: "private",
+				Public:  "public",
+			},
+		})
+		cfg.SetSSHKeys(cloudinit.SSHKeys{})
+	},
+}}
 
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {

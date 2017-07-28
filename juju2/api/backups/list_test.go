@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/backups"
-	apiserverbackups "github.com/juju/1.25-upgrade/juju2/apiserver/backups"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	"github.com/juju/juju/apiserver/params"
 )
 
 type listSuite struct {

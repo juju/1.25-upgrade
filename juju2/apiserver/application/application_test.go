@@ -6,6 +6,7 @@ package application_test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"sync"
 	"time"
@@ -22,80 +23,104 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/application"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/crossmodel"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	statestorage "github.com/juju/1.25-upgrade/juju2/state/storage"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/testcharms"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/apiserver/application"
+	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
-type serviceSuite struct {
+type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	applicationAPI   *application.API
-	application      *state.Application
-	authorizer       apiservertesting.FakeAuthorizer
-	offersApiFactory *mockApplicationOffersFactory
+	applicationAPI *application.API
+	application    *state.Application
+	authorizer     *apiservertesting.FakeAuthorizer
+	env            *mockEnviron
+	otherModel     *state.State
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&applicationSuite{})
 
-func (s *serviceSuite) SetUpSuite(c *gc.C) {
+func (s *applicationSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
-func (s *serviceSuite) TearDownSuite(c *gc.C) {
+func (s *applicationSuite) TearDownSuite(c *gc.C) {
 	s.CharmStoreSuite.TearDownSuite(c)
 	s.JujuConnSuite.TearDownSuite(c)
 }
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmStoreSuite.Session = s.JujuConnSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
+	s.otherModel = s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel"})
+	s.AddCleanup(func(*gc.C) { s.otherModel.Close() })
+
 	s.application = s.Factory.MakeApplication(c, nil)
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	var err error
-	s.offersApiFactory = &mockApplicationOffersFactory{}
-	resources := common.NewResources()
-	resources.RegisterNamed("applicationOffersApiFactory", s.offersApiFactory)
-	backend := application.NewStateBackend(s.State)
-	blockChecker := common.NewBlockChecker(s.State)
-	s.applicationAPI, err = application.NewAPI(
-		backend, s.authorizer, resources, blockChecker,
-		application.CharmToStateCharm,
-	)
+	s.env = &mockEnviron{}
+
+	s.applicationAPI = s.makeAPI(c, s.env)
+
+	// Add a space in othermodel that applications can be bound to.
+	_, err := s.otherModel.AddSubnet(state.SubnetInfo{
+		ProviderId:       "juju-subnet-1",
+		CIDR:             "4.3.2.0/24",
+		AvailabilityZone: "az1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.otherModel.AddSpace("myspace", "juju-space-myspace", []string{"4.3.2.0/24"}, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TearDownTest(c *gc.C) {
+func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.CharmStoreSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *serviceSuite) TestSetMetricCredentials(c *gc.C) {
+func (s *applicationSuite) makeAPI(c *gc.C, env environs.Environ) *application.API {
+	getEnviron := func(*state.State) (environs.Environ, error) {
+		return env, nil
+	}
+	resources := common.NewResources()
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	backend := application.NewStateBackend(s.State)
+	blockChecker := common.NewBlockChecker(s.State)
+	api, err := application.NewAPI(
+		backend, s.authorizer, resources, s.BackingStatePool,
+		blockChecker, application.CharmToStateCharm,
+		application.DeployApplication, getEnviron,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return api
+}
+
+func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
@@ -157,21 +182,21 @@ func (s *serviceSuite) TestSetMetricCredentials(c *gc.C) {
 
 		for i, a := range t.args.Creds {
 			if t.results.Results[i].Error == nil {
-				svc, err := s.State.Application(a.ApplicationName)
+				app, err := s.State.Application(a.ApplicationName)
 				c.Assert(err, jc.ErrorIsNil)
-				creds := svc.MetricCredentials()
+				creds := app.MetricCredentials()
 				c.Assert(creds, gc.DeepEquals, a.MetricCredentials)
 			}
 		}
 	}
 }
 
-func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
+func (s *applicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	// Test the exported settings parsing in a compatible way.
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	svc, err := s.State.Application("dummy")
+	app, err := s.State.Application("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := svc.Charm()
+	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "local:quantal/dummy-1")
 
@@ -195,7 +220,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
-func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -205,7 +230,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "environscoped-block",
+			Pool:  "modelscoped-block",
 		},
 	}
 
@@ -224,14 +249,14 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	svc := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
-	storageConstraintsOut, err := svc.StorageConstraints()
+	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "environscoped-block",
+			Pool:  "modelscoped-block",
 		},
 		"allecto": {
 			Count: 0,
@@ -241,7 +266,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
+func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "quantal/minjujuversion-0", "minjujuversion")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -250,7 +275,7 @@ func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
 }
 
-func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -280,7 +305,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
 }
 
-func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -300,8 +325,8 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	svc := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
-	storageConstraintsOut, err := svc.StorageConstraints()
+	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
@@ -312,7 +337,7 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -335,13 +360,18 @@ func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	svc := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
-	units, err := svc.AllUnits()
+	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+
+	// Check that the charm cache dir is cleared out.
+	files, err := ioutil.ReadDir(charmrepo.CacheDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(files, gc.HasLen, 0)
 }
 
-func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -366,7 +396,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
-func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
+func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
 	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -397,7 +427,7 @@ func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBin
 	c.Assert(retrievedBindings, jc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+func (s *applicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	s.State.AddSpace("a-space", "", nil, true)
 	expected := map[string]string{
 		"endpoint": "a-space",
@@ -405,16 +435,16 @@ func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
 		"admin":    "",
 	}
 	endpointBindings := map[string]string{"endpoint": "a-space"}
-	s.testClientServicesDeployWithBindings(c, endpointBindings, expected)
+	s.testClientApplicationsDeployWithBindings(c, endpointBindings, expected)
 }
 
-func (s *serviceSuite) TestClientServicesDeployWithDefaultBindings(c *gc.C) {
+func (s *applicationSuite) TestClientApplicationsDeployWithDefaultBindings(c *gc.C) {
 	expected := map[string]string{
 		"endpoint": "",
 		"ring":     "",
 		"admin":    "",
 	}
-	s.testClientServicesDeployWithBindings(c, nil, expected)
+	s.testClientApplicationsDeployWithBindings(c, nil, expected)
 }
 
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
@@ -422,7 +452,7 @@ func (s *serviceSuite) TestClientServicesDeployWithDefaultBindings(c *gc.C) {
 // written to use the api client instead of the apiserver logic. They need to be rewritten and
 // feature tests added.
 
-func (s *serviceSuite) TestAddCharm(c *gc.C) {
+func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	var blobs blobs
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
 		storage := statestorage.NewStorage(uuid, session)
@@ -470,7 +500,7 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
-func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
+func (s *applicationSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	// Upload a new charm to the charm store.
 	curl, _ := s.UploadCharm(c, "cs:~restricted/precise/wordpress-3", "wordpress")
 
@@ -501,7 +531,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	}
 	// Try again with authorization for the wrong user.
 	err = tryAs("joe")
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: unauthorized: access denied for user "joe"`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: access denied for user "joe"`)
 
 	// Try again with the correct authorization this time.
 	err = tryAs("bob")
@@ -512,7 +542,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
+func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
 	c.Skip("see lp:1596960 -- bad test for bad code")
 
 	var putBarrier sync.WaitGroup
@@ -567,7 +597,7 @@ func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
-func (s *serviceSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
+func (s *applicationSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
 	reader, _, err := storage.Get(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -576,7 +606,7 @@ func (s *serviceSuite) assertUploaded(c *gc.C, storage statestorage.Storage, sto
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }
 
-func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
+func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	client := s.APIState.Client()
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-42", "wordpress")
 
@@ -599,7 +629,7 @@ func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
+func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	result, err := s.applicationAPI.GetCharmURL(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -607,7 +637,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
 }
 
-func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -642,7 +672,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
+func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -664,7 +694,7 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
+func (s *applicationSuite) assertApplicationSetCharm(c *gc.C, forceUnits bool) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        "cs:~who/precise/wordpress-3",
@@ -679,7 +709,7 @@ func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
 	c.Assert(charm.URL().String(), gc.Equals, "cs:~who/precise/wordpress-3")
 }
 
-func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
+func (s *applicationSuite) assertApplicationSetCharmBlocked(c *gc.C, msg string) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        "cs:~who/precise/wordpress-3",
@@ -687,25 +717,25 @@ func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serviceSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
-	s.setupServiceSetCharm(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyServiceSetCharm")
-	s.assertServiceSetCharm(c, false)
+func (s *applicationSuite) TestBlockDestroyApplicationSetCharm(c *gc.C) {
+	s.setupApplicationSetCharm(c)
+	s.BlockDestroyModel(c, "TestBlockDestroyApplicationSetCharm")
+	s.assertApplicationSetCharm(c, false)
 }
 
-func (s *serviceSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
-	s.setupServiceSetCharm(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetCharm")
-	s.assertServiceSetCharm(c, false)
+func (s *applicationSuite) TestBlockRemoveApplicationSetCharm(c *gc.C) {
+	s.setupApplicationSetCharm(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveApplicationSetCharm")
+	s.assertApplicationSetCharm(c, false)
 }
 
-func (s *serviceSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
-	s.setupServiceSetCharm(c)
-	s.BlockAllChanges(c, "TestBlockChangesServiceSetCharm")
-	s.assertServiceSetCharmBlocked(c, "TestBlockChangesServiceSetCharm")
+func (s *applicationSuite) TestBlockChangesApplicationSetCharm(c *gc.C) {
+	s.setupApplicationSetCharm(c)
+	s.BlockAllChanges(c, "TestBlockChangesApplicationSetCharm")
+	s.assertApplicationSetCharmBlocked(c, "TestBlockChangesApplicationSetCharm")
 }
 
-func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -741,28 +771,28 @@ func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestBlockServiceSetCharmForce(c *gc.C) {
-	s.setupServiceSetCharm(c)
+func (s *applicationSuite) TestBlockApplicationSetCharmForce(c *gc.C) {
+	s.setupApplicationSetCharm(c)
 
 	// block all changes
-	s.BlockAllChanges(c, "TestBlockServiceSetCharmForce")
-	s.BlockRemoveObject(c, "TestBlockServiceSetCharmForce")
-	s.BlockDestroyModel(c, "TestBlockServiceSetCharmForce")
+	s.BlockAllChanges(c, "TestBlockApplicationSetCharmForce")
+	s.BlockRemoveObject(c, "TestBlockApplicationSetCharmForce")
+	s.BlockDestroyModel(c, "TestBlockApplicationSetCharmForce")
 
-	s.assertServiceSetCharm(c, true)
+	s.assertApplicationSetCharm(c, true)
 }
 
-func (s *serviceSuite) TestServiceSetCharmInvalidService(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
-		ApplicationName: "badservice",
+		ApplicationName: "badapplication",
 		CharmURL:        "cs:precise/wordpress-3",
 		ForceSeries:     true,
 		ForceUnits:      true,
 	})
-	c.Assert(err, gc.ErrorMatches, `application "badservice" not found`)
+	c.Assert(err, gc.ErrorMatches, `application "badapplication" not found`)
 }
 
-func (s *serviceSuite) TestServiceAddCharmErrors(c *gc.C) {
+func (s *applicationSuite) TestApplicationAddCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
 		"wordpress":                   "charm URL must include revision",
 		"cs:wordpress":                "charm URL must include revision",
@@ -777,7 +807,7 @@ func (s *serviceSuite) TestServiceAddCharmErrors(c *gc.C) {
 	}
 }
 
-func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -807,7 +837,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/trusty/dummy-1": cannot change an application's series`)
 }
 
-func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -835,7 +865,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-1": only these series are supported: trusty, wily`)
 }
 
-func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series string) {
+func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm, series string) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -867,22 +897,22 @@ func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series
 		ForceSeries:     true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := s.State.Application("application")
+	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := svc.Charm()
+	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/"+url+"-0")
 }
 
-func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
-	s.assertServiceSetCharmSeries(c, "multi-series2", "")
+func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
+	s.assertApplicationSetCharmSeries(c, "multi-series2", "")
 }
 
-func (s *serviceSuite) TestServiceSetCharmNoExplicitSupportedSeries(c *gc.C) {
-	s.assertServiceSetCharmSeries(c, "dummy", "precise")
+func (s *applicationSuite) TestApplicationSetCharmNoExplicitSupportedSeries(c *gc.C) {
+	s.assertApplicationSetCharmSeries(c, "dummy", "precise")
 }
 
-func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
+func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -922,7 +952,7 @@ func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
 	return s.CharmStore.WithTestMode()
 }
 
-func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddCharm(c *gc.C) {
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&csclient.ServerURL, s.Srv.URL)
 	newCharmStoreRepo := application.NewCharmStoreRepo
@@ -931,10 +961,10 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the store's test mode is enabled when calling service Deploy.
+	// Check that the store's test mode is enabled when calling application Deploy.
 	curl, _ := s.UploadCharm(c, "trusty/dummy-1", "dummy")
 	err = application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -966,7 +996,7 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 	c.Assert(repo.testMode, jc.IsTrue)
 }
 
-func (s *serviceSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
+func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
 	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -976,7 +1006,7 @@ func (s *serviceSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, cha
 	return curl, ch, cons
 }
 
-func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
+func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -990,7 +1020,7 @@ func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch
 	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, mem4g)
 }
 
-func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
+func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
 	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -1001,25 +1031,25 @@ func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, 
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serviceSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.BlockDestroyModel(c, "TestBlockDestroyServiceDeployPrincipal")
-	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
+func (s *applicationSuite) TestBlockDestroyApplicationDeployPrincipal(c *gc.C) {
+	curl, bundle, cons := s.setupApplicationDeploy(c, "mem=4G")
+	s.BlockDestroyModel(c, "TestBlockDestroyApplicationDeployPrincipal")
+	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
 }
 
-func (s *serviceSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployPrincipal")
-	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
+func (s *applicationSuite) TestBlockRemoveApplicationDeployPrincipal(c *gc.C) {
+	curl, bundle, cons := s.setupApplicationDeploy(c, "mem=4G")
+	s.BlockRemoveObject(c, "TestBlockRemoveApplicationDeployPrincipal")
+	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
 }
 
-func (s *serviceSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
-	curl, _, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.BlockAllChanges(c, "TestBlockChangesServiceDeployPrincipal")
-	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, cons)
+func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
+	curl, _, cons := s.setupApplicationDeploy(c, "mem=4G")
+	s.BlockAllChanges(c, "TestBlockChangesApplicationDeployPrincipal")
+	s.assertApplicationDeployPrincipalBlocked(c, "TestBlockChangesApplicationDeployPrincipal", curl, cons)
 }
 
-func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1048,7 +1078,7 @@ func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 }
 
-func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1072,7 +1102,7 @@ func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
 }
 
-func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
@@ -1094,7 +1124,7 @@ func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1136,7 +1166,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
-func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "cs:precise/application-name-1",
@@ -1152,7 +1182,7 @@ func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "application-name" not found`)
 }
 
-func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
+func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1169,8 +1199,8 @@ func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
-func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmURL bool) {
-	s.deployServiceForUpdateTests(c)
+func (s *applicationSuite) checkClientApplicationUpdateSetCharm(c *gc.C, forceCharmURL bool) {
+	s.deployApplicationForUpdateTests(c)
 	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1195,22 +1225,22 @@ func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmURL b
 	c.Assert(force, gc.Equals, forceCharmURL)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetCharm(c *gc.C) {
-	s.checkClientServiceUpdateSetCharm(c, false)
+func (s *applicationSuite) TestApplicationUpdateSetCharm(c *gc.C) {
+	s.checkClientApplicationUpdateSetCharm(c, false)
 }
 
-func (s *serviceSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
-	s.BlockDestroyModel(c, "TestBlockDestroyServiceUpdate")
-	s.checkClientServiceUpdateSetCharm(c, false)
+func (s *applicationSuite) TestBlockDestroyApplicationUpdate(c *gc.C) {
+	s.BlockDestroyModel(c, "TestBlockDestroyApplicationUpdate")
+	s.checkClientApplicationUpdateSetCharm(c, false)
 }
 
-func (s *serviceSuite) TestBlockRemoveServiceUpdate(c *gc.C) {
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceUpdate")
-	s.checkClientServiceUpdateSetCharm(c, false)
+func (s *applicationSuite) TestBlockRemoveApplicationUpdate(c *gc.C) {
+	s.BlockRemoveObject(c, "TestBlockRemoveApplicationUpdate")
+	s.checkClientApplicationUpdateSetCharm(c, false)
 }
 
-func (s *serviceSuite) setupServiceUpdate(c *gc.C) string {
-	s.deployServiceForUpdateTests(c)
+func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
+	s.deployApplicationForUpdateTests(c)
 	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1219,9 +1249,9 @@ func (s *serviceSuite) setupServiceUpdate(c *gc.C) string {
 	return curl.String()
 }
 
-func (s *serviceSuite) TestBlockChangeServiceUpdate(c *gc.C) {
-	curl := s.setupServiceUpdate(c)
-	s.BlockAllChanges(c, "TestBlockChangeServiceUpdate")
+func (s *applicationSuite) TestBlockChangeApplicationUpdate(c *gc.C) {
+	curl := s.setupApplicationUpdate(c)
+	s.BlockAllChanges(c, "TestBlockChangeApplicationUpdate")
 	// Update the charm for the application.
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
@@ -1229,20 +1259,20 @@ func (s *serviceSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 		ForceCharmURL:   false,
 	}
 	err := s.applicationAPI.Update(args)
-	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
+	s.AssertBlocked(c, err, "TestBlockChangeApplicationUpdate")
 }
 
-func (s *serviceSuite) TestServiceUpdateForceSetCharm(c *gc.C) {
-	s.checkClientServiceUpdateSetCharm(c, true)
+func (s *applicationSuite) TestApplicationUpdateForceSetCharm(c *gc.C) {
+	s.checkClientApplicationUpdateSetCharm(c, true)
 }
 
-func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
-	curl := s.setupServiceUpdate(c)
+func (s *applicationSuite) TestBlockApplicationUpdateForced(c *gc.C) {
+	curl := s.setupApplicationUpdate(c)
 
 	// block all changes. Force should ignore block :)
-	s.BlockAllChanges(c, "TestBlockServiceUpdateForced")
-	s.BlockDestroyModel(c, "TestBlockServiceUpdateForced")
-	s.BlockRemoveObject(c, "TestBlockServiceUpdateForced")
+	s.BlockAllChanges(c, "TestBlockApplicationUpdateForced")
+	s.BlockDestroyModel(c, "TestBlockApplicationUpdateForced")
+	s.BlockRemoveObject(c, "TestBlockApplicationUpdateForced")
 
 	// Update the charm for the application.
 	args := params.ApplicationUpdate{
@@ -1262,7 +1292,7 @@ func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetCharmNotFound(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	args := params.ApplicationUpdate{
 		ApplicationName: "wordpress",
@@ -1272,7 +1302,7 @@ func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetMinUnits(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set minimum units for the application.
@@ -1289,7 +1319,7 @@ func (s *serviceSuite) TestServiceUpdateSetMinUnits(c *gc.C) {
 	c.Assert(application.MinUnits(), gc.Equals, minUnits)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetMinUnitsError(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set a negative minimum number of units for the application.
@@ -1307,7 +1337,7 @@ func (s *serviceSuite) TestServiceUpdateSetMinUnitsError(c *gc.C) {
 	c.Assert(application.MinUnits(), gc.Equals, 0)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetSettingsStrings(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
@@ -1325,7 +1355,7 @@ func (s *serviceSuite) TestServiceUpdateSetSettingsStrings(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetSettingsYAML(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
@@ -1343,7 +1373,7 @@ func (s *serviceSuite) TestServiceUpdateSetSettingsYAML(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestClientServiceUpdateSetSettingsGetYAML(c *gc.C) {
+func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
@@ -1361,7 +1391,7 @@ func (s *serviceSuite) TestClientServiceUpdateSetSettingsGetYAML(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
@@ -1380,15 +1410,15 @@ func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
-	s.deployServiceForUpdateTests(c)
+func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
+	s.deployApplicationForUpdateTests(c)
 	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Update all the service attributes.
+	// Update all the application attributes.
 	minUnits := 3
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1404,7 +1434,7 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 	err = s.applicationAPI.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Ensure the service has been correctly updated.
+	// Ensure the application has been correctly updated.
 	application, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1430,7 +1460,7 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 	c.Assert(obtainedConstraints, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) TestServiceUpdateNoParams(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateNoParams(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Calling Update with no parameters set is a no-op.
@@ -1439,22 +1469,22 @@ func (s *serviceSuite) TestServiceUpdateNoParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestServiceUpdateNoService(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateNoApplication(c *gc.C) {
 	err := s.applicationAPI.Update(params.ApplicationUpdate{})
 	c.Assert(err, gc.ErrorMatches, `"" is not a valid application name`)
 }
 
-func (s *serviceSuite) TestServiceUpdateInvalidService(c *gc.C) {
-	args := params.ApplicationUpdate{ApplicationName: "no-such-service"}
+func (s *applicationSuite) TestApplicationUpdateInvalidApplication(c *gc.C) {
+	args := params.ApplicationUpdate{ApplicationName: "no-such-application"}
 	err := s.applicationAPI.Update(args)
-	c.Assert(err, gc.ErrorMatches, `application "no-such-service" not found`)
+	c.Assert(err, gc.ErrorMatches, `application "no-such-application" not found`)
 }
 
 var (
 	validSetTestValue = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
 )
 
-func (s *serviceSuite) TestServiceSet(c *gc.C) {
+func (s *applicationSuite) TestApplicationSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
@@ -1482,7 +1512,7 @@ func (s *serviceSuite) TestServiceSet(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Application, msg string) {
+func (s *applicationSuite) assertApplicationSetBlocked(c *gc.C, dummy *state.Application, msg string) {
 	err := s.applicationAPI.Set(params.ApplicationSet{
 		ApplicationName: "dummy",
 		Options: map[string]string{
@@ -1491,7 +1521,7 @@ func (s *serviceSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Application
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serviceSuite) assertServiceSet(c *gc.C, dummy *state.Application) {
+func (s *applicationSuite) assertApplicationSet(c *gc.C, dummy *state.Application) {
 	err := s.applicationAPI.Set(params.ApplicationSet{
 		ApplicationName: "dummy",
 		Options: map[string]string{
@@ -1506,25 +1536,25 @@ func (s *serviceSuite) assertServiceSet(c *gc.C, dummy *state.Application) {
 	})
 }
 
-func (s *serviceSuite) TestBlockDestroyServiceSet(c *gc.C) {
+func (s *applicationSuite) TestBlockDestroyApplicationSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockDestroyModel(c, "TestBlockDestroyServiceSet")
-	s.assertServiceSet(c, dummy)
+	s.BlockDestroyModel(c, "TestBlockDestroyApplicationSet")
+	s.assertApplicationSet(c, dummy)
 }
 
-func (s *serviceSuite) TestBlockRemoveServiceSet(c *gc.C) {
+func (s *applicationSuite) TestBlockRemoveApplicationSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceSet")
-	s.assertServiceSet(c, dummy)
+	s.BlockRemoveObject(c, "TestBlockRemoveApplicationSet")
+	s.assertApplicationSet(c, dummy)
 }
 
-func (s *serviceSuite) TestBlockChangesServiceSet(c *gc.C) {
+func (s *applicationSuite) TestBlockChangesApplicationSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockAllChanges(c, "TestBlockChangesServiceSet")
-	s.assertServiceSetBlocked(c, dummy, "TestBlockChangesServiceSet")
+	s.BlockAllChanges(c, "TestBlockChangesApplicationSet")
+	s.assertApplicationSetBlocked(c, dummy, "TestBlockChangesApplicationSet")
 }
 
-func (s *serviceSuite) TestServerUnset(c *gc.C) {
+func (s *applicationSuite) TestServerUnset(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
@@ -1548,7 +1578,7 @@ func (s *serviceSuite) TestServerUnset(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
+func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.applicationAPI.Set(params.ApplicationSet{
@@ -1567,7 +1597,7 @@ func (s *serviceSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
 	return dummy
 }
 
-func (s *serviceSuite) assertServerUnset(c *gc.C, dummy *state.Application) {
+func (s *applicationSuite) assertServerUnset(c *gc.C, dummy *state.Application) {
 	err := s.applicationAPI.Unset(params.ApplicationUnset{
 		ApplicationName: "dummy",
 		Options:         []string{"username"},
@@ -1580,7 +1610,7 @@ func (s *serviceSuite) assertServerUnset(c *gc.C, dummy *state.Application) {
 	})
 }
 
-func (s *serviceSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Application, msg string) {
+func (s *applicationSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Application, msg string) {
 	err := s.applicationAPI.Unset(params.ApplicationUnset{
 		ApplicationName: "dummy",
 		Options:         []string{"username"},
@@ -1588,30 +1618,30 @@ func (s *serviceSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Applicatio
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serviceSuite) TestBlockDestroyServerUnset(c *gc.C) {
+func (s *applicationSuite) TestBlockDestroyServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyServerUnset")
 	s.assertServerUnset(c, dummy)
 }
 
-func (s *serviceSuite) TestBlockRemoveServerUnset(c *gc.C) {
+func (s *applicationSuite) TestBlockRemoveServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveServerUnset")
 	s.assertServerUnset(c, dummy)
 }
 
-func (s *serviceSuite) TestBlockChangesServerUnset(c *gc.C) {
+func (s *applicationSuite) TestBlockChangesServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
 	s.BlockAllChanges(c, "TestBlockChangesServerUnset")
 	s.assertServerUnsetBlocked(c, dummy, "TestBlockChangesServerUnset")
 }
 
-var clientAddServiceUnitsTests = []struct {
-	about    string
-	service  string // if not set, defaults to 'dummy'
-	expected []string
-	to       string
-	err      string
+var clientAddApplicationUnitsTests = []struct {
+	about       string
+	application string // if not set, defaults to 'dummy'
+	expected    []string
+	to          string
+	err         string
 }{
 	{
 		about:    "returns unit names",
@@ -1629,22 +1659,22 @@ var clientAddServiceUnitsTests = []struct {
 		to:       "0",
 	},
 	{
-		about:   "unknown application name",
-		service: "unknown-service",
-		err:     `application "unknown-service" not found`,
+		about:       "unknown application name",
+		application: "unknown-application",
+		err:         `application "unknown-application" not found`,
 	},
 }
 
-func (s *serviceSuite) TestClientAddServiceUnits(c *gc.C) {
+func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	for i, t := range clientAddServiceUnitsTests {
+	for i, t := range clientAddApplicationUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
-		serviceName := t.service
-		if serviceName == "" {
-			serviceName = "dummy"
+		applicationName := t.application
+		if applicationName == "" {
+			applicationName = "dummy"
 		}
 		args := params.AddApplicationUnits{
-			ApplicationName: serviceName,
+			ApplicationName: applicationName,
 			NumUnits:        len(t.expected),
 		}
 		if t.to != "" {
@@ -1666,8 +1696,8 @@ func (s *serviceSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
-func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
-	svc := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
+	app := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1678,20 +1708,20 @@ func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, machine.Id()+"/lxd/0")
 }
 
-var addServiceUnitTests = []struct {
-	about      string
-	service    string // if not set, defaults to 'dummy'
-	expected   []string
-	machineIds []string
-	placement  []*instance.Placement
-	err        string
+var addApplicationUnitTests = []struct {
+	about       string
+	application string // if not set, defaults to 'dummy'
+	expected    []string
+	machineIds  []string
+	placement   []*instance.Placement
+	err         string
 }{
 	{
 		about:      "valid placement directives",
@@ -1711,19 +1741,19 @@ var addServiceUnitTests = []struct {
 	},
 }
 
-func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
+func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Add a machine for the units to be placed on.
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	for i, t := range addServiceUnitTests {
+	for i, t := range addApplicationUnitTests {
 		c.Logf("test %d. %s", i, t.about)
-		serviceName := t.service
-		if serviceName == "" {
-			serviceName = "dummy"
+		applicationName := t.application
+		if applicationName == "" {
+			applicationName = "dummy"
 		}
 		result, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
-			ApplicationName: serviceName,
+			ApplicationName: applicationName,
 			NumUnits:        len(t.expected),
 			Placement:       t.placement,
 		})
@@ -1743,7 +1773,7 @@ func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
 	}
 }
 
-func (s *serviceSuite) assertAddServiceUnits(c *gc.C) {
+func (s *applicationSuite) assertAddApplicationUnits(c *gc.C) {
 	result, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
@@ -1759,7 +1789,7 @@ func (s *serviceSuite) assertAddServiceUnits(c *gc.C) {
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
-func (s *serviceSuite) TestServiceCharmRelations(c *gc.C) {
+func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -1777,7 +1807,7 @@ func (s *serviceSuite) TestServiceCharmRelations(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
+func (s *applicationSuite) assertAddApplicationUnitsBlocked(c *gc.C, msg string) {
 	_, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
@@ -1785,25 +1815,25 @@ func (s *serviceSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serviceSuite) TestBlockDestroyAddServiceUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockDestroyModel(c, "TestBlockDestroyAddServiceUnits")
-	s.assertAddServiceUnits(c)
+	s.BlockDestroyModel(c, "TestBlockDestroyAddApplicationUnits")
+	s.assertAddApplicationUnits(c)
 }
 
-func (s *serviceSuite) TestBlockRemoveAddServiceUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockRemoveObject(c, "TestBlockRemoveAddServiceUnits")
-	s.assertAddServiceUnits(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveAddApplicationUnits")
+	s.assertAddApplicationUnits(c)
 }
 
-func (s *serviceSuite) TestBlockChangeAddServiceUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockChangeAddApplicationUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockAllChanges(c, "TestBlockChangeAddServiceUnits")
-	s.assertAddServiceUnitsBlocked(c, "TestBlockChangeAddServiceUnits")
+	s.BlockAllChanges(c, "TestBlockChangeAddApplicationUnits")
+	s.assertAddApplicationUnitsBlocked(c, "TestBlockChangeAddApplicationUnits")
 }
 
-func (s *serviceSuite) TestAddUnitToMachineNotFound(c *gc.C) {
+func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	_, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "dummy",
@@ -1813,226 +1843,242 @@ func (s *serviceSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `adding new machine to host unit "dummy/0": machine 42 not found`)
 }
 
-func (s *serviceSuite) TestServiceExpose(c *gc.C) {
+func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	serviceNames := []string{"dummy-service", "exposed-service"}
-	svcs := make([]*state.Application, len(serviceNames))
+	applicationNames := []string{"dummy-application", "exposed-application"}
+	apps := make([]*state.Application, len(applicationNames))
 	var err error
-	for i, name := range serviceNames {
-		svcs[i] = s.AddTestingService(c, name, charm)
-		c.Assert(svcs[i].IsExposed(), jc.IsFalse)
+	for i, name := range applicationNames {
+		apps[i] = s.AddTestingService(c, name, charm)
+		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = svcs[1].SetExposed()
+	err = apps[1].SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svcs[1].IsExposed(), jc.IsTrue)
-	for i, t := range serviceExposeTests {
+	c.Assert(apps[1].IsExposed(), jc.IsTrue)
+	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = s.applicationAPI.Expose(params.ApplicationExpose{t.service})
+		err = s.applicationAPI.Expose(params.ApplicationExpose{t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			application, err := s.State.Application(t.service)
+			application, err := s.State.Application(t.application)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(application.IsExposed(), gc.Equals, t.exposed)
 		}
 	}
 }
 
-func (s *serviceSuite) setupServiceExpose(c *gc.C) {
+func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	serviceNames := []string{"dummy-service", "exposed-service"}
-	svcs := make([]*state.Application, len(serviceNames))
+	applicationNames := []string{"dummy-application", "exposed-application"}
+	apps := make([]*state.Application, len(applicationNames))
 	var err error
-	for i, name := range serviceNames {
-		svcs[i] = s.AddTestingService(c, name, charm)
-		c.Assert(svcs[i].IsExposed(), jc.IsFalse)
+	for i, name := range applicationNames {
+		apps[i] = s.AddTestingService(c, name, charm)
+		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = svcs[1].SetExposed()
+	err = apps[1].SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svcs[1].IsExposed(), jc.IsTrue)
+	c.Assert(apps[1].IsExposed(), jc.IsTrue)
 }
 
-var serviceExposeTests = []struct {
-	about   string
-	service string
-	err     string
-	exposed bool
+var applicationExposeTests = []struct {
+	about       string
+	application string
+	err         string
+	exposed     bool
 }{
 	{
-		about:   "unknown application name",
-		service: "unknown-service",
-		err:     `application "unknown-service" not found`,
+		about:       "unknown application name",
+		application: "unknown-application",
+		err:         `application "unknown-application" not found`,
 	},
 	{
-		about:   "expose a service",
-		service: "dummy-service",
-		exposed: true,
+		about:       "expose a application",
+		application: "dummy-application",
+		exposed:     true,
 	},
 	{
-		about:   "expose an already exposed service",
-		service: "exposed-service",
-		exposed: true,
+		about:       "expose an already exposed application",
+		application: "exposed-application",
+		exposed:     true,
 	},
 }
 
-func (s *serviceSuite) assertServiceExpose(c *gc.C) {
-	for i, t := range serviceExposeTests {
+func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
+	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{t.service})
+		err := s.applicationAPI.Expose(params.ApplicationExpose{t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			application, err := s.State.Application(t.service)
+			application, err := s.State.Application(t.application)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(application.IsExposed(), gc.Equals, t.exposed)
 		}
 	}
 }
 
-func (s *serviceSuite) assertServiceExposeBlocked(c *gc.C, msg string) {
-	for i, t := range serviceExposeTests {
+func (s *applicationSuite) assertApplicationExposeBlocked(c *gc.C, msg string) {
+	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{t.service})
+		err := s.applicationAPI.Expose(params.ApplicationExpose{t.application})
 		s.AssertBlocked(c, err, msg)
 	}
 }
 
-func (s *serviceSuite) TestBlockDestroyServiceExpose(c *gc.C) {
-	s.setupServiceExpose(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyServiceExpose")
-	s.assertServiceExpose(c)
+func (s *applicationSuite) TestBlockDestroyApplicationExpose(c *gc.C) {
+	s.setupApplicationExpose(c)
+	s.BlockDestroyModel(c, "TestBlockDestroyApplicationExpose")
+	s.assertApplicationExpose(c)
 }
 
-func (s *serviceSuite) TestBlockRemoveServiceExpose(c *gc.C) {
-	s.setupServiceExpose(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceExpose")
-	s.assertServiceExpose(c)
+func (s *applicationSuite) TestBlockRemoveApplicationExpose(c *gc.C) {
+	s.setupApplicationExpose(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveApplicationExpose")
+	s.assertApplicationExpose(c)
 }
 
-func (s *serviceSuite) TestBlockChangesServiceExpose(c *gc.C) {
-	s.setupServiceExpose(c)
-	s.BlockAllChanges(c, "TestBlockChangesServiceExpose")
-	s.assertServiceExposeBlocked(c, "TestBlockChangesServiceExpose")
+func (s *applicationSuite) TestBlockChangesApplicationExpose(c *gc.C) {
+	s.setupApplicationExpose(c)
+	s.BlockAllChanges(c, "TestBlockChangesApplicationExpose")
+	s.assertApplicationExposeBlocked(c, "TestBlockChangesApplicationExpose")
 }
 
-var serviceUnexposeTests = []struct {
-	about    string
-	service  string
-	err      string
-	initial  bool
-	expected bool
+var applicationUnexposeTests = []struct {
+	about       string
+	application string
+	err         string
+	initial     bool
+	expected    bool
 }{
 	{
-		about:   "unknown application name",
-		service: "unknown-service",
-		err:     `application "unknown-service" not found`,
+		about:       "unknown application name",
+		application: "unknown-application",
+		err:         `application "unknown-application" not found`,
 	},
 	{
-		about:    "unexpose a service",
-		service:  "dummy-service",
-		initial:  true,
-		expected: false,
+		about:       "unexpose a application",
+		application: "dummy-application",
+		initial:     true,
+		expected:    false,
 	},
 	{
-		about:    "unexpose an already unexposed service",
-		service:  "dummy-service",
-		initial:  false,
-		expected: false,
+		about:       "unexpose an already unexposed application",
+		application: "dummy-application",
+		initial:     false,
+		expected:    false,
 	},
 }
 
-func (s *serviceSuite) TestServiceUnexpose(c *gc.C) {
+func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	for i, t := range serviceUnexposeTests {
+	for i, t := range applicationUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		svc := s.AddTestingService(c, "dummy-service", charm)
+		app := s.AddTestingService(c, "dummy-application", charm)
 		if t.initial {
-			svc.SetExposed()
+			app.SetExposed()
 		}
-		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
-		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{t.service})
+		c.Assert(app.IsExposed(), gc.Equals, t.initial)
+		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{t.application})
 		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			svc.Refresh()
-			c.Assert(svc.IsExposed(), gc.Equals, t.expected)
+			app.Refresh()
+			c.Assert(app.IsExposed(), gc.Equals, t.expected)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
-		err = svc.Destroy()
+		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *serviceSuite) setupServiceUnexpose(c *gc.C) *state.Application {
+func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application {
 	charm := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "dummy-service", charm)
-	svc.SetExposed()
-	c.Assert(svc.IsExposed(), gc.Equals, true)
-	return svc
+	app := s.AddTestingService(c, "dummy-application", charm)
+	app.SetExposed()
+	c.Assert(app.IsExposed(), gc.Equals, true)
+	return app
 }
 
-func (s *serviceSuite) assertServiceUnexpose(c *gc.C, svc *state.Application) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-service"})
+func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Application) {
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application"})
 	c.Assert(err, jc.ErrorIsNil)
-	svc.Refresh()
-	c.Assert(svc.IsExposed(), gc.Equals, false)
-	err = svc.Destroy()
+	app.Refresh()
+	c.Assert(app.IsExposed(), gc.Equals, false)
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Application, msg string) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-service"})
+func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application"})
 	s.AssertBlocked(c, err, msg)
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestBlockDestroyServiceUnexpose(c *gc.C) {
-	svc := s.setupServiceUnexpose(c)
-	s.BlockDestroyModel(c, "TestBlockDestroyServiceUnexpose")
-	s.assertServiceUnexpose(c, svc)
+func (s *applicationSuite) TestBlockDestroyApplicationUnexpose(c *gc.C) {
+	app := s.setupApplicationUnexpose(c)
+	s.BlockDestroyModel(c, "TestBlockDestroyApplicationUnexpose")
+	s.assertApplicationUnexpose(c, app)
 }
 
-func (s *serviceSuite) TestBlockRemoveServiceUnexpose(c *gc.C) {
-	svc := s.setupServiceUnexpose(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceUnexpose")
-	s.assertServiceUnexpose(c, svc)
+func (s *applicationSuite) TestBlockRemoveApplicationUnexpose(c *gc.C) {
+	app := s.setupApplicationUnexpose(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveApplicationUnexpose")
+	s.assertApplicationUnexpose(c, app)
 }
 
-func (s *serviceSuite) TestBlockChangesServiceUnexpose(c *gc.C) {
-	svc := s.setupServiceUnexpose(c)
-	s.BlockAllChanges(c, "TestBlockChangesServiceUnexpose")
-	s.assertServiceUnexposeBlocked(c, svc, "TestBlockChangesServiceUnexpose")
+func (s *applicationSuite) TestBlockChangesApplicationUnexpose(c *gc.C) {
+	app := s.setupApplicationUnexpose(c)
+	s.BlockAllChanges(c, "TestBlockChangesApplicationUnexpose")
+	s.assertApplicationUnexposeBlocked(c, app, "TestBlockChangesApplicationUnexpose")
 }
 
-var serviceDestroyTests = []struct {
-	about   string
-	service string
-	err     string
+var applicationDestroyTests = []struct {
+	about       string
+	application string
+	err         string
 }{
 	{
-		about:   "unknown application name",
-		service: "unknown-service",
-		err:     `application "unknown-service" not found`,
+		about:       "unknown application name",
+		application: "unknown-application",
+		err:         `application "unknown-application" not found`,
 	},
 	{
-		about:   "destroy a service",
-		service: "dummy-service",
+		about:       "destroy an application",
+		application: "dummy-application",
 	},
 	{
-		about:   "destroy an already destroyed service",
-		service: "dummy-service",
-		err:     `application "dummy-service" not found`,
+		about:       "destroy an already destroyed application",
+		application: "dummy-application",
+		err:         `application "dummy-application" not found`,
+	},
+	{
+		about:       "destroy a remote application",
+		application: "remote-application",
+	},
+	{
+		about:       "destroy an already destroyed remote application",
+		application: "remote-application",
+		err:         `application "remote-application" not found`,
 	},
 }
 
-func (s *serviceSuite) TestServiceDestroy(c *gc.C) {
-	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
-	for i, t := range serviceDestroyTests {
+func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
+	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-application",
+		SourceModel: s.State.ModelTag(),
+		Token:       "t0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, t := range applicationDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{t.service})
+		err := s.applicationAPI.Destroy(params.ApplicationDestroy{t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -2040,14 +2086,14 @@ func (s *serviceSuite) TestServiceDestroy(c *gc.C) {
 		}
 	}
 
-	// Now do Destroy on a service with units. Destroy will
-	// cause the service to be not-Alive, but will not remove its
+	// Now do Destroy on an application with units. Destroy will
+	// cause the application to be not-Alive, but will not remove its
 	// document.
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	serviceName := "wordpress"
-	application, err := s.State.Application(serviceName)
+	applicationName := "wordpress"
+	application, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.Destroy(params.ApplicationDestroy{serviceName})
+	err = s.applicationAPI.Destroy(params.ApplicationDestroy{applicationName})
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -2059,22 +2105,22 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	c.Assert(entity.Life(), gc.Equals, life)
 }
 
-func (s *serviceSuite) TestBlockServiceDestroy(c *gc.C) {
-	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
+func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
+	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 
 	// block remove-objects
-	s.BlockRemoveObject(c, "TestBlockServiceDestroy")
-	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"dummy-service"})
-	s.AssertBlocked(c, err, "TestBlockServiceDestroy")
+	s.BlockRemoveObject(c, "TestBlockApplicationDestroy")
+	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"dummy-application"})
+	s.AssertBlocked(c, err, "TestBlockApplicationDestroy")
 	// Tests may have invalid application names.
-	application, err := s.State.Application("dummy-service")
+	application, err := s.State.Application("dummy-application")
 	if err == nil {
-		// For valid application names, check that service is alive :-)
+		// For valid application names, check that application is alive :-)
 		assertLife(c, application, state.Alive)
 	}
 }
 
-func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
+func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	units := make([]*state.Unit, 5)
 	for i := range units {
@@ -2095,7 +2141,7 @@ func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	s.assertDestroyPrincipalUnits(c, units)
 }
 
-func (s *serviceSuite) TestDestroySubordinateUnits(c *gc.C) {
+func (s *applicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2121,7 +2167,7 @@ func (s *serviceSuite) TestDestroySubordinateUnits(c *gc.C) {
 	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
 }
 
-func (s *serviceSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
+func (s *applicationSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
 	// Destroy 2 of them; check they become Dying.
 	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
@@ -2159,7 +2205,7 @@ func (s *serviceSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit)
 	assertLife(c, units[4], state.Dying)
 }
 
-func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
+func (s *applicationSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	units := make([]*state.Unit, 5)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for i := range units {
@@ -2180,7 +2226,7 @@ func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	return units
 }
 
-func (s *serviceSuite) assertBlockedErrorAndLiveliness(
+func (s *applicationSuite) assertBlockedErrorAndLiveliness(
 	c *gc.C,
 	err error,
 	msg string,
@@ -2196,7 +2242,7 @@ func (s *serviceSuite) assertBlockedErrorAndLiveliness(
 	assertLife(c, living4, state.Alive)
 }
 
-func (s *serviceSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
 	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
@@ -2205,7 +2251,7 @@ func (s *serviceSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
-func (s *serviceSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
 	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
@@ -2214,7 +2260,7 @@ func (s *serviceSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
-func (s *serviceSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
 	err := s.applicationAPI.DestroyUnits(params.DestroyApplicationUnits{
@@ -2225,7 +2271,7 @@ func (s *serviceSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 	assertLife(c, units[1], state.Dying)
 }
 
-func (s *serviceSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
+func (s *applicationSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
 	// Try to destroy the principal and the subordinate together; check it warns
 	// about the subordinate, but destroys the one it can. (The principal unit
 	// agent will be responsible for destroying the subordinate.)
@@ -2237,7 +2283,7 @@ func (s *serviceSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, loggin
 	assertLife(c, logging0, state.Alive)
 }
 
-func (s *serviceSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2272,7 +2318,7 @@ func (s *serviceSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, rel, state.Alive)
 }
 
-func (s *serviceSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2307,7 +2353,7 @@ func (s *serviceSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, rel, state.Alive)
 }
 
-func (s *serviceSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
+func (s *applicationSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2334,7 +2380,7 @@ func (s *serviceSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
 }
 
-func (s *serviceSuite) TestClientSetServiceConstraints(c *gc.C) {
+func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
@@ -2349,7 +2395,7 @@ func (s *serviceSuite) TestClientSetServiceConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) setupSetServiceConstraints(c *gc.C) (*state.Application, constraints.Value) {
+func (s *applicationSuite) setupSetApplicationConstraints(c *gc.C) (*state.Application, constraints.Value) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -2357,7 +2403,7 @@ func (s *serviceSuite) setupSetServiceConstraints(c *gc.C) (*state.Application, 
 	return application, cons
 }
 
-func (s *serviceSuite) assertSetServiceConstraints(c *gc.C, application *state.Application, cons constraints.Value) {
+func (s *applicationSuite) assertSetApplicationConstraints(c *gc.C, application *state.Application, cons constraints.Value) {
 	err := s.applicationAPI.SetConstraints(params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the constraints have been correctly updated.
@@ -2366,30 +2412,30 @@ func (s *serviceSuite) assertSetServiceConstraints(c *gc.C, application *state.A
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) assertSetServiceConstraintsBlocked(c *gc.C, msg string, service *state.Application, cons constraints.Value) {
+func (s *applicationSuite) assertSetApplicationConstraintsBlocked(c *gc.C, msg string, application *state.Application, cons constraints.Value) {
 	err := s.applicationAPI.SetConstraints(params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serviceSuite) TestBlockDestroySetServiceConstraints(c *gc.C) {
-	svc, cons := s.setupSetServiceConstraints(c)
-	s.BlockDestroyModel(c, "TestBlockDestroySetServiceConstraints")
-	s.assertSetServiceConstraints(c, svc, cons)
+func (s *applicationSuite) TestBlockDestroySetApplicationConstraints(c *gc.C) {
+	app, cons := s.setupSetApplicationConstraints(c)
+	s.BlockDestroyModel(c, "TestBlockDestroySetApplicationConstraints")
+	s.assertSetApplicationConstraints(c, app, cons)
 }
 
-func (s *serviceSuite) TestBlockRemoveSetServiceConstraints(c *gc.C) {
-	svc, cons := s.setupSetServiceConstraints(c)
-	s.BlockRemoveObject(c, "TestBlockRemoveSetServiceConstraints")
-	s.assertSetServiceConstraints(c, svc, cons)
+func (s *applicationSuite) TestBlockRemoveSetApplicationConstraints(c *gc.C) {
+	app, cons := s.setupSetApplicationConstraints(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveSetApplicationConstraints")
+	s.assertSetApplicationConstraints(c, app, cons)
 }
 
-func (s *serviceSuite) TestBlockChangesSetServiceConstraints(c *gc.C) {
-	svc, cons := s.setupSetServiceConstraints(c)
-	s.BlockAllChanges(c, "TestBlockChangesSetServiceConstraints")
-	s.assertSetServiceConstraintsBlocked(c, "TestBlockChangesSetServiceConstraints", svc, cons)
+func (s *applicationSuite) TestBlockChangesSetApplicationConstraints(c *gc.C) {
+	app, cons := s.setupSetApplicationConstraints(c)
+	s.BlockAllChanges(c, "TestBlockChangesSetApplicationConstraints")
+	s.assertSetApplicationConstraintsBlocked(c, "TestBlockChangesSetApplicationConstraints", app, cons)
 }
 
-func (s *serviceSuite) TestClientGetServiceConstraints(c *gc.C) {
+func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set constraints for the application.
@@ -2404,7 +2450,7 @@ func (s *serviceSuite) TestClientGetServiceConstraints(c *gc.C) {
 	c.Assert(result.Constraints, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoints map[string]params.CharmRelation) {
+func (s *applicationSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoints map[string]params.CharmRelation) {
 	c.Assert(endpoints["wordpress"], gc.DeepEquals, params.CharmRelation{
 		Name:      "db",
 		Role:      "requirer",
@@ -2423,7 +2469,7 @@ func (s *serviceSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoints ma
 	})
 }
 
-func (s *serviceSuite) setupRelationScenario(c *gc.C) {
+func (s *applicationSuite) setupRelationScenario(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -2432,7 +2478,7 @@ func (s *serviceSuite) setupRelationScenario(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
+func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	s.setupRelationScenario(c)
 	res, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2444,13 +2490,20 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	// scenario and the one created in this test.
 	c.Assert(len(rels), gc.Equals, 2)
 
-	// We may be related to a local application or a remote.
+	// We may be related to a local application or a remote offer
+	// or an application in another model.
 	var mySqlApplication state.ApplicationEntity
 	mySqlApplication, err = s.State.RemoteApplication("hosted-mysql")
 	if errors.IsNotFound(err) {
-		mySqlApplication, err = s.State.Application("mysql")
-		c.Assert(err, jc.ErrorIsNil)
-		s.checkEndpoints(c, "mysql", res.Endpoints)
+		mySqlApplication, err = s.State.RemoteApplication("othermysql")
+		if errors.IsNotFound(err) {
+			mySqlApplication, err = s.State.Application("mysql")
+			c.Assert(err, jc.ErrorIsNil)
+			s.checkEndpoints(c, "mysql", res.Endpoints)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			s.checkEndpoints(c, "othermysql", res.Endpoints)
+		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
@@ -2461,43 +2514,43 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	c.Assert(len(rels), gc.Equals, 1)
 }
 
-func (s *serviceSuite) TestSuccessfullyAddRelation(c *gc.C) {
+func (s *applicationSuite) TestSuccessfullyAddRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertAddRelation(c, endpoints)
 }
 
-func (s *serviceSuite) TestBlockDestroyAddRelation(c *gc.C) {
+func (s *applicationSuite) TestBlockDestroyAddRelation(c *gc.C) {
 	s.BlockDestroyModel(c, "TestBlockDestroyAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"})
 }
-func (s *serviceSuite) TestBlockRemoveAddRelation(c *gc.C) {
+func (s *applicationSuite) TestBlockRemoveAddRelation(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"})
 }
 
-func (s *serviceSuite) TestBlockChangesAddRelation(c *gc.C) {
+func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: []string{"wordpress", "mysql"}})
 	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
 }
 
-func (s *serviceSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
-	// Show that the order of the services listed in the AddRelation call
-	// does not matter.  This is a repeat of the previous test with the service
+func (s *applicationSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
+	// Show that the order of the applications listed in the AddRelation call
+	// does not matter.  This is a repeat of the previous test with the application
 	// names swapped.
 	endpoints := []string{"mysql", "wordpress"}
 	s.assertAddRelation(c, endpoints)
 }
 
-func (s *serviceSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
+func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
-func (s *serviceSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
+func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	endpoints := []string{"wordpress", "mysql", "logging"}
@@ -2505,7 +2558,7 @@ func (s *serviceSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
 }
 
-func (s *serviceSuite) TestAddAlreadyAddedRelation(c *gc.C) {
+func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Add a relation between wordpress and mysql.
 	endpoints := []string{"wordpress", "mysql"}
@@ -2518,223 +2571,261 @@ func (s *serviceSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
 }
 
-type mockApplicationOffersFactory struct {
-	facade.Resource
-	offers []params.ApplicationOffer
+func (s *applicationSuite) addTestingCharmOtherModel(c *gc.C, name string) *state.Charm {
+	ch := testcharms.Repo.CharmDir(name)
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+	curl := charm.MustParseURL("local:quantal/" + ident)
+	repo, err := charmrepo.InferRepository(
+		curl,
+		charmrepo.NewCharmStoreParams{},
+		testcharms.Repo.Path())
+	c.Assert(err, jc.ErrorIsNil)
+	sch, err := jujutesting.PutCharm(s.otherModel, curl, repo, false)
+	c.Assert(err, jc.ErrorIsNil)
+	return sch
 }
 
-type mockApplicationOffersAPI struct {
-	crossmodel.ApplicationOffersAPI
-	offers []params.ApplicationOffer
+func (s *applicationSuite) setupOtherModelOffer(c *gc.C) {
+	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
+		Name:  "othermysql",
+		Charm: s.addTestingCharmOtherModel(c, "mysql"),
+	})
 }
 
-func (m *mockApplicationOffersFactory) ApplicationOffers(directory string) (crossmodel.ApplicationOffersAPI, error) {
-	return &mockApplicationOffersAPI{
-		offers: m.offers,
-	}, nil
+func (s *applicationSuite) setupOtherModelOfferWithArgs(c *gc.C, args state.AddApplicationArgs) {
+	_, err := s.otherModel.AddApplication(args)
+	c.Assert(err, jc.ErrorIsNil)
+	offersAPI := state.NewApplicationOffers(s.otherModel)
+	_, err = offersAPI.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "othermysql",
+		ApplicationDescription: "A pretty popular database",
+		Endpoints:              map[string]string{"database": "server"},
+		Owner:                  s.AdminUserTag(c).Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (m *mockApplicationOffersAPI) ListOffers(filters params.OfferFilters) (params.ApplicationOfferResults, error) {
-	return params.ApplicationOfferResults{
-		Offers: m.offers,
-	}, nil
-}
-
-func remoteOffers() []params.ApplicationOffer {
-	return []params.ApplicationOffer{
-		{
-			ApplicationURL:  "local:/u/me/prod/hosted-mysql",
-			ApplicationName: "mysqlremote",
-			SourceModelTag:  coretesting.ModelTag.String(),
-			Endpoints: []params.RemoteEndpoint{
-				{
-					Name:      "server",
-					Role:      "provider",
-					Interface: "mysql",
-					Scope:     "global",
-				},
-			},
-		},
-	}
-}
-
-func (s *serviceSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
-	s.offersApiFactory.offers = remoteOffers()
-	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+func (s *applicationSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
+	s.setupOtherModelOffer(c)
+	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
 	s.assertAddRelation(c, endpoints)
 }
 
-func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
-	s.offersApiFactory.offers = remoteOffers()
-	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:server"}
+func (s *applicationSuite) TestAddRemoteRelationRemoteAppExists(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "othermysql",
+		SourceModel: s.otherModel.ModelTag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setupOtherModelOffer(c)
+	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
 	s.assertAddRelation(c, endpoints)
 }
 
-func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
-	s.offersApiFactory.offers = remoteOffers()
-	endpoints := []string{"local:/u/me/prod/hosted-mysql"}
+func (s *applicationSuite) TestAddRemoteRelationRemoteAppExistsDifferentSourceModel(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "hosted-mysql",
+		SourceModel: names.NewModelTag(utils.MustNewUUID().String()),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setupOtherModelOffer(c)
+	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
+	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `remote application called "hosted-mysql" from a different model already exists`)
+}
+
+func (s *applicationSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
+	s.setupOtherModelOffer(c)
+	endpoints := []string{"wordpress", "othermodel.hosted-mysql:server"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *applicationSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
+	s.setupOtherModelOffer(c)
+	endpoints := []string{"othermodel.hosted-mysql"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
+
+	otherMySql, err := s.otherModel.Application("othermysql")
+	c.Assert(err, jc.ErrorIsNil)
+	err = otherMySql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(otherMySql.IsExposed(), jc.IsFalse)
 }
 
-func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
-	s.offersApiFactory.offers = remoteOffers()
-	// Add a relation between wordpress and mysql.
-	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
+	s.setupOtherModelOffer(c)
+	endpoints := []string{"wordpress", "othermodel.hosted-mysql"}
 	s.assertAddRelation(c, endpoints)
 
 	// And try to add it again.
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`))
 }
 
-func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
-	s.offersApiFactory.offers = remoteOffers()
+func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
+	s.setupOtherModelOffer(c)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:nope"}
+
+	endpoints := []string{"wordpress", "othermodel.hosted-mysql:nope"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, `remote application "hosted-mysql" has no "nope" relation`)
 }
 
-func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
-	s.offersApiFactory.offers = []params.ApplicationOffer{
-		{
-			ApplicationURL:  "local:/u/me/prod/hosted-mysql",
-			ApplicationName: "mysqlremote",
-			SourceModelTag:  coretesting.ModelTag.String(),
-			Endpoints: []params.RemoteEndpoint{
-				{
-					Name:      "admin",
-					Role:      "provider",
-					Interface: "admin",
-					Scope:     "global",
-				},
+func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "riak",
+		Charm: s.addTestingCharmOtherModel(c, "riak"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	offersAPi := state.NewApplicationOffers(s.otherModel)
+	_, err = offersAPi.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-riak",
+		ApplicationName: "riak",
+		Endpoints:       map[string]string{"endpoint": "endpoint"},
+		Owner:           s.AdminUserTag(c).Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "othermodel.hosted-riak"}
+	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *applicationSuite) TestRemoteRelationApplicationOfferNotFound(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "othermodel.unknown"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `application offer "unknown" not found`)
+}
+
+func (s *applicationSuite) TestRemoteRelationApplicationOfferWithEndpointNotFound(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "othermodel.unknown:db"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `application offer "unknown" not found`)
+}
+
+func (s *applicationSuite) TestRemoteRelationNotFound(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "unknownmodel.unknown"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `application offer at admin/unknownmodel.unknown not found`)
+}
+
+func (s *applicationSuite) TestConsumeRejectsEndpoints(c *gc.C) {
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
+	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "othermodel.application:db" shouldn't include endpoint`)
+}
+
+func (s *applicationSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags()
+	_, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
+	})
+	c.Assert(err, gc.ErrorMatches, `set "cross-model" feature flag to enable consuming remote applications`)
+}
+
+func (s *applicationSuite) TestConsumeIdempotent(c *gc.C) {
+	s.setupOtherModelOffer(c)
+
+	for i := 0; i < 2; i++ {
+		results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+			Args: []params.ConsumeApplicationArg{
+				{ApplicationURL: "othermodel.hosted-mysql"},
 			},
-		},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.IsNil)
 	}
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
-func (s *serviceSuite) TestRemoteRelationServiceNotFound(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "local:/u/me/prod/unknown"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `application offer "local:/u/me/prod/unknown" not found`)
-}
+func (s *applicationSuite) TestConsumeLocalAlreadyExists(c *gc.C) {
+	s.setupOtherModelOffer(c)
 
-func (s *serviceSuite) setupDestroyRelationScenario(c *gc.C, endpoints []string) *state.Relation {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	// Add a relation between the endpoints.
-	eps, err := s.State.InferEndpoints(endpoints...)
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "othermodel.hosted-mysql", ApplicationAlias: "mysql"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	relation, err := s.State.AddRelation(eps...)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.DeepEquals, &params.Error{
+		Message: `cannot add remote application "mysql": local application with same name already exists`,
+		Code:    "already exists",
+	})
+}
+
+func (s *applicationSuite) TestConsumeNoPermission(c *gc.C) {
+	s.setupOtherModelOffer(c)
+
+	s.authorizer.Tag = names.NewUserTag("someone")
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "admin/othermodel.hosted-mysql"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	return relation
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*permission denied.*")
 }
 
-func (s *serviceSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
-	s.assertDestroyRelationSuccess(
-		c,
-		s.setupDestroyRelationScenario(c, endpoints),
-		endpoints)
-}
+func (s *applicationSuite) TestConsumeWithPermission(c *gc.C) {
+	s.setupOtherModelOffer(c)
 
-func (s *serviceSuite) assertDestroyRelationSuccess(c *gc.C, relation *state.Relation, endpoints []string) {
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
+	_, err := s.otherModel.AddUser("someone", "spmeone", "secret", "admin")
 	c.Assert(err, jc.ErrorIsNil)
-	// Show that the relation was removed.
-	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *serviceSuite) TestSuccessfulDestroyRelation(c *gc.C) {
-	endpoints := []string{"wordpress", "mysql"}
-	s.assertDestroyRelation(c, endpoints)
-}
-
-func (s *serviceSuite) TestSuccessfullyDestroyRelationSwapped(c *gc.C) {
-	// Show that the order of the services listed in the DestroyRelation call
-	// does not matter.  This is a repeat of the previous test with the service
-	// names swapped.
-	endpoints := []string{"mysql", "wordpress"}
-	s.assertDestroyRelation(c, endpoints)
-}
-
-func (s *serviceSuite) TestNoRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "mysql"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
-}
-
-func (s *serviceSuite) TestAttemptDestroyingNonExistentRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
-	endpoints := []string{"riak", "wordpress"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, "no relations found")
-}
-
-func (s *serviceSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, "no relations found")
-}
-
-func (s *serviceSuite) TestAttemptDestroyingPeerRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
-
-	endpoints := []string{"riak:ring"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
-}
-
-func (s *serviceSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-
-	// Add a relation between wordpress and mysql.
-	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	apiUser := names.NewUserTag("someone")
+	err = s.otherModel.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"), apiUser, permission.ConsumeAccess)
+	s.authorizer.Tag = apiUser
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "admin/othermodel.hosted-mysql"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	// Check that it sets up endpoints, spaces and bindings as we expect.
+	// Aliasing on the endpoints isn't handled yet - if it was done
+	// this would be database.
+	s.assertRemoteEndpointNames(c, "hosted-mysql", "server")
+}
+
+func (s *applicationSuite) assertRemoteEndpointNames(c *gc.C, remoteAppName string, expectedEndpoints ...string) {
+	remoteApp, err := s.State.RemoteApplication(remoteAppName)
+	c.Assert(err, jc.ErrorIsNil)
+	endpoints, err := remoteApp.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	epNames := make([]string, len(endpoints))
+	for i, ep := range endpoints {
+		epNames[i] = ep.Name
+	}
+	c.Assert(epNames, jc.SameContents, expectedEndpoints)
+}
+
+func (s *applicationSuite) TestConsumingAndAddingRelation(c *gc.C) {
+	s.setupOtherModelOffer(c)
+	_, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "othermodel.hosted-mysql"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	endpoints := []string{"wordpress", "mysql"}
-	err = s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	// Show that the relation was removed.
-	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
-
-	// And try to destroy it again.
-	err = s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
-}
-
-func (s *serviceSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
-	endpoints := []string{"wordpress", "mysql"}
-	relation := s.setupDestroyRelationScenario(c, endpoints)
-	// block remove-objects
-	s.BlockRemoveObject(c, "TestBlockRemoveDestroyRelation")
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	s.AssertBlocked(c, err, "TestBlockRemoveDestroyRelation")
-	assertLife(c, relation, state.Alive)
-}
-
-func (s *serviceSuite) TestBlockChangeDestroyRelation(c *gc.C) {
-	endpoints := []string{"wordpress", "mysql"}
-	relation := s.setupDestroyRelationScenario(c, endpoints)
-	s.BlockAllChanges(c, "TestBlockChangeDestroyRelation")
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	s.AssertBlocked(c, err, "TestBlockChangeDestroyRelation")
-	assertLife(c, relation, state.Alive)
-}
-
-func (s *serviceSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
-	s.BlockDestroyModel(c, "TestBlockDestroyDestroyRelation")
-	endpoints := []string{"wordpress", "mysql"}
-	s.assertDestroyRelation(c, endpoints)
+	// There's already a wordpress in the scenario this assertion sets up.
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"})
 }
 
 type mockStorageProvider struct {
@@ -2807,4 +2898,142 @@ func (s *recordingStorage) Remove(path string) error {
 	}
 	s.blobs.Remove(path)
 	return nil
+}
+
+func (s *applicationSuite) TestRemoteApplicationInfo(c *gc.C) {
+	s.setupOtherModelOffer(c)
+	results, err := s.applicationAPI.RemoteApplicationInfo(params.ApplicationURLs{
+		ApplicationURLs: []string{"othermodel.hosted-mysql", "othermodel.unknown"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
+		{Result: &params.RemoteApplicationInfo{
+			ModelTag:         s.otherModel.ModelTag().String(),
+			Name:             "hosted-mysql",
+			Description:      "A pretty popular database",
+			ApplicationURL:   "othermodel.hosted-mysql",
+			SourceModelLabel: "othermodel",
+			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
+			Endpoints: []params.RemoteEndpoint{
+				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"},
+			},
+		}},
+		{
+			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
+		},
+	})
+}
+
+func (s *applicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
+	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
+		Name:             "othermysql",
+		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
+		EndpointBindings: map[string]string{"server": "myspace"},
+	})
+	s.env.spaceInfo = &environs.ProviderSpaceInfo{
+		CloudType: "grandaddy",
+		ProviderAttributes: map[string]interface{}{
+			"thunderjaws": 1,
+		},
+		SpaceInfo: network.SpaceInfo{
+			Name:       "yourspace",
+			ProviderId: "juju-space-myspace",
+			Subnets: []network.SubnetInfo{{
+				CIDR:              "5.6.7.0/24",
+				ProviderId:        "juju-subnet-1",
+				AvailabilityZones: []string{"az1"},
+			}},
+		},
+	}
+
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{
+			ApplicationURL:   "othermodel.hosted-mysql",
+			ApplicationAlias: "beirut",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].LocalName, gc.Equals, "beirut")
+
+	s.env.stub.CheckCallNames(c, "ProviderSpaceInfo")
+	s.env.stub.CheckCall(c, 0, "ProviderSpaceInfo", &network.SpaceInfo{
+		Name:       "myspace",
+		ProviderId: "juju-space-myspace",
+		Subnets: []network.SubnetInfo{{
+			CIDR:              "4.3.2.0/24",
+			ProviderId:        "juju-subnet-1",
+			AvailabilityZones: []string{"az1"},
+		}},
+	})
+
+	remoteApp, err := s.State.RemoteApplication("beirut")
+	c.Assert(err, jc.ErrorIsNil)
+	endpoints, err := remoteApp.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	epNames := make([]string, len(endpoints))
+	for i, ep := range endpoints {
+		epNames[i] = ep.Name
+	}
+	c.Assert(epNames, jc.SameContents, []string{"server"})
+	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{"server": "myspace"})
+	c.Assert(remoteApp.Spaces(), gc.DeepEquals, []state.RemoteSpace{{
+		CloudType:  "grandaddy",
+		Name:       "myspace",
+		ProviderId: "juju-space-myspace",
+		ProviderAttributes: map[string]interface{}{
+			"thunderjaws": 1,
+		},
+		Subnets: []state.RemoteSubnet{{
+			CIDR:              "5.6.7.0/24",
+			ProviderId:        "juju-subnet-1",
+			AvailabilityZones: []string{"az1"},
+		}},
+	}})
+}
+
+func (s *applicationSuite) TestAddRemoteRelationWithNonNetworkingEnviron(c *gc.C) {
+	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
+		Name:             "othermysql",
+		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
+		EndpointBindings: map[string]string{"server": "myspace"},
+	})
+	s.setupRelationScenario(c)
+	api := s.makeAPI(c, mockNoNetworkEnviron{})
+	res, err := api.AddRelation(params.AddRelation{
+		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
+
+	// Successfully added, but with no bindings or spaces since the
+	// environ doesn't support networking.
+	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
+	c.Assert(remoteApp.Spaces(), gc.IsNil)
+}
+
+func (s *applicationSuite) TestAddRemoteRelationProviderSpaceInfoNotSupported(c *gc.C) {
+	s.setupOtherModelOfferWithArgs(c, state.AddApplicationArgs{
+		Name:             "othermysql",
+		Charm:            s.addTestingCharmOtherModel(c, "mysql"),
+		EndpointBindings: map[string]string{"server": "myspace"},
+	})
+	s.setupRelationScenario(c)
+	s.env.stub.SetErrors(errors.NotSupportedf("provider space info"))
+	res, err := s.applicationAPI.AddRelation(params.AddRelation{
+		Endpoints: []string{"wordpress", "othermodel.hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
+
+	// Successfully added, but with no bindings or spaces since the
+	// environ doesn't support ProviderSpaceInfo.
+	remoteApp, err := s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApp.Bindings(), gc.DeepEquals, map[string]string{})
+	c.Assert(remoteApp.Spaces(), gc.IsNil)
 }

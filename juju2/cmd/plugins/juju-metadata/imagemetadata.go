@@ -14,13 +14,13 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
 )
 
 type imageMetadataCommandBase struct {
@@ -28,12 +28,16 @@ type imageMetadataCommandBase struct {
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		context, c.ClientStore(), environs.GlobalProviderRegistry(),
-	)(c.ControllerName())
+	)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

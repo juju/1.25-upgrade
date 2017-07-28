@@ -21,9 +21,9 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/yaml.v2"
 
-	rcmd "github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // apiClient defines the interface of the plan api client need by this command.
@@ -45,7 +45,7 @@ Examples:
 
 // ListPlansCommand retrieves plans that are available for the specified charm
 type ListPlansCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.ControllerCommandBase
 
 	out      cmd.Output
 	CharmURL string
@@ -54,10 +54,10 @@ type ListPlansCommand struct {
 }
 
 // NewListPlansCommand creates a new ListPlansCommand.
-func NewListPlansCommand() modelcmd.CommandBase {
-	return &ListPlansCommand{
+func NewListPlansCommand() modelcmd.ControllerCommand {
+	return modelcmd.WrapController(&ListPlansCommand{
 		CharmResolver: rcmd.NewCharmStoreResolver(),
-	}
+	})
 }
 
 // Info implements Command.Info.
@@ -81,12 +81,12 @@ func (c *ListPlansCommand) Init(args []string) error {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
 	}
 	c.CharmURL = charmURL
-	return nil
+	return c.CommandBase.Init(args)
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *ListPlansCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

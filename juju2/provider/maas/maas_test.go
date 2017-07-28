@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -18,17 +19,17 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/network"
+	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
@@ -95,13 +96,9 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	mockCapabilities := func(*gomaasapi.MAASObject, string) (set.Strings, error) {
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	}
 	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
-	s.PatchValue(&GetCapabilities, mockCapabilities)
 	s.PatchValue(&GetMAAS2Controller, mockGetController)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
@@ -125,24 +122,37 @@ var maasEnvAttrs = coretesting.Attrs{
 	},
 }
 
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *providerSuite) makeEnviron() *maasEnviron {
+func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities MaasCapabilities) (*maasEnviron, error) {
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
 	cloud := environs.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
-		Endpoint:   suite.testMAASObject.TestServer.URL,
+		Endpoint:   url,
 		Credential: &cred,
 	}
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		panic(err)
+		return nil, errors.Trace(err)
 	}
-	env, err := NewEnviron(cloud, cfg)
+	env, err := NewEnviron(cloud, cfg, getCapabilities)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
+// makeEnviron creates a functional maasEnviron for a test.
+func (suite *providerSuite) makeEnviron() *maasEnviron {
+	env, err := suite.makeEnvironWithURL(
+		suite.testMAASObject.TestServer.URL,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
 	if err != nil {
 		panic(err)
 	}

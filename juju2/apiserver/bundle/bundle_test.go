@@ -8,10 +8,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/bundle"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver/bundle"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type bundleSuite struct {
@@ -26,7 +26,7 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("who"),
 	}
-	facade, err := bundle.NewFacade(auth)
+	facade, err := bundle.NewBundle(auth)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

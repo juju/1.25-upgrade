@@ -10,22 +10,23 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/upgrades"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/gate"
-	"github.com/juju/1.25-upgrade/juju2/wrench"
-	"github.com/juju/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/wrench"
 )
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
@@ -52,36 +53,27 @@ var (
 )
 
 // NewLock creates a gate.Lock to be used to synchronise workers which
-// need to start after upgrades have completed. If no upgrade steps
-// are required the Lock is unlocked and the version in agent's
-// configuration is updated to the currently running version.
-//
-// The returned Lock should be passed to NewWorker.
-func NewLock(a agent.Agent) (gate.Lock, error) {
+// need to start after upgrades have completed. The returned Lock should
+// be passed to NewWorker. If the agent has already upgraded to the
+// current version, then the lock will be returned in the released state.
+func NewLock(agentConfig agent.Config) gate.Lock {
 	lock := gate.NewLock()
 
 	if wrench.IsActive("machine-agent", "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
-		return lock, nil
+		return lock
 	}
 
-	err := a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
-			logger.Infof("no upgrade steps required or upgrade steps for %v "+
-				"have already been run.", jujuversion.Current)
-			lock.Unlock()
-
-			// Even if no upgrade is required the version number in
-			// the agent's config still needs to be bumped.
-			agentConfig.SetUpgradedToVersion(jujuversion.Current)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+	if agentConfig.UpgradedToVersion() == jujuversion.Current {
+		logger.Infof(
+			"upgrade steps for %v have already been run.",
+			jujuversion.Current,
+		)
+		lock.Unlock()
 	}
-	return lock, nil
+
+	return lock
 }
 
 // StatusSetter defines the single method required to set an agent's
@@ -101,6 +93,7 @@ func NewWorker(
 	openState func() (*state.State, error),
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMasterServer bool) error,
 	machine StatusSetter,
+	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
 	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
@@ -345,7 +338,8 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
-	context := upgrades.NewContext(agentConfig, w.apiConn, w.st)
+	stBackend := upgrades.NewStateBackend(w.st)
+	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := jobsToTargets(w.jobs, w.isMaster)

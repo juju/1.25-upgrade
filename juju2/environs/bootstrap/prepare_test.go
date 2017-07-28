@@ -8,16 +8,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/controller"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 type PrepareSuite struct {
@@ -49,7 +48,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerStore := jujuclienttesting.NewMemStore()
+	controllerStore := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	controllerCfg := controller.Config{
 		controller.ControllerUUIDKey:       testing.ControllerTag.Id(),

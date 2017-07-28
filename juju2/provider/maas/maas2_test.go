@@ -11,11 +11,11 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type maas2Suite struct {
@@ -53,7 +53,7 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(cloud, cfg)
+	env, err := NewEnviron(cloud, cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	return env
@@ -230,6 +230,7 @@ type fakeMachine struct {
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	createDevice  gomaasapi.Device
+	devices       []gomaasapi.Device
 }
 
 func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
@@ -297,7 +298,21 @@ func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 
 func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
 	m.MethodCall(m, "CreateDevice", args)
-	return m.createDevice, m.NextErr()
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	m.devices = append(m.devices, m.createDevice)
+	return m.createDevice, nil
+}
+
+func (m *fakeMachine) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	m.MethodCall(m, "Devices", args)
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	return m.devices, nil
 }
 
 type fakeZone struct {
@@ -412,7 +427,6 @@ func (v fakeVLAN) MTU() int {
 }
 
 type fakeInterface struct {
-	gomaasapi.Interface
 	*testing.Stub
 
 	id         int
@@ -425,6 +439,8 @@ type fakeInterface struct {
 	links      []gomaasapi.Link
 	macAddress string
 }
+
+var _ gomaasapi.Interface = (*fakeInterface)(nil)
 
 func (v *fakeInterface) ID() int {
 	return v.id
@@ -469,6 +485,23 @@ func (v *fakeInterface) MACAddress() string {
 func (v *fakeInterface) LinkSubnet(args gomaasapi.LinkSubnetArgs) error {
 	v.MethodCall(v, "LinkSubnet", args)
 	return v.NextErr()
+}
+
+func (v *fakeInterface) Delete() error {
+	v.MethodCall(v, "Delete")
+	return v.NextErr()
+}
+
+func (v *fakeInterface) Tags() []string {
+	return nil
+}
+
+func (v *fakeInterface) UnlinkSubnet(gomaasapi.Subnet) error {
+	return errors.NotImplementedf("UnlinkSubnet")
+}
+
+func (v *fakeInterface) Update(gomaasapi.UpdateInterfaceArgs) error {
+	return errors.NotImplementedf("Update")
 }
 
 type fakeLink struct {
@@ -526,17 +559,17 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 
 type fakeBlockDevice struct {
 	gomaasapi.BlockDevice
-	name string
-	path string
-	size uint64
+	name   string
+	idPath string
+	size   uint64
 }
 
 func (bd fakeBlockDevice) Name() string {
 	return bd.name
 }
 
-func (bd fakeBlockDevice) Path() string {
-	return bd.path
+func (bd fakeBlockDevice) IDPath() string {
+	return bd.idPath
 }
 
 func (bd fakeBlockDevice) Size() uint64 {
@@ -544,12 +577,44 @@ func (bd fakeBlockDevice) Size() uint64 {
 }
 
 type fakeDevice struct {
-	gomaasapi.Device
 	*testing.Stub
 
 	interfaceSet []gomaasapi.Interface
 	systemID     string
 	interface_   gomaasapi.Interface
+	deleteCB     func()
+}
+
+var _ gomaasapi.Device = (*fakeDevice)(nil)
+
+func (d *fakeDevice) FQDN() string {
+	return ""
+}
+
+func (d *fakeDevice) Hostname() string {
+	return ""
+}
+
+func (d *fakeDevice) IPAddresses() []string {
+	addrs := make([]string, 0, len(d.interfaceSet))
+	for _, iface := range d.interfaceSet {
+		for _, link := range iface.Links() {
+			addrs = append(addrs, link.IPAddress())
+		}
+	}
+	return addrs
+}
+
+func (d *fakeDevice) Owner() string {
+	return ""
+}
+
+func (d *fakeDevice) Parent() string {
+	return ""
+}
+
+func (d *fakeDevice) Zone() gomaasapi.Zone {
+	return &fakeZone{}
 }
 
 func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
@@ -568,5 +633,8 @@ func (d *fakeDevice) CreateInterface(args gomaasapi.CreateInterfaceArgs) (gomaas
 
 func (d *fakeDevice) Delete() error {
 	d.MethodCall(d, "Delete")
+	if d.deleteCB != nil {
+		d.deleteCB()
+	}
 	return d.NextErr()
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Client allows access to the storage API end point.
@@ -146,4 +146,88 @@ func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorRe
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
+}
+
+// Attach attaches existing storage to a unit.
+func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResult, error) {
+	in := params.StorageAttachmentIds{
+		make([]params.StorageAttachmentId, len(storageIds)),
+	}
+	if !names.IsValidUnit(unitId) {
+		return nil, errors.NotValidf("unit ID %q", unitId)
+	}
+	for i, storageId := range storageIds {
+		if !names.IsValidStorage(storageId) {
+			return nil, errors.NotValidf("storage ID %q", storageId)
+		}
+		in.Ids[i] = params.StorageAttachmentId{
+			StorageTag: names.NewStorageTag(storageId).String(),
+			UnitTag:    names.NewUnitTag(unitId).String(),
+		}
+	}
+	out := params.ErrorResults{}
+	if err := c.facade.FacadeCall("Attach", in, &out); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(out.Results) != len(storageIds) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(storageIds), len(out.Results),
+		)
+	}
+	return out.Results, nil
+}
+
+// Destroy destroys specified storage entities.
+func (c *Client) Destroy(storageIds []string) ([]params.ErrorResult, error) {
+	results := params.ErrorResults{}
+	entities := make([]params.Entity, len(storageIds))
+	for i, id := range storageIds {
+		if !names.IsValidStorage(id) {
+			return nil, errors.NotValidf("storage ID %q", id)
+		}
+		entities[i] = params.Entity{Tag: names.NewStorageTag(id).String()}
+	}
+	if err := c.facade.FacadeCall(
+		"Destroy",
+		params.Entities{Entities: entities},
+		&results,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(storageIds) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(storageIds), len(results.Results),
+		)
+	}
+	return results.Results, nil
+}
+
+// Detach detaches the specified storage entities.
+func (c *Client) Detach(storageIds []string) ([]params.ErrorResult, error) {
+	results := params.ErrorResults{}
+	args := make([]params.StorageAttachmentId, len(storageIds))
+	for i, id := range storageIds {
+		if !names.IsValidStorage(id) {
+			return nil, errors.NotValidf("storage ID %q", id)
+		}
+		args[i] = params.StorageAttachmentId{
+			StorageTag: names.NewStorageTag(id).String(),
+		}
+	}
+	if err := c.facade.FacadeCall(
+		"Detach",
+		params.StorageAttachmentIds{args},
+		&results,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(storageIds) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(storageIds), len(results.Results),
+		)
+	}
+	return results.Results, nil
 }

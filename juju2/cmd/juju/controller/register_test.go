@@ -15,26 +15,25 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/api"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cmd/juju/controller"
-	cmdtesting "github.com/juju/1.25-upgrade/juju2/cmd/testing"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient/jujuclienttesting"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	apiConnection            *mockAPIConnection
-	store                    *jujuclienttesting.MemStore
+	store                    *jujuclient.MemStore
 	apiOpenError             error
 	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
 	listModelsControllerName string
@@ -74,7 +73,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 }
 
 func (s *RegisterSuite) TearDownTest(c *gc.C) {
@@ -85,14 +84,10 @@ func (s *RegisterSuite) TearDownTest(c *gc.C) {
 func (s *RegisterSuite) TestInit(c *gc.C) {
 	registerCommand := controller.NewRegisterCommandForTest(nil, nil, nil)
 
-	err := testing.InitCommand(registerCommand, []string{})
+	err := cmdtesting.InitCommand(registerCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "registration data missing")
 
-	err = testing.InitCommand(registerCommand, []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(registerCommand.Arg, gc.Equals, "foo")
-
-	err = testing.InitCommand(registerCommand, []string{"foo", "bar"})
+	err = cmdtesting.InitCommand(registerCommand, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
@@ -115,8 +110,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
@@ -147,8 +142,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
@@ -192,8 +187,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 `[1:]+noModelsText)
@@ -261,7 +256,6 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »
 You must specify a non-empty controller name.
 Enter a name for this controller: »
@@ -284,10 +278,10 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »controller-name
 Controller "controller-name" already exists.
 Enter a name for this controller: »other-name
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 `[1:]+noModelsText)
@@ -325,6 +319,7 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
 Initial password successfully set for bob.
 `[1:])
 	err = s.run(c, prompter, registrationData)
@@ -354,10 +349,10 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »controller-name
 Controller "controller-name" already exists.
 Enter a name for this controller: »other-name
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 
@@ -407,6 +402,7 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
 `[1:])
 	defer prompter.CheckDone()
 	s.apiOpenError = errors.New("open failed")
@@ -428,6 +424,8 @@ func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {
 Enter a new password: »hunter2
 
 Confirm password: »hunter2
+
+Enter a name for this controller: »foo
 
 `[1:])
 
@@ -475,7 +473,11 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 
 func (s *RegisterSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	s.apiOpenError = errors.New("open failed")
-	err := s.run(c, noPrompts(c), "0.1.2.3")
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a name for this controller: »public-controller-name
+`[1:])
+	defer prompter.CheckDone()
+	err := s.run(c, prompter, "0.1.2.3")
 	c.Assert(err, gc.ErrorMatches, `open failed`)
 }
 
@@ -576,7 +578,7 @@ func (s *RegisterSuite) run(c *gc.C, stdio io.ReadWriter, args ...string) error 
 	}
 
 	command := controller.NewRegisterCommandForTest(s.apiOpen, s.listModels, s.store)
-	err := testing.InitCommand(command, args)
+	err := cmdtesting.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	return command.Run(&cmd.Context{
 		Dir:    c.MkDir(),

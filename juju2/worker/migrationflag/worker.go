@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/1.25-upgrade/juju2/core/migration"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // ErrChanged indicates that a Worker has stopped because its

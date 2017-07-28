@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 )
 
 var logger = loggo.GetLogger("juju.cloudinit.sshinit")
@@ -26,6 +26,9 @@ type ConfigureParams struct {
 	// Client is the SSH client to connect with.
 	// If Client is nil, ssh.DefaultClient will be used.
 	Client ssh.Client
+
+	// SSHOptions contains options for running the SSH command.
+	SSHOptions *ssh.Options
 
 	// Config is the cloudinit config to carry out.
 	Config cloudinit.CloudConfig
@@ -52,12 +55,17 @@ cat > $tmpfile
 /bin/bash $tmpfile
 `))
 
+	client := params.Client
+	if client == nil {
+		client = ssh.DefaultClient
+	}
+
 	// bash will read a byte at a time when consuming commands
 	// from stdin. We avoid sending the entire script -- which
 	// will be very large when uploading tools -- directly to
 	// bash for this reason. Instead, run cat which will write
 	// the script to disk, and then execute it from there.
-	cmd := ssh.Command(params.Host, []string{
+	cmd := client.Command(params.Host, []string{
 		"sudo", "/bin/bash", "-c",
 		// The outer bash interprets the $(...), and executes
 		// the decoded script in the nested bash. This avoids
@@ -67,7 +75,7 @@ cat > $tmpfile
 			`/bin/bash -c "$(echo %s | base64 -d)"`,
 			utils.ShQuote(encoded),
 		),
-	}, nil)
+	}, params.SSHOptions)
 
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter

@@ -6,6 +6,7 @@ package migrationtarget_test
 import (
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,18 +15,18 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade/facadetest"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/migrationtarget"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
-	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/migrationtarget"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	statetesting "github.com/juju/juju/state/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type Suite struct {
@@ -55,7 +56,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
-	factory, err := common.Facades.GetFactory("MigrationTarget", 1)
+	factory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := factory(&facadetest.Context{
@@ -97,6 +98,12 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	}
 	err := api.Prechecks(args)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *Suite) TestCACert(c *gc.C) {
+	api := s.mustNewAPI(c)
+	r := api.CACert()
+	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
 }
 
 func (s *Suite) TestPrechecksFail(c *gc.C) {

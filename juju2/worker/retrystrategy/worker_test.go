@@ -9,9 +9,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/retrystrategy"
+	"github.com/juju/juju/worker/retrystrategy"
 )
 
 type WorkerSuite struct {

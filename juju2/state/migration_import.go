@@ -4,10 +4,12 @@
 package state
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
@@ -16,19 +18,19 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/core/description"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/payload"
-	"github.com/juju/1.25-upgrade/juju2/permission"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/status"
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	"github.com/juju/1.25-upgrade/juju2/tools"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/tools"
 )
 
 // When we import a new model, we need to give the leaders some time to
@@ -53,17 +55,25 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
+	if len(model.RemoteApplications()) != 0 {
+		// Cross-model relations are currently limited to models on
+		// the same controller, while migration is for getting the
+		// model to a new controller.
+		return nil, nil, errors.New("can't import models with remote applications")
+	}
+
 	// Create the model.
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		CloudName:     model.Cloud(),
-		CloudRegion:   model.CloudRegion(),
-		Config:        cfg,
-		Owner:         model.Owner(),
-		MigrationMode: MigrationModeImporting,
+		CloudName:      model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
+		Config:         cfg,
+		Owner:          model.Owner(),
+		MigrationMode:  MigrationModeImporting,
+		EnvironVersion: model.EnvironVersion(),
 
 		// NOTE(axw) we create the model without any storage
 		// pools. We'll need to import the storage pools from
@@ -118,6 +128,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			newSt.Close()
 		}
 	}()
+	// We don't actually care what the old model status was, because we are
+	// going to set it to busy, with a message of migrating.
+	if err := dbModel.SetStatus(status.StatusInfo{
+		Status:  status.Busy,
+		Message: "importing",
+	}); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
@@ -183,6 +201,20 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	// Update the sequences to match that the source.
 
+	if err := dbModel.SetSLA(
+		model.SLA().Level(),
+		model.SLA().Owner(),
+		[]byte(model.SLA().Credentials()),
+	); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if MeterStatusFromString(model.MeterStatus().Code()).String() != MeterNotAvailable.String() {
+		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -223,6 +255,10 @@ func (i *importer) modelExtras() error {
 		}
 		i.st.SwitchBlockOn(block, message)
 	}
+
+	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -248,7 +284,7 @@ func (i *importer) sequences() error {
 		return nil
 	}
 
-	sequences, closer := i.st.getCollection(sequenceC)
+	sequences, closer := i.st.db().GetCollection(sequenceC)
 	defer closer()
 
 	if err := sequences.Writeable().Insert(docs...); err != nil {
@@ -337,11 +373,15 @@ func (i *importer) machine(m description.Machine) error {
 		StatusData: mStatus.Data(),
 		Updated:    mStatus.Updated().UnixNano(),
 	}
-	// XXX(mjs) - this needs to be included in the serialized model
-	// (a card exists for the work). Fake it for now.
+	// A machine isn't valid if it doesn't have an instance.
+	instance := m.Instance()
+	instStatus := instance.Status()
 	instanceStatusDoc := statusDoc{
-		ModelUUID: i.st.ModelUUID(),
-		Status:    status.Started,
+		ModelUUID:  i.st.ModelUUID(),
+		Status:     status.Status(instStatus.Value()),
+		StatusInfo: instStatus.Message(),
+		StatusData: instStatus.Data(),
+		Updated:    instStatus.Updated().UnixNano(),
 	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
@@ -352,9 +392,7 @@ func (i *importer) machine(m description.Machine) error {
 	)
 
 	// 3. create op for adding in instance data
-	if instance := m.Instance(); instance != nil {
-		prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
-	}
+	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
 
 	if parentId := ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
@@ -385,6 +423,9 @@ func (i *importer) machine(m description.Machine) error {
 	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
+	if err := i.importStatusHistory(machine.globalInstanceKey(), instance.StatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
 	if err := i.importMachineBlockDevices(machine, m); err != nil {
 		return errors.Trace(err)
 	}
@@ -408,6 +449,7 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 			Label:          device.Label(),
 			UUID:           device.UUID(),
 			HardwareId:     device.HardwareID(),
+			WWN:            device.WWN(),
 			BusAddress:     device.BusAddress(),
 			Size:           device.Size(),
 			FilesystemType: device.FilesystemType(),
@@ -642,7 +684,7 @@ func (i *importer) applications() error {
 }
 
 func (i *importer) loadUnits() error {
-	unitsCollection, closer := i.st.getCollection(unitsC)
+	unitsCollection, closer := i.st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -690,7 +732,14 @@ func (i *importer) application(a description.Application) error {
 	statusDoc := i.makeStatusDoc(status)
 	// TODO: update never set malarky... maybe...
 
-	ops, err := addApplicationOps(i.st, addApplicationOpsArgs{
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	// There may have existed some applications with settings that contained
+	// nil values, see lp#1667199. When importing, we want these stripped.
+	removeNils(a.Settings())
+
+	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(a.Constraints()),
@@ -710,6 +759,8 @@ func (i *importer) application(a description.Application) error {
 			Bindings: bindingsMap(a.EndpointBindings()),
 		},
 	})
+
+	ops = append(ops, i.appResourceOps(a)...)
 
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -740,6 +791,61 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	return nil
+}
+
+func (i *importer) appResourceOps(app description.Application) []txn.Op {
+	// Add a placeholder record for each resource that is a placeholder.
+	// Resources define placeholders as resources where the timestamp is Zero.
+	var result []txn.Op
+	appName := app.Name()
+
+	var makeResourceDoc = func(id, name string, rev description.ResourceRevision) resourceDoc {
+		fingerprint, _ := hex.DecodeString(rev.FingerprintHex())
+		return resourceDoc{
+			ID:            id,
+			ApplicationID: appName,
+			Name:          name,
+			Type:          rev.Type(),
+			Path:          rev.Path(),
+			Description:   rev.Description(),
+			Origin:        rev.Origin(),
+			Revision:      rev.Revision(),
+			Fingerprint:   fingerprint,
+			Size:          rev.Size(),
+			Username:      rev.Username(),
+		}
+	}
+
+	for _, r := range app.Resources() {
+		// I cannot for the life of me find the function where the underlying
+		// resource id is defined to be the appname/resname but that is what
+		// ends up in the DB.
+		resName := r.Name()
+		resID := appName + "/" + resName
+		// Check both the app and charmstore
+		if appRev := r.ApplicationRevision(); appRev.Timestamp().IsZero() {
+			result = append(result, txn.Op{
+				C:      resourcesC,
+				Id:     applicationResourceID(resID),
+				Assert: txn.DocMissing,
+				Insert: makeResourceDoc(resID, resName, appRev),
+			})
+		}
+		if storeRev := r.CharmStoreRevision(); storeRev.Timestamp().IsZero() {
+			doc := makeResourceDoc(resID, resName, storeRev)
+			// Now the resource code is particularly stupid and instead of using
+			// the ID, or encoding the type somewhere, it uses the fact that the
+			// LastPolled time to indicate it is the charm store version.
+			doc.LastPolled = time.Now()
+			result = append(result, txn.Op{
+				C:      resourcesC,
+				Id:     charmStoreResourceID(resID),
+				Assert: txn.DocMissing,
+				Insert: doc,
+			})
+		}
+	}
+	return result
 }
 
 func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {
@@ -1131,13 +1237,20 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
-		err := i.addSubnet(SubnetInfo{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       network.Id(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
-		})
+		info := SubnetInfo{
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			SpaceName:         subnet.SpaceName(),
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		zones := subnet.AvailabilityZones()
+		if len(zones) > 0 {
+			info.AvailabilityZone = zones[0]
+		}
+		err := i.addSubnet(info)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1336,7 +1449,7 @@ func (i *importer) importStatusHistory(globalKey string, history []description.S
 		return nil
 	}
 
-	statusHistory, closer := i.st.getCollection(statusesHistoryC)
+	statusHistory, closer := i.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	if err := statusHistory.Writeable().Insert(docs...); err != nil {
@@ -1385,6 +1498,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 }
 
 func (i *importer) storage() error {
+	if err := i.storagePools(); err != nil {
+		return errors.Annotate(err, "storage pools")
+	}
 	if err := i.storageInstances(); err != nil {
 		return errors.Annotate(err, "storage instances")
 	}
@@ -1393,9 +1509,6 @@ func (i *importer) storage() error {
 	}
 	if err := i.filesystems(); err != nil {
 		return errors.Annotate(err, "filesystems")
-	}
-	if err := i.storagePools(); err != nil {
-		return errors.Annotate(err, "storage pools")
 	}
 	return nil
 }
@@ -1422,6 +1535,10 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	if err != nil {
 		return errors.Annotate(err, "storage owner")
 	}
+	var storageOwner string
+	if owner != nil {
+		storageOwner = owner.String()
+	}
 	attachments := storage.Attachments()
 	tag := storage.Tag()
 	var ops []txn.Op
@@ -1431,9 +1548,10 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	doc := &storageInstanceDoc{
 		Id:              storage.Tag().Id(),
 		Kind:            kind,
-		Owner:           owner.String(),
+		Owner:           storageOwner,
 		StorageName:     storage.Name(),
 		AttachmentCount: len(attachments),
+		Constraints:     i.storageInstanceConstraints(storage),
 	}
 	ops = append(ops, txn.Op{
 		C:      storageInstancesC,
@@ -1442,7 +1560,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Insert: doc,
 	})
 
-	refcounts, closer := i.st.getCollection(refcountsC)
+	refcounts, closer := i.st.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
@@ -1455,6 +1573,69 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (i *importer) storageInstanceConstraints(storage description.Storage) storageInstanceConstraints {
+	if cons, ok := storage.Constraints(); ok {
+		return storageInstanceConstraints(cons)
+	}
+	// Older versions of Juju did not record storage constraints on the
+	// storage instance, so we must do what we do during upgrade steps:
+	// reconstitute the constraints from the corresponding volume or
+	// filesystem, or else look in the owner's application storage
+	// constraints, and if all else fails, apply the defaults.
+	var cons storageInstanceConstraints
+	var defaultPool string
+	switch parseStorageKind(storage.Kind()) {
+	case StorageKindBlock:
+		defaultPool = string(provider.LoopProviderType)
+		for _, volume := range i.model.Volumes() {
+			if volume.Storage() == storage.Tag() {
+				cons.Pool = volume.Pool()
+				cons.Size = volume.Size()
+				break
+			}
+		}
+	case StorageKindFilesystem:
+		defaultPool = string(provider.RootfsProviderType)
+		for _, filesystem := range i.model.Filesystems() {
+			if filesystem.Storage() == storage.Tag() {
+				cons.Pool = filesystem.Pool()
+				cons.Size = filesystem.Size()
+				break
+			}
+		}
+	}
+	if cons.Pool == "" {
+		cons.Pool = defaultPool
+		cons.Size = 1024
+		if owner, _ := storage.Owner(); owner != nil {
+			var appName string
+			switch owner := owner.(type) {
+			case names.ApplicationTag:
+				appName = owner.Id()
+			case names.UnitTag:
+				appName, _ = names.UnitApplication(owner.Id())
+			}
+			for _, app := range i.model.Applications() {
+				if app.Name() != appName {
+					continue
+				}
+				storageName, _ := names.StorageName(storage.Tag().Id())
+				appStorageCons, ok := app.StorageConstraints()[storageName]
+				if ok {
+					cons.Pool = appStorageCons.Pool()
+					cons.Size = appStorageCons.Size()
+				}
+				break
+			}
+		}
+		logger.Warningf(
+			"no volume or filesystem found, using application storage constraints for %s",
+			names.ReadableString(storage.Tag()),
+		)
+	}
+	return cons
 }
 
 func (i *importer) volumes() error {
@@ -1474,19 +1655,12 @@ func (i *importer) addVolume(volume description.Volume) error {
 
 	attachments := volume.Attachments()
 	tag := volume.Tag()
-	var binding string
-	bindingTag, err := volume.Binding()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if bindingTag != nil {
-		binding = bindingTag.String()
-	}
 	var params *VolumeParams
 	var info *VolumeInfo
 	if volume.Provisioned() {
 		info = &VolumeInfo{
 			HardwareId: volume.HardwareID(),
+			WWN:        volume.WWN(),
 			Size:       volume.Size(),
 			Pool:       volume.Pool(),
 			VolumeId:   volume.VolumeID(),
@@ -1502,10 +1676,14 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Name:      tag.Id(),
 		StorageId: volume.Storage().Id(),
 		// Life: ..., // TODO: import life, default is Alive
-		Binding:         binding,
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),
+	}
+	if detachable, err := isDetachableVolumePool(i.st, volume.Pool()); err != nil {
+		return errors.Trace(err)
+	} else if !detachable && len(attachments) == 1 {
+		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
 	ops := i.st.newVolumeOps(doc, status)
@@ -1571,14 +1749,6 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 
 	attachments := filesystem.Attachments()
 	tag := filesystem.Tag()
-	var binding string
-	bindingTag, err := filesystem.Binding()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if bindingTag != nil {
-		binding = bindingTag.String()
-	}
 	var params *FilesystemParams
 	var info *FilesystemInfo
 	if filesystem.Provisioned() {
@@ -1598,10 +1768,14 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		StorageId:    filesystem.Storage().Id(),
 		VolumeId:     filesystem.Volume().Id(),
 		// Life: ..., // TODO: import life, default is Alive
-		Binding:         binding,
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),
+	}
+	if detachable, err := isDetachableFilesystemPool(i.st, filesystem.Pool()); err != nil {
+		return errors.Trace(err)
+	} else if !detachable && len(attachments) == 1 {
+		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
 	ops := i.st.newFilesystemOps(doc, status)

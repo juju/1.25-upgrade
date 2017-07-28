@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/payload"
 )
 
 // ListAPI has the API methods needed by ListCommand.
@@ -61,7 +61,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
-		Purpose: "display status information about known payloads",
+		Purpose: "Display status information about known payloads.",
 		Doc:     listDoc,
 		Aliases: []string{"list-payloads"},
 	}

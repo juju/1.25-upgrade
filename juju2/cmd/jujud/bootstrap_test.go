@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
@@ -29,38 +30,38 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/agent/agentbootstrap"
-	agenttools "github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/cloud"
-	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
-	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/constraints"
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/config"
-	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
-	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
-	sstesting "github.com/juju/1.25-upgrade/juju2/environs/simplestreams/testing"
-	"github.com/juju/1.25-upgrade/juju2/environs/storage"
-	envtesting "github.com/juju/1.25-upgrade/juju2/environs/testing"
-	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/juju/keys"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/mongo"
-	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/state/cloudimagemetadata"
-	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
-	"github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/keys"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -260,8 +261,9 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -335,7 +337,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		args = []string{s.bootstrapParamsFile}
 	}
 	cmd = NewBootstrapCommand()
-	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
+	err = cmdtesting.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }
 
@@ -382,8 +384,9 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -442,8 +445,9 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -476,8 +480,9 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -519,8 +524,9 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -547,8 +553,9 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -571,8 +578,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+			Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+			CACert:     testing.CACert,
+			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 
@@ -749,8 +757,9 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},
@@ -805,8 +814,9 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 		ControllerModelTag: testing.ModelTag,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-				CACert: testing.CACert,
+				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
+				CACert:     testing.CACert,
+				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 			},
 			Password: testPassword,
 		},

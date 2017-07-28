@@ -4,20 +4,16 @@
 package backups
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
-	"github.com/juju/1.25-upgrade/juju2/state"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
 // interface and avoid writing tests that depend on mongodb. If you were
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
-
-func init() {
-	common.RegisterStandardFacade("Backups", 1, newAPI)
-}
 
 type stateShim struct {
 	*state.State
@@ -32,6 +28,7 @@ func (s *stateShim) MachineSeries(id string) (string, error) {
 	return m.Series(), nil
 }
 
-func newAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+// NewFacade provides the required signature for facade registration.
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	return NewAPI(&stateShim{st}, resources, authorizer)
 }

@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	jujussh "github.com/juju/1.25-upgrade/juju2/network/ssh"
+	"github.com/juju/juju/cmd/modelcmd"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 var usageSSHSummary = `

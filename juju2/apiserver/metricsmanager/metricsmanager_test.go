@@ -8,19 +8,19 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender/testing"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsmanager"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
-	jujujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/metricsender/testing"
+	"github.com/juju/juju/apiserver/metricsmanager"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type metricsManagerSuite struct {
@@ -49,14 +49,14 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 }
 
-func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C) {
+func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc.C) {
 	tests := []struct {
 		tag            names.Tag
 		environManager bool
 		expectedError  string
 	}{
-		{names.NewUnitTag("mysql/0"), true, "permission denied"},
-		{names.NewLocalUserTag("admin"), true, "permission denied"},
+		{names.NewUnitTag("mysql/0"), false, "permission denied"},
+		{names.NewLocalUserTag("admin"), false, "permission denied"},
 		{names.NewMachineTag("0"), false, "permission denied"},
 		{names.NewMachineTag("0"), true, ""},
 	}
@@ -214,4 +214,94 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend().Equal(time.Time{}), jc.IsTrue)
+}
+
+func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	c.Assert(err, jc.ErrorIsNil)
+	// Create two additional ubuntu machines, in addition to the one created in setup.
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "xenial"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "win7"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "win8"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "centos7"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "redox"})
+	err = s.metricsmanager.AddJujuMachineMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	metrics, err := s.State.MetricsToSend(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Metrics(), gc.HasLen, 5)
+	c.Assert(metrics[0].SLACredentials(), gc.DeepEquals, []byte("sla"))
+	t := metrics[0].Metrics()[0].Time
+	c.Assert(metrics[0].Metrics(), jc.SameContents, []state.Metric{{
+		Key:   "juju-machines",
+		Value: "7",
+		Time:  t,
+	}, {
+		Key:   "juju-ubuntu-machines",
+		Value: "3",
+		Time:  t,
+	}, {
+		Key:   "juju-windows-machines",
+		Value: "2",
+		Time:  t,
+	}, {
+		Key:   "juju-centos-machines",
+		Value: "1",
+		Time:  t,
+	}, {
+		Key:   "juju-unknown-machines",
+		Value: "1",
+		Time:  t,
+	}})
+}
+
+func (s *metricsManagerSuite) TestAddJujuMachineMetricsAddsNoMetricsWhenNoSLASet(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	err := s.metricsmanager.AddJujuMachineMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	metrics, err := s.State.MetricsToSend(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 0)
+}
+
+func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	c.Assert(err, jc.ErrorIsNil)
+	machine := s.Factory.MakeMachine(c, nil)
+	s.Factory.MakeMachineNested(c, machine.Id(), nil)
+	err = s.metricsmanager.AddJujuMachineMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+	metrics, err := s.State.MetricsToSend(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Metrics()[0].Key, gc.Equals, "juju-machines")
+	// Even though we add two machines - one nested (i.e. container) we only
+	// count non-container machine.
+	c.Assert(metrics[0].Metrics()[0].Value, gc.Equals, "2")
+	c.Assert(metrics[0].SLACredentials(), gc.DeepEquals, []byte("sla"))
+}
+
+func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeMachine(c, nil)
+	var sender testing.MockSender
+	metricsmanager.PatchSender(&sender)
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.ModelTag().String()},
+	}}
+	result, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(sender.Data, gc.HasLen, 1)
+	c.Assert(sender.Data[0], gc.HasLen, 1)
+	c.Assert(sender.Data[0][0].Metrics[0].Key, gc.Equals, "juju-machines")
+	c.Assert(sender.Data[0][0].SLACredentials, gc.DeepEquals, []byte("sla"))
+	ms, err := s.State.AllMetricBatches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.HasLen, 1)
+	c.Assert(ms[0].Sent(), jc.IsTrue)
 }

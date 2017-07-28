@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -20,19 +21,20 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/watcher"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/proxyupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 
 	api              *fakeAPI
-	proxyFile        string
+	proxyEnvFile     string
+	proxySystemdFile string
 	detectedSettings proxy.Settings
 	inProcSettings   chan proxy.Settings
 	config           proxyupdater.Config
@@ -84,10 +86,14 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	// Make buffer large for tests that never look at the settings.
 	s.inProcSettings = make(chan proxy.Settings, 1000)
 
+	directory := c.MkDir()
+	s.proxySystemdFile = filepath.Join(directory, "systemd.file")
+	s.proxyEnvFile = filepath.Join(directory, "env.file")
+
 	s.config = proxyupdater.Config{
-		Directory: c.MkDir(),
-		Filename:  "juju-proxy-settings",
-		API:       s.api,
+		SystemdFiles: []string{s.proxySystemdFile},
+		EnvFiles:     []string{s.proxyEnvFile},
+		API:          s.api,
 		InProcessUpdate: func(newSettings proxyutils.Settings) error {
 			select {
 			case s.inProcSettings <- newSettings:
@@ -97,8 +103,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 			return nil
 		},
 	}
-	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(s.config.Directory, "juju-apt-proxy"))
-	s.proxyFile = path.Join(s.config.Directory, s.config.Filename)
+	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))
 }
 
 func (s *ProxyUpdaterSuite) TearDownTest(c *gc.C) {
@@ -197,7 +202,8 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
-	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
+	s.waitForFile(c, s.proxyEnvFile, proxySettings.AsScriptEnvironment())
+	s.waitForFile(c, s.proxySystemdFile, proxySettings.AsSystemdDefaultEnv())
 
 	paccmder, err := commands.NewPackageCommander(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +218,8 @@ func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
-	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
+	s.waitForFile(c, s.proxyEnvFile, proxySettings.AsScriptEnvironment())
+	s.waitForFile(c, s.proxySystemdFile, proxySettings.AsSystemdDefaultEnv())
 
 	paccmder, err := commands.NewPackageCommander(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)

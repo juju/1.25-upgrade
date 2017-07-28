@@ -6,10 +6,10 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/instance"
-	"github.com/juju/1.25-upgrade/juju2/network"
-	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
-	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/status"
 )
 
 type environInstance struct {
@@ -69,35 +69,35 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
+func (inst *environInstance) OpenPorts(machineID string, rules []network.IngressRule) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.OpenPorts(name, ports...)
+	err = inst.env.gce.OpenPorts(name, rules...)
 	return errors.Trace(err)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
+func (inst *environInstance) ClosePorts(machineID string, rules []network.IngressRule) error {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.ClosePorts(name, ports...)
+	err = inst.env.gce.ClosePorts(name, rules...)
 	return errors.Trace(err)
 }
 
-// Ports returns the set of ports open on the instance, which
+// IngressRules returns the set of ingress rules applicable to the instance, which
 // should have been started with the given machine id.
-// The ports are returned as sorted by SortPorts.
-func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
+// The rules are returned as sorted by SortIngressRules.
+func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ports, err := inst.env.gce.Ports(name)
+	ports, err := inst.env.gce.IngressRules(name)
 	return ports, errors.Trace(err)
 }

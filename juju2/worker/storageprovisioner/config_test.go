@@ -11,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/storage"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/worker/storageprovisioner"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/storageprovisioner"
 )
 
 type ConfigSuite struct {

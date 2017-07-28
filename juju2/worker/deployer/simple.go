@@ -16,12 +16,12 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/agent/tools"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/service"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO(ericsnow) Use errors.Trace, etc. in this file.

@@ -6,12 +6,12 @@ package proxyupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/proxyupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -53,9 +53,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			w, err := config.WorkerFunc(Config{
-				Directory:       "/home/ubuntu",
+				SystemdFiles:    []string{"/etc/juju-proxy-systemd.conf"},
+				EnvFiles:        []string{"/etc/juju-proxy.conf"},
 				RegistryPath:    `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`,
-				Filename:        ".juju-proxy",
 				API:             proxyAPI,
 				ExternalUpdate:  config.ExternalUpdate,
 				InProcessUpdate: config.InProcessUpdate,

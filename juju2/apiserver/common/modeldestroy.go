@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/metricsender"
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
@@ -17,7 +17,13 @@ var sendMetrics = func(st metricsender.ModelBackend) error {
 		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
 	}
 
-	err = metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), clock.WallClock, metricsender.DefaultMaxBatchesPerSend(), cfg.TransmitVendorMetrics())
+	err = metricsender.SendMetrics(
+		st,
+		metricsender.DefaultMetricSender(),
+		clock.WallClock,
+		metricsender.DefaultMaxBatchesPerSend(),
+		cfg.TransmitVendorMetrics(),
+	)
 	return errors.Trace(err)
 }
 
@@ -75,7 +81,6 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 			if err != nil {
 				logger.Errorf("failed to send leftover metrics: %v", err)
 			}
-
 		}
 	} else {
 		check := NewBlockChecker(st)

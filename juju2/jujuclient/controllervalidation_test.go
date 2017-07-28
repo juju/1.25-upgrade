@@ -6,8 +6,8 @@ package jujuclient_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
-	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type ControllerValidationSuite struct {
@@ -18,12 +18,11 @@ type ControllerValidationSuite struct {
 func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.controller = jujuclient.ControllerDetails{
-		UnresolvedAPIEndpoints: []string{"test.server.hostname"},
-		ControllerUUID:         "test.uuid",
-		APIEndpoints:           []string{"test.api.endpoint"},
-		CACert:                 "test.ca.cert",
-		Cloud:                  "aws",
-		CloudRegion:            "southeastasia",
+		ControllerUUID: "test.uuid",
+		APIEndpoints:   []string{"test.api.endpoint"},
+		CACert:         "test.ca.cert",
+		Cloud:          "aws",
+		CloudRegion:    "southeastasia",
 	}
 }
 

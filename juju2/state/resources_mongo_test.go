@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/1.25-upgrade/juju2/resource"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/juju/resource"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ResourcesMongoSuite struct {

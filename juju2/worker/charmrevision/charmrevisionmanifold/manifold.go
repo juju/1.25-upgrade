@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/base"
-	"github.com/juju/1.25-upgrade/juju2/api/charmrevisionupdater"
-	"github.com/juju/1.25-upgrade/juju2/worker"
-	"github.com/juju/1.25-upgrade/juju2/worker/charmrevision"
-	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/charmrevisionupdater"
+	"github.com/juju/juju/worker/charmrevision"
+	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes how to create a worker that checks for updates

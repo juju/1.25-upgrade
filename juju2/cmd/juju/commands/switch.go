@@ -10,21 +10,21 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 )
 
 func newSwitchCommand() cmd.Command {
 	cmd := &switchCommand{
 		Store: jujuclient.NewFileClientStore(),
 	}
-	cmd.RefreshModels = cmd.JujuCommandBase.RefreshModels
+	cmd.RefreshModels = cmd.CommandBase.RefreshModels
 	return modelcmd.WrapBase(cmd)
 }
 
 type switchCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 	RefreshModels func(jujuclient.ClientStore, string) error
 
 	Store  jujuclient.ClientStore

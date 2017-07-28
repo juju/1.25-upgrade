@@ -6,8 +6,8 @@ package crossmodel
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
-	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -18,10 +18,20 @@ var (
 	BreakOneWord = breakOneWord
 )
 
-func NewOfferCommandForTest(store jujuclient.ClientStore, api OfferAPI) cmd.Command {
-	aCmd := &offerCommand{newAPIFunc: func() (OfferAPI, error) {
-		return api, nil
-	}}
+func noOpRefresh(jujuclient.ClientStore, string) error {
+	return nil
+}
+
+func NewOfferCommandForTest(
+	store jujuclient.ClientStore,
+	api OfferAPI,
+) cmd.Command {
+	aCmd := &offerCommand{
+		newAPIFunc: func() (OfferAPI, error) {
+			return api, nil
+		},
+		refreshModels: noOpRefresh,
+	}
 	aCmd.SetClientStore(store)
 	return modelcmd.WrapController(aCmd)
 }

@@ -4,10 +4,10 @@
 package deployer
 
 import (
-	"github.com/juju/1.25-upgrade/juju2/agent"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/service/common"
-	svctesting "github.com/juju/1.25-upgrade/juju2/service/common/testing"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 )
 
 type fakeAPI struct{}

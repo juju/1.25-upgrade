@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/api/usermanager"
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
-	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type usermanagerSuite struct {
@@ -48,7 +48,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.ErrorMatches, "failed to create user: user already exists")
+	c.Assert(err, gc.ErrorMatches, "failed to create user: username unavailable")
 }
 
 func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
@@ -91,7 +91,7 @@ func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 
 	// Assert that the user is gone.
 	_, err = s.State.User(tag)
-	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
+	c.Assert(err, gc.ErrorMatches, `user "jjam" is permanently deleted`)
 
 	err = user.Refresh()
 	c.Check(err, jc.ErrorIsNil)

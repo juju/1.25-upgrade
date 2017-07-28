@@ -6,7 +6,7 @@ package context
 import (
 	"sort"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // SettingsFunc returns the relation settings for a unit.

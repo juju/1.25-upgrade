@@ -10,12 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
-	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
-	"github.com/juju/1.25-upgrade/juju2/state"
-	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
-	"github.com/juju/1.25-upgrade/juju2/storage/provider"
-	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type unitStorageSuite struct {
@@ -138,7 +138,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = poolManager.Create(testPersistentPool, "environscoped", map[string]interface{}{"persistent": true})
+	_, err = poolManager.Create(testPersistentPool, "modelscoped", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

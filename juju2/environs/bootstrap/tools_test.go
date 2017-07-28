@@ -12,11 +12,11 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/1.25-upgrade/juju2/environs"
-	"github.com/juju/1.25-upgrade/juju2/environs/bootstrap"
-	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
-	"github.com/juju/1.25-upgrade/juju2/tools"
-	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {
