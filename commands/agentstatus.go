@@ -28,7 +28,7 @@ they are currently set to use.
 func newAgentStatusCommand() cmd.Command {
 	command := &agentStatusCommand{}
 	command.remoteCommand = "agent-status-impl"
-	return command
+	return wrap(command)
 }
 
 type agentStatusCommand struct {

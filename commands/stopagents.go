@@ -16,7 +16,7 @@ environment. The agents may be running the 1.25 binary, or a 2.x binary.
 func newStopAgentsCommand() cmd.Command {
 	command := &stopAgentsCommand{}
 	command.remoteCommand = "stop-agents-impl"
-	return command
+	return wrap(command)
 }
 
 type stopAgentsCommand struct {

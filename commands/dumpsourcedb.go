@@ -16,7 +16,7 @@ Dump the contents of the remote DB.
 func newDumpSourceDBCommand() cmd.Command {
 	command := &dumpSourceDBCommand{}
 	command.remoteCommand = "dump-source-db-impl"
-	return command
+	return wrap(command)
 }
 
 type dumpSourceDBCommand struct {

@@ -534,7 +534,6 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
 	inst := description.CloudInstanceArgs{
 		InstanceId: string(data.InstanceId),
-		Status:     data.Status,
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch
@@ -924,11 +923,11 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		e.model.AddSubnet(description.SubnetArgs{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       string(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZones: []string{subnet.AvailabilityZone()},
+			SpaceName:         subnet.SpaceName(),
 		})
 	}
 	return nil
