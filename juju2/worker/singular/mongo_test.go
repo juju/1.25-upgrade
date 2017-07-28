@@ -18,9 +18,9 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 
-	coretesting "github.com/juju/juju/testing"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/singular"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/singular"
 )
 
 var logger = loggo.GetLogger("juju.singular-test")

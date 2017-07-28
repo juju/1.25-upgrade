@@ -13,13 +13,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/remoterelations"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/remoterelations"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 var _ = gc.Suite(&remoteRelationsSuite{})

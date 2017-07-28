@@ -17,9 +17,9 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 var logger = loggo.GetLogger("romulus.cmd.showwallet")

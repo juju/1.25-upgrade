@@ -14,8 +14,8 @@ import (
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/context/internal"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/context/internal"
 )
 
 var logger = loggo.GetLogger("juju.resource.context")

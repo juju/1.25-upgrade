@@ -13,12 +13,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 var logger = loggo.GetLogger("juju.api.application")

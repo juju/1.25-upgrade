@@ -11,11 +11,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
 )
 
 type ResolverOpFactorySuite struct {

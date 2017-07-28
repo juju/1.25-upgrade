@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 // Clock exposes time via Now, and can be controlled via Reset and Advance. It

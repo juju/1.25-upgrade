@@ -17,8 +17,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource/api/client"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/resource/api/client"
 )
 
 var _ = gc.Suite(&UploadSuite{})

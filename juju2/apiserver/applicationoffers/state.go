@@ -8,9 +8,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // StatePool provides the subset of a state pool.

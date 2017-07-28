@@ -9,12 +9,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/application"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // cmdJujuSuite tests the connectivity of juju commands.  These tests

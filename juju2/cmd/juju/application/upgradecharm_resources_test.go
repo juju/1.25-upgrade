@@ -21,13 +21,13 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/constraints"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/application"
+	"github.com/juju/1.25-upgrade/juju2/component/all"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
 )
 
 type UpgradeCharmResourceSuite struct {

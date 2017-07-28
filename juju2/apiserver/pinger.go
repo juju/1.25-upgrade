@@ -10,8 +10,8 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // NewPinger returns an object that can be pinged by calling its Ping method.

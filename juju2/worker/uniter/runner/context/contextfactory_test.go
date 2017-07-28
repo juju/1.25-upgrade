@@ -16,14 +16,14 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/leadership"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	runnertesting "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/testing"
 )
 
 type ContextFactorySuite struct {

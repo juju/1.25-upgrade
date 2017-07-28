@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/resumer"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/resumer"
 )
 
 // NewFacade returns a useful live implementation for

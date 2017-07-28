@@ -16,7 +16,7 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // NewListWalletsCommand returns a new command that is used

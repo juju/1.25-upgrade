@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")

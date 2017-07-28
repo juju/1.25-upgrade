@@ -12,12 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/instancepoller"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/instancepoller"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // mockState implements StateInterface and allows inspection of called

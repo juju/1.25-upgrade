@@ -13,10 +13,10 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // NewAddCommand returns a command used to add unit storage.

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // Logger provides an interface for writing log records.

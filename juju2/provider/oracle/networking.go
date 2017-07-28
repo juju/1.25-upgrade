@@ -8,7 +8,7 @@ import (
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs"
 )
 
 var _ environs.NetworkingEnviron = (*OracleEnviron)(nil)

@@ -6,10 +6,10 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 type environInstance struct {

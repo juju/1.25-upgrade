@@ -16,8 +16,8 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // FormatSummary writes a summary of the current environment

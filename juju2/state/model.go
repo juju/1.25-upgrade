@@ -14,13 +14,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // modelGlobalKey is the key for the model, its

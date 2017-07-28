@@ -15,9 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/action"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type ListSuite struct {

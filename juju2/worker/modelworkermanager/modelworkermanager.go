@@ -11,8 +11,8 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.workers.modelworkermanager")

@@ -6,7 +6,7 @@ package watcher_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func TestAll(t *stdtesting.T) {

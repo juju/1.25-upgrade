@@ -10,8 +10,8 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
 )
 
 // RequestObserver serves as a sink for API server requests and

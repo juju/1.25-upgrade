@@ -12,14 +12,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/controller/authentication"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	apiprovisioner "github.com/juju/1.25-upgrade/juju2/api/provisioner"
+	"github.com/juju/1.25-upgrade/juju2/controller/authentication"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.provisioner")

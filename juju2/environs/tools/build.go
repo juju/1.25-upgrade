@@ -19,8 +19,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/juju/names"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/juju/names"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 // Archive writes the executable files found in the given directory in

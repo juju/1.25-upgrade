@@ -6,7 +6,7 @@ package manual
 import (
 	"net"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 // HostAddress returns an network.Address for the specified

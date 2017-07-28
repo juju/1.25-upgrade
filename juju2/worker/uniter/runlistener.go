@@ -16,9 +16,9 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runcommands"
+	"github.com/juju/1.25-upgrade/juju2/juju/sockets"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runcommands"
 )
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"

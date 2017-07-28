@@ -6,8 +6,8 @@ package agent // not agent_test for no good reason
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/component/all"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/component/all"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func init() {

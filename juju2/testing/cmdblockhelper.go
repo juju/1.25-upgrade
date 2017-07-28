@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/block"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/block"
 )
 
 // CmdBlockHelper is a helper struct used to block commands.

@@ -11,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ = gc.Suite(&Suite{})

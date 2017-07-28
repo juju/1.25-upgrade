@@ -4,11 +4,11 @@
 package gce
 
 import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
 )
 
 var (

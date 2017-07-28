@@ -20,17 +20,17 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 const (

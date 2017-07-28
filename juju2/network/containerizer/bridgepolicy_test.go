@@ -11,13 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/network/containerizer"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/network/containerizer"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
 )
 
 // bridgePolicyStateSuite contains white-box tests for how we handle applying

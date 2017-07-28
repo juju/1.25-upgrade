@@ -10,11 +10,11 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 type APICalls interface {

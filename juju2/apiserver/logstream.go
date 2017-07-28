@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/websocket"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 type logStreamSource interface {

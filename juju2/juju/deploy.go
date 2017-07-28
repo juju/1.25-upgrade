@@ -13,10 +13,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // DeployApplicationParams contains the arguments required to deploy the referenced

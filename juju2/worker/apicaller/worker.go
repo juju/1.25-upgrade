@@ -9,7 +9,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/1.25-upgrade/juju2/api"
 )
 
 var logger = loggo.GetLogger("juju.worker.apicaller")

@@ -13,9 +13,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 type SessionCloser func()

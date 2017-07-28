@@ -14,7 +14,7 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
-	"github.com/juju/juju/cert"
+	"github.com/juju/1.25-upgrade/juju2/cert"
 )
 
 const (

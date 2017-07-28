@@ -6,11 +6,11 @@ package oracle_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/oracle"
-	oracletesting "github.com/juju/juju/provider/oracle/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle"
+	oracletesting "github.com/juju/1.25-upgrade/juju2/provider/oracle/testing"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type storageSuite struct{}

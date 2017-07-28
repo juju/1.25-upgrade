@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/blobstore.v2"
 
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 const testUUID = "9f484882-2f18-4fd2-967d-db9663db7bea"

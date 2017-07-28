@@ -9,10 +9,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd/juju/commands"
-	components "github.com/juju/juju/component/all"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	components "github.com/juju/1.25-upgrade/juju2/component/all"
 	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
 )
 
 var log = loggo.GetLogger("juju.cmd.juju")

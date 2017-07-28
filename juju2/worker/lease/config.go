@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/core/lease"
 )
 
 // Secretary is reponsible for validating the sanity of lease and holder names

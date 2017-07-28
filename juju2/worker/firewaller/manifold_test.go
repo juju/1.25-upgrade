@@ -10,14 +10,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/remoterelations"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/firewaller"
 )
 
 type ManifoldSuite struct {

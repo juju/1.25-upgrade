@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/lease"
+	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/lease"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	"gopkg.in/goose.v2/client"
 	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs"
 )
 
 // TODO(axw) 2016-10-03 #1629721

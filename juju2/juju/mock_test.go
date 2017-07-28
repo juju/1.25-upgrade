@@ -9,9 +9,9 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type mockAPIState struct {

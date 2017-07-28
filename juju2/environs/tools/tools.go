@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")

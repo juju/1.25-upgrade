@@ -18,17 +18,17 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/mongo/mongotest"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type MachineSuite struct {

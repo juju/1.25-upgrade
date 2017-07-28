@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/imagemetadata"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // updatePublicImageMetadataPeriod is how frequently we check for

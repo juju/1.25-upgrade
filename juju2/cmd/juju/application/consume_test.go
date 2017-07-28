@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/application"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 type ConsumeSuite struct {

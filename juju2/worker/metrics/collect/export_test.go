@@ -4,8 +4,8 @@
 package collect
 
 import (
-	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
 )
 
 var (

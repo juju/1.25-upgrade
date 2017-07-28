@@ -8,10 +8,10 @@ import (
 	"github.com/juju/utils/clock"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

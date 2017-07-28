@@ -17,10 +17,10 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type CharmSuite struct {

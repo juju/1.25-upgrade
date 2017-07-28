@@ -15,8 +15,8 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 const (

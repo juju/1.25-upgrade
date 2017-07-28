@@ -18,8 +18,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/mongo"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 var logger = loggo.GetLogger("juju.state.watcher")

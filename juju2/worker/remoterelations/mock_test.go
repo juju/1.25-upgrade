@@ -11,10 +11,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/remoterelations"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/remoterelations"
 )
 
 type mockRelationsFacade struct {

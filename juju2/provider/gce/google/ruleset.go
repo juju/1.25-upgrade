@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 // ruleSet is used to manipulate port ranges for a collection of

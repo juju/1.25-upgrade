@@ -9,9 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/provider/openstack"
+	"github.com/juju/1.25-upgrade/juju2/provider/rackspace"
 )
 
 type flavorsSuite struct {

@@ -11,10 +11,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	unitfacade "github.com/juju/juju/apiserver/payloadshookcontext"
-	"github.com/juju/juju/payload"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	unitfacade "github.com/juju/1.25-upgrade/juju2/apiserver/payloadshookcontext"
+	"github.com/juju/1.25-upgrade/juju2/payload"
 )
 
 var _ = gc.Suite(&suite{})

@@ -6,7 +6,7 @@ package mongotest
 import (
 	"time"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 const (

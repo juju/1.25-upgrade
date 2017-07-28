@@ -9,11 +9,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/uniter"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // NOTE: This suite is intended for embedding into other suites,

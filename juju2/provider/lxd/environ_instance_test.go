@@ -12,11 +12,11 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/lxd"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 type environInstSuite struct {

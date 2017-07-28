@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/1.25-upgrade/juju2/service/common"
 )
 
 type SC_ENUM_TYPE int

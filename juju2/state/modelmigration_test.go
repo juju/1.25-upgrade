@@ -15,10 +15,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type MigrationSuite struct {

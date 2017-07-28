@@ -11,9 +11,9 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 )
 
 // Storage holds the values for the hook context.

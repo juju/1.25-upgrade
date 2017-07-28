@@ -8,11 +8,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/api/uniter"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/actions"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 // Factory represents a long-lived object that can create runners

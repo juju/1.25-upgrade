@@ -6,9 +6,9 @@ package deployer
 import (
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/api/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // Unit represents a juju unit as seen by the deployer worker.

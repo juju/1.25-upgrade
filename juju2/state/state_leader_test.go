@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/leadership"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/core/leadership"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type LeadershipSuite struct {

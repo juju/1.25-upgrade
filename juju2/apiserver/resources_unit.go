@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // ResourcesHandler is the HTTP handler for unit agent downloads of

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 func getNetworkInterfaces(vm *mo.VirtualMachine, ecfg *environConfig) ([]network.InterfaceInfo, error) {

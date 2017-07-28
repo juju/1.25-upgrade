@@ -11,11 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/client"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/client"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ = gc.Suite(&statusHistoryTestSuite{})

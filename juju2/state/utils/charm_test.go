@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/state/utils"
+	"github.com/juju/1.25-upgrade/juju2/state/utils"
 )
 
 var _ = gc.Suite(&CharmSuite{})

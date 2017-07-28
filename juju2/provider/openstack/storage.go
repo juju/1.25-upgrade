@@ -14,7 +14,7 @@ import (
 	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/swift"
 
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
 )
 
 // openstackstorage implements storage.Storage on an OpenStack container.

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
 )
 
 // Life represents the lifecycle state of the entities

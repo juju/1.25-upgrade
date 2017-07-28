@@ -8,8 +8,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/lease"
+	corelease "github.com/juju/1.25-upgrade/juju2/core/lease"
+	"github.com/juju/1.25-upgrade/juju2/state/lease"
 )
 
 // ClientValidationSuite sends bad data into all of Client's methods.

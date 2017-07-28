@@ -8,13 +8,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/imagemetadata"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/1.25-upgrade/juju2/api/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // MachineMockProviderSuite runs worker tests that depend

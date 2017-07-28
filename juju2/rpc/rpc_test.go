@@ -17,11 +17,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
+	"github.com/juju/1.25-upgrade/juju2/rpc/rpcreflect"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var logger = loggo.GetLogger("juju.rpc")

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/version"
 
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 // DiskManager keeps track of a collections of Juju agent tools in a directory

@@ -15,10 +15,10 @@ import (
 	"github.com/juju/loggo"
 	names "gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	commonProvider "github.com/juju/juju/provider/oracle/common"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	commonProvider "github.com/juju/1.25-upgrade/juju2/provider/oracle/common"
 )
 
 var logger = loggo.GetLogger("juju.provider.oracle.network")

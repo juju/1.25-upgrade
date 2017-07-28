@@ -8,8 +8,8 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/worker/catacomb"
 )
 
 type subRelationsWatcher struct {

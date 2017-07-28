@@ -19,11 +19,11 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/storage"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this

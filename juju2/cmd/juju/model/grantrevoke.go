@@ -11,13 +11,13 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/applicationoffers"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
+	"github.com/juju/1.25-upgrade/juju2/api/applicationoffers"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/permission"
 )
 
 var usageGrantSummary = `

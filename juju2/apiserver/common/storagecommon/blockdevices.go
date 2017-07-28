@@ -4,8 +4,8 @@
 package storagecommon
 
 import (
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // BlockDeviceFromState translates a state.BlockDeviceInfo to a

@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
+	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 type modelconfigSuite struct {

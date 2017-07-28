@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/juju/errors"
-	"github.com/juju/juju/provider/azure/internal/azurecli"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azurecli"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

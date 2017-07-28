@@ -19,20 +19,20 @@ import (
 	"github.com/juju/utils/exec"
 	proxyutils "github.com/juju/utils/proxy"
 
-	"github.com/juju/juju/agent"
-	jujucmd "github.com/juju/juju/cmd"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/cmd/jujud/introspect"
-	components "github.com/juju/juju/component/all"
-	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd"
+	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/dumplogs"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/introspect"
+	components "github.com/juju/1.25-upgrade/juju2/component/all"
+	"github.com/juju/1.25-upgrade/juju2/juju/names"
+	"github.com/juju/1.25-upgrade/juju2/juju/sockets"
 	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/utils/proxy"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/all"
+	"github.com/juju/1.25-upgrade/juju2/upgrades"
+	"github.com/juju/1.25-upgrade/juju2/utils/proxy"
+	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 )
 
 var log = loggo.GetLogger("juju.cmd.jujud")

@@ -16,10 +16,10 @@ import (
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	jujussh "github.com/juju/juju/network/ssh"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	jujussh "github.com/juju/1.25-upgrade/juju2/network/ssh"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // argsSpec is a test helper which converts a number of options into

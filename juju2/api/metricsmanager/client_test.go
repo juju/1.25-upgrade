@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/metricsmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 type metricsManagerSuite struct {

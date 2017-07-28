@@ -11,10 +11,10 @@ import (
 	"github.com/juju/gomaasapi"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 type maasInstance interface {

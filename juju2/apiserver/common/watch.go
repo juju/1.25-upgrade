@@ -11,10 +11,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
 )
 
 // AgentEntityWatcher implements a common Watch method for use by

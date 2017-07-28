@@ -19,8 +19,8 @@ import (
 	"github.com/mattn/go-isatty"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/api/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // defaultLineCount is the default number of lines to

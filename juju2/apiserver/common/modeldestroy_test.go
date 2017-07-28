@@ -10,15 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	commontesting "github.com/juju/1.25-upgrade/juju2/apiserver/common/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type destroyModelSuite struct {

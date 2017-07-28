@@ -10,11 +10,11 @@ import (
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")

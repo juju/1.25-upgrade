@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils/clock"
 	"golang.org/x/net/context"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/provider/vsphere/internal/vsphereclient"
 )
 
 const (

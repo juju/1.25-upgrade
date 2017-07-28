@@ -6,7 +6,7 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
 )
 
 // PrecheckInstance verifies that the provided series and constraints

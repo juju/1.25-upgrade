@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/spaces"
-	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/spaces"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type SpacesSuite struct {

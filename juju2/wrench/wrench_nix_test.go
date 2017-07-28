@@ -10,7 +10,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/wrench"
+	"github.com/juju/1.25-upgrade/juju2/wrench"
 )
 
 const fileNotFound = `stat .+: no such file or directory`

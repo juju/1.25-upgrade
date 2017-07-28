@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/block"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/block"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 type blockSuite struct {

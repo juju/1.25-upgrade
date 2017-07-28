@@ -10,8 +10,8 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be

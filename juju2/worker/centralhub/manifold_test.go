@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/centralhub"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/worker/centralhub"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type ManifoldSuite struct {

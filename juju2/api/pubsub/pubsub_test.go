@@ -18,17 +18,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	apipubsub "github.com/juju/juju/api/pubsub"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	apipubsub "github.com/juju/1.25-upgrade/juju2/api/pubsub"
+	"github.com/juju/1.25-upgrade/juju2/apiserver"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/observer/fakeobserver"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type PubSubSuite struct {

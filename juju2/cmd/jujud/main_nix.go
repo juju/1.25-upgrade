@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
 )
 
 func init() {

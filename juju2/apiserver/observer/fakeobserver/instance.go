@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
 )
 
 // Instance is a fake Observer used for testing.

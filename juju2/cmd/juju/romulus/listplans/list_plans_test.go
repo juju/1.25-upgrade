@@ -15,11 +15,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/juju/romulus/listplans"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
+	rcmd "github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/listplans"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var (

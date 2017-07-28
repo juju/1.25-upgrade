@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
 )
 
 type ConformSuite struct{}

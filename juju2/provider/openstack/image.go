@@ -6,8 +6,8 @@ package openstack
 import (
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
 )
 
 // FlavorFilter is an interface that can control which server flavors

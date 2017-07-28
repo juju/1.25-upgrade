@@ -17,14 +17,14 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var (

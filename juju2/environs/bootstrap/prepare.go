@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/permission"
 )
 
 // ControllerModelName is the name of the admin model in each controller.

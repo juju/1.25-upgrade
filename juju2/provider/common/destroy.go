@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 // Destroy is a common implementation of the Destroy method defined on

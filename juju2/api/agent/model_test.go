@@ -6,9 +6,9 @@ package agent_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent"
-	apitesting "github.com/juju/juju/api/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/agent"
+	apitesting "github.com/juju/1.25-upgrade/juju2/api/testing"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 type modelSuite struct {

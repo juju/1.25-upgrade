@@ -4,9 +4,9 @@
 package crossmodel
 
 import (
-	"github.com/juju/juju/api/applicationoffers"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/api/applicationoffers"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // RemoteEndpointsCommandBase is a base for various cross model commands.

@@ -9,9 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type APIContextSuite struct {

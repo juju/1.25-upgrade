@@ -24,9 +24,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/jujud/introspect"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/introspect"
+	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type IntrospectCommandSuite struct {

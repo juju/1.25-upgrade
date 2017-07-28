@@ -13,9 +13,9 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // fakeManager allows us to test deployments without actually deploying units

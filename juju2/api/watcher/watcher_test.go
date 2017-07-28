@@ -12,17 +12,17 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/migrationminion"
-	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	corewatcher "github.com/juju/juju/watcher"
-	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/migrationminion"
+	"github.com/juju/1.25-upgrade/juju2/api/watcher"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	corewatcher "github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/watcher/watchertest"
 )
 
 type watcherSuite struct {

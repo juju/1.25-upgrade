@@ -10,8 +10,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher, preAssert func()) StringsWatcherC {

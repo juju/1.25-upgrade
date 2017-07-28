@@ -17,15 +17,15 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/cmd/juju/model"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type crossmodelSuite struct {

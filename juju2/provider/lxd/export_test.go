@@ -5,7 +5,7 @@
 
 package lxd
 
-import "github.com/juju/juju/tools/lxdclient"
+import "github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 
 var (
 	GlobalFirewallName = (*environ).globalFirewallName

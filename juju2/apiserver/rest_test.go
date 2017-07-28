@@ -17,11 +17,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
-	jujuFactory "github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	jujuFactory "github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 // restCommonSuite wraps authHTTPSuite and adds

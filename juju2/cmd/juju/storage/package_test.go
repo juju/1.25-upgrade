@@ -9,8 +9,8 @@ import (
 	"github.com/juju/cmd"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/jujuclient"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func TestAll(t *testing.T) {

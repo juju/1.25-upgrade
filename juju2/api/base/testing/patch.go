@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"github.com/juju/juju/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
 )
 
 // PatchFacadeCall patches the provided FacadeCaller such

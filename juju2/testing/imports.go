@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-const jujuPkgPrefix = "github.com/juju/juju/"
+const jujuPkgPrefix = "github.com/juju/1.25-upgrade/juju2/"
 
 // FindJujuCoreImports returns a sorted list of juju-core packages that are
 // imported by the packageName parameter.  The resulting list removes the

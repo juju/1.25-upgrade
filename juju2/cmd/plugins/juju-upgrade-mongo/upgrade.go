@@ -20,12 +20,12 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/highavailability"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/api/highavailability"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/juju"
+	"github.com/juju/1.25-upgrade/juju2/mongo"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 func (c *upgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {

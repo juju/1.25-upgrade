@@ -11,11 +11,11 @@ import (
 	names "gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type fixture struct {

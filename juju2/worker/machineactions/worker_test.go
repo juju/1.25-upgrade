@@ -11,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/machineactions"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/worker/machineactions"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type WorkerSuite struct {

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
 )
 
 // NewCreateCommand returns a command to create a new subnet.

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/agent/tools"
+	"github.com/juju/1.25-upgrade/juju2/agent/tools"
 )
 
 // TODO(ericsnow) Move this file to the agent package.

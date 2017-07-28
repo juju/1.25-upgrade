@@ -16,9 +16,9 @@ import (
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 // localTests contains tests which do not require a live service or test double to run.

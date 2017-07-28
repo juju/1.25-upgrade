@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/jujuc"
 )
 
 // GetCmdName is the name of the resource-get command.

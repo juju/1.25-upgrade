@@ -11,8 +11,8 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/audit"
-	"github.com/juju/juju/rpc"
+	"github.com/juju/1.25-upgrade/juju2/audit"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
 )
 
 // Context defines things an Audit observer need know about to operate

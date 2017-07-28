@@ -8,12 +8,12 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.machineundertaker")

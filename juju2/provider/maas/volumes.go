@@ -14,9 +14,9 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 const (

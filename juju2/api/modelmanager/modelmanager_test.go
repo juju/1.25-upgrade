@@ -9,14 +9,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	basetesting "github.com/juju/1.25-upgrade/juju2/api/base/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/modelmanager"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type modelmanagerSuite struct {

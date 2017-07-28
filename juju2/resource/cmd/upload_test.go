@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	resourcecmd "github.com/juju/juju/resource/cmd"
+	resourcecmd "github.com/juju/1.25-upgrade/juju2/resource/cmd"
 )
 
 var _ = gc.Suite(&UploadSuite{})

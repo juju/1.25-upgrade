@@ -8,7 +8,7 @@ import (
 	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
 )
 
 var logger = loggo.GetLogger("juju.api.backups")

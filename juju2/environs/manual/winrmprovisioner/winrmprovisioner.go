@@ -21,13 +21,13 @@ import (
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/winrm"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/instancecfg"
+	"github.com/juju/1.25-upgrade/juju2/environs/manual"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
 )
 
 // detectJujudProcess powershell script to determine

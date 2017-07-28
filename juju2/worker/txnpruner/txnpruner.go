@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
 )
 
 // TransactionPruner defines the interface for types capable of

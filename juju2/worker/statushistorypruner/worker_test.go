@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/statushistorypruner"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/statushistorypruner"
 )
 
 type statusHistoryPrunerSuite struct {

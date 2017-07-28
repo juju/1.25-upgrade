@@ -12,10 +12,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
-	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	jujucrossmodel "github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 const (

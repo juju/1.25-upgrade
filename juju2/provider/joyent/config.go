@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 var (

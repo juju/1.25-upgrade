@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/api/authentication"
+	"github.com/juju/1.25-upgrade/juju2/api/authentication"
 )
 
 type VisitorSuite struct {

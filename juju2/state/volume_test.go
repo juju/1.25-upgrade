@@ -9,13 +9,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
 )
 
 type VolumeStateSuite struct {

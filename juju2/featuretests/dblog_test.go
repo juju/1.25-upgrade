@@ -13,16 +13,16 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/common"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/api/common"
+	agentcmd "github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/agenttest"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/version"
+	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
+	"github.com/juju/1.25-upgrade/juju2/worker/peergrouper"
 )
 
 // dblogSuite tests that logs flow correctly from the machine and unit

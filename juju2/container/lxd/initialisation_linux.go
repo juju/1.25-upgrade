@@ -24,8 +24,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/lxc/lxd/shared"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 const lxdBridgeFile = "/etc/default/lxd-bridge"

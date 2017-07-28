@@ -6,8 +6,8 @@ package testing
 import (
 	"net"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/1.25-upgrade/juju2/rpc"
+	"github.com/juju/1.25-upgrade/juju2/rpc/jsoncodec"
 )
 
 // FakeAPIServer returns a net.Conn implementation

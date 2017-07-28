@@ -8,9 +8,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/meterstatus"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/api/meterstatus"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 // connectedStatusHandler implements the NotifyWatchHandler interface.

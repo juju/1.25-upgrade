@@ -14,7 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type LatestCharmInfoSuite struct {

@@ -4,8 +4,8 @@
 package dummy
 
 import (
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
 )
 
 // StorageProviders returns a provider registry with some

@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	envtools "github.com/juju/juju/environs/tools"
-	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 var (

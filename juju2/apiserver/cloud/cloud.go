@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // CloudAPI implements the model manager interface and is

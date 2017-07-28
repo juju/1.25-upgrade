@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/remotefirewaller"
-	"github.com/juju/juju/api/remoterelations"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/firewaller"
+	"github.com/juju/1.25-upgrade/juju2/api/remotefirewaller"
+	"github.com/juju/1.25-upgrade/juju2/api/remoterelations"
 )
 
 // NewRemoteRelationsFacade creates a remote relations API facade.

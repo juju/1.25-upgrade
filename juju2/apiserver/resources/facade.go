@@ -14,13 +14,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/charmstore"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/api"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.resources")

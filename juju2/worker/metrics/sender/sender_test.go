@@ -17,9 +17,9 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/metrics/sender"
-	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/sender"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
 )
 
 var _ = gc.Suite(&senderSuite{})

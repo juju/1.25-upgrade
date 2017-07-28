@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 type environProvider struct {

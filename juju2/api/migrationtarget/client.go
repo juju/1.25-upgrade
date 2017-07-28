@@ -18,13 +18,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/tools"
+	jujuversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 // NewClient returns a new Client based on an existing API connection.

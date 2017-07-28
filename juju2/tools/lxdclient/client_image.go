@@ -17,7 +17,7 @@ import (
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/utils/stringforwarder"
+	"github.com/juju/1.25-upgrade/juju2/utils/stringforwarder"
 )
 
 type rawImageClient interface {

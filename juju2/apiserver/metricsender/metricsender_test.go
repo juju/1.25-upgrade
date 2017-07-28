@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/apiserver/metricsender/testing"
-	jujujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsender/testing"
+	jujujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
 )
 
 type MetricSenderSuite struct {

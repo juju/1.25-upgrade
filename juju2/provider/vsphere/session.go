@@ -6,7 +6,7 @@ package vsphere
 import (
 	"golang.org/x/net/context"
 
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
 )
 
 // sessionEnviron implements common.ZonedEnviron. An instance of

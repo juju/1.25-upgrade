@@ -10,17 +10,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/agent"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/agent"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	apiservertesting "github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

@@ -13,12 +13,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/block"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
 )
 
 const (

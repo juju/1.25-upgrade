@@ -9,8 +9,8 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/lease"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/lease"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type SkewSuite struct {

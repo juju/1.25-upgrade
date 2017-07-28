@@ -6,7 +6,7 @@ package apihttp
 import (
 	"net/http"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 // NewHandlerArgs holds the args to the func in the NewHandler

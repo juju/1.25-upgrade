@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // StubResource is used to define the behaviour of a StubGetResource func for a

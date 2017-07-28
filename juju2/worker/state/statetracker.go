@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 var ErrStateClosed = errors.New("state closed")

@@ -10,12 +10,12 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	jujunetwork "github.com/juju/juju/network"
-	"github.com/juju/juju/provider/oracle"
-	oracletesting "github.com/juju/juju/provider/oracle/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	jujunetwork "github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle"
+	oracletesting "github.com/juju/1.25-upgrade/juju2/provider/oracle/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type instanceSuite struct {

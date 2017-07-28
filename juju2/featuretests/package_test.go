@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucmd "github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/component/all"
-	coretesting "github.com/juju/juju/testing"
+	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	"github.com/juju/1.25-upgrade/juju2/component/all"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")

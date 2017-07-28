@@ -10,7 +10,7 @@ import (
 	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
 )
 
 // MemStore is an in-memory implementation of ClientStore.

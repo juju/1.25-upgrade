@@ -16,9 +16,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/romulus/agree"
-	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus/agree"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 func TestPackage(t *testing.T) {

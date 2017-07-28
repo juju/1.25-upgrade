@@ -9,8 +9,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 // NewDumpCommand returns a fully constructed dump-model command.

@@ -19,7 +19,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/version"
 )
 
 const (

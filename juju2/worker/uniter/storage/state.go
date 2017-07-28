@@ -14,7 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
 )
 
 // state describes the state of a storage attachment.

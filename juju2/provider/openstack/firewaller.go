@@ -15,10 +15,10 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/goose.v2/neutron"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 const (

@@ -12,13 +12,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/api/uniter"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.relation")

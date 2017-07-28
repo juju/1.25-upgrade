@@ -10,7 +10,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cloud"
 )
 
 // cloudGlobalKey returns the global database key for the specified cloud.

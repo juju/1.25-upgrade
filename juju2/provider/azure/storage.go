@@ -17,10 +17,10 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
-	"github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/provider/azure/internal/armtemplates"
+	internalazurestorage "github.com/juju/1.25-upgrade/juju2/provider/azure/internal/azurestorage"
+	"github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 const (

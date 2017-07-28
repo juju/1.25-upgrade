@@ -8,10 +8,10 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 type environInstance struct {

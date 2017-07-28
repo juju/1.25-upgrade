@@ -8,10 +8,10 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/oracle"
-	oracletesting "github.com/juju/juju/provider/oracle/testing"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/provider/oracle"
+	oracletesting "github.com/juju/1.25-upgrade/juju2/provider/oracle/testing"
 )
 
 type imageSuite struct{}

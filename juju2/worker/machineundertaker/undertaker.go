@@ -9,9 +9,9 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/watcher"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineundertaker")

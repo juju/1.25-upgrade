@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 // Implementations of this interface should provide a way to configure external

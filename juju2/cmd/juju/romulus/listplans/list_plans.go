@@ -21,9 +21,9 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/yaml.v2"
 
-	rcmd "github.com/juju/juju/cmd/juju/romulus"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
+	rcmd "github.com/juju/1.25-upgrade/juju2/cmd/juju/romulus"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 // apiClient defines the interface of the plan api client need by this command.

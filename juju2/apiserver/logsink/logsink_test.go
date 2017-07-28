@@ -18,10 +18,10 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/logsink"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/websocket/websockettest"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/logsink"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/websocket/websockettest"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var shortAttempt = &utils.AttemptStrategy{

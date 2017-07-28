@@ -16,10 +16,10 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 var logger = loggo.GetLogger("juju.migration")

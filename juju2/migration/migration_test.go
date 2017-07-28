@@ -18,16 +18,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/component/all"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/resourcetesting"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/component/all"
+	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/migration"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/resource/resourcetesting"
+	statetesting "github.com/juju/1.25-upgrade/juju2/state/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 func init() {

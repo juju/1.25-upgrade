@@ -15,12 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/juju/commands"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
-	coreversion "github.com/juju/juju/version"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/testing/factory"
+	coreversion "github.com/juju/1.25-upgrade/juju2/version"
 )
 
 type cmdUpgradeSuite struct {

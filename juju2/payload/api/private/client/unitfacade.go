@@ -6,9 +6,9 @@ package client
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload"
-	internal "github.com/juju/juju/payload/api/private"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	internal "github.com/juju/1.25-upgrade/juju2/payload/api/private"
 )
 
 type facadeCaller interface {

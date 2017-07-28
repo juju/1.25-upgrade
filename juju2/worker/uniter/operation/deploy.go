@@ -10,8 +10,8 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/charm"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
 )
 
 // deploy implements charm install and charm upgrade operations.

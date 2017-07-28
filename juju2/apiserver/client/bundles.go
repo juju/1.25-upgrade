@@ -4,8 +4,8 @@
 package client
 
 import (
-	"github.com/juju/juju/apiserver/bundle"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/bundle"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // GetBundleChanges returns the list of changes required to deploy the given

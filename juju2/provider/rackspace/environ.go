@@ -13,9 +13,9 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/provider/common"
 )
 
 type environ struct {

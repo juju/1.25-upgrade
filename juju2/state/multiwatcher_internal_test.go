@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 var _ = gc.Suite(&storeSuite{})

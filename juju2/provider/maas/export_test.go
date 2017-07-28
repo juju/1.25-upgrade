@@ -6,8 +6,8 @@ package maas
 import (
 	"github.com/juju/gomaasapi"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/environs"
+	"github.com/juju/1.25-upgrade/juju2/cloudconfig/cloudinit"
+	"github.com/juju/1.25-upgrade/juju2/environs"
 )
 
 var (

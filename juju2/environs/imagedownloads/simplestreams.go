@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/environs/imagemetadata"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
 )
 
 func init() {

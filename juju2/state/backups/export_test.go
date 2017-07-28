@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils/filestorage"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/1.25-upgrade/juju2/state"
 )
 
 var (

@@ -20,10 +20,10 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/1.25-upgrade/juju2/controller"
+	"github.com/juju/1.25-upgrade/juju2/environs/tags"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	"github.com/juju/1.25-upgrade/juju2/logfwd/syslog"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")

@@ -10,12 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/runcommands"
-	"github.com/juju/juju/worker/uniter/runner"
-	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runcommands"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner"
+	runnercontext "github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
 )
 
 type runcommandsSuite struct {

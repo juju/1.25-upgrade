@@ -10,8 +10,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/logsender"
 )
 
 // ExpectLogStats waits for the buffered log writer's

@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/mongo/mongometrics"
+	"github.com/juju/1.25-upgrade/juju2/mongo/mongometrics"
 )
 
 type MgoStatsCollectorSuite struct {

@@ -19,11 +19,11 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/1.25-upgrade/juju2/api/controller"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs/gui"
 )
 
 // NewUpgradeGUICommand creates and returns a new upgrade-gui command.

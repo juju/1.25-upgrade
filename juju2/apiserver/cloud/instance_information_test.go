@@ -10,15 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/cloud"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/testing"
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/cloud"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/testing"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
 )
 
 type instanceTypesSuite struct{}

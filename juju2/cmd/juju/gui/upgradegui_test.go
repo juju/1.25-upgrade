@@ -22,12 +22,12 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/gui"
-	envgui "github.com/juju/juju/environs/gui"
-	"github.com/juju/juju/environs/simplestreams"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api/controller"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/gui"
+	envgui "github.com/juju/1.25-upgrade/juju2/environs/gui"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
 )
 
 type upgradeGUISuite struct {

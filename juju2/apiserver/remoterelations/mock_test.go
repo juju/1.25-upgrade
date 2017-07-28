@@ -12,12 +12,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/remoterelations"
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/remoterelations"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type mockStatePool struct {

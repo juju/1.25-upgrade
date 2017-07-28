@@ -6,8 +6,8 @@ package annotations
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
 )
 
 // Client allows access to the annotations API end point.

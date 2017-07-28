@@ -16,13 +16,13 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/metrics/collect"
-	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/workertest"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/collect"
+	"github.com/juju/1.25-upgrade/juju2/worker/metrics/spool"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/runner/context"
+	"github.com/juju/1.25-upgrade/juju2/worker/workertest"
 )
 
 type handlerSuite struct {

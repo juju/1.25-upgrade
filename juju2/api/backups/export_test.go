@@ -4,7 +4,7 @@
 package backups
 
 import (
-	"github.com/juju/juju/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
 )
 
 // ExposeFacade returns the client's underlying FacadeCaller.

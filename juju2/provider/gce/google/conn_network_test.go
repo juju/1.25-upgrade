@@ -13,8 +13,8 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/provider/gce/google"
 )
 
 func (s *connSuite) TestConnectionIngressRules(c *gc.C) {

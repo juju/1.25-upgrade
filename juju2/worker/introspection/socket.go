@@ -17,7 +17,7 @@ import (
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker/introspection/pprof"
+	"github.com/juju/1.25-upgrade/juju2/worker/introspection/pprof"
 )
 
 var logger = loggo.GetLogger("juju.worker.introspection")

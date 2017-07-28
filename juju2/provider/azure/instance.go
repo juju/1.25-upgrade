@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/instance"
-	jujunetwork "github.com/juju/juju/network"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	jujunetwork "github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 type azureInstance struct {

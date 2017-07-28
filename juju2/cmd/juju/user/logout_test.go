@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/user"
 )
 
 type LogoutCommandSuite struct {

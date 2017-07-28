@@ -19,11 +19,11 @@ import (
 	slawire "github.com/juju/romulus/wireformat/sla"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/modelconfig"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 var logger = loggo.GetLogger("romulus.cmd.sla")

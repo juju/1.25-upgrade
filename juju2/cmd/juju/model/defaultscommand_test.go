@@ -12,11 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/model"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 type DefaultsCommandSuite struct {

@@ -13,13 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	apibase "github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	apibase "github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/cmd/juju/user"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/juju"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 type LoginCommandSuite struct {

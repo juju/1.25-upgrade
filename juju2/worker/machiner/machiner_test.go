@@ -16,13 +16,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
-	coretesting "github.com/juju/juju/testing"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/1.25-upgrade/juju2/api/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
+	jworker "github.com/juju/1.25-upgrade/juju2/worker"
+	"github.com/juju/1.25-upgrade/juju2/worker/machiner"
 )
 
 func TestPackage(t *stdtesting.T) {

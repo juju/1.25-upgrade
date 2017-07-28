@@ -13,12 +13,12 @@ import (
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	oraclenetwork "github.com/juju/juju/provider/oracle/network"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/environs/config"
+	"github.com/juju/1.25-upgrade/juju2/environs/instances"
+	"github.com/juju/1.25-upgrade/juju2/instance"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	oraclenetwork "github.com/juju/1.25-upgrade/juju2/provider/oracle/network"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // oracleInstance implements the instance.Instance interface

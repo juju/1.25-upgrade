@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/1.25-upgrade/juju2/provider/lxd"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/tools/lxdclient"
 )
 
 type storageSuite struct {

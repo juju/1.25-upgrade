@@ -16,9 +16,9 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/agent"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/engine"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
 )
 
 // MetricRecorder records metrics to a spool directory.

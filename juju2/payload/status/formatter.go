@@ -4,7 +4,7 @@
 package status
 
 import (
-	"github.com/juju/juju/payload"
+	"github.com/juju/1.25-upgrade/juju2/payload"
 )
 
 type listFormatter struct {

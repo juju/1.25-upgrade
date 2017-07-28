@@ -6,8 +6,8 @@ package application
 import (
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
 )
 
 // Get returns the configuration for a service.

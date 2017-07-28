@@ -12,14 +12,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/juju/osenv"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs/filestorage"
+	"github.com/juju/1.25-upgrade/juju2/environs/simplestreams"
+	"github.com/juju/1.25-upgrade/juju2/environs/storage"
+	envtools "github.com/juju/1.25-upgrade/juju2/environs/tools"
+	"github.com/juju/1.25-upgrade/juju2/juju/keys"
+	"github.com/juju/1.25-upgrade/juju2/juju/osenv"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 func newToolsMetadataCommand() cmd.Command {

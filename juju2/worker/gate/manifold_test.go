@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	"github.com/juju/1.25-upgrade/juju2/worker/gate"
 )
 
 type ManifoldSuite struct {

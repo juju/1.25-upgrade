@@ -14,8 +14,8 @@ import (
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/network"
+	"github.com/juju/1.25-upgrade/juju2/container"
+	"github.com/juju/1.25-upgrade/juju2/network"
 )
 
 type Device map[string]string

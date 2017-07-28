@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
+	jujucloud "github.com/juju/1.25-upgrade/juju2/cloud"
+	"github.com/juju/1.25-upgrade/juju2/cmd/modelcmd"
+	"github.com/juju/1.25-upgrade/juju2/environs"
+	"github.com/juju/1.25-upgrade/juju2/jujuclient"
 )
 
 // ErrMultipleCredentialsDetected is the error returned by

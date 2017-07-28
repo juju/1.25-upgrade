@@ -16,13 +16,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/multiwatcher"
+	"github.com/juju/1.25-upgrade/juju2/state/watcher"
+	"github.com/juju/1.25-upgrade/juju2/testcharms"
+	coretesting "github.com/juju/1.25-upgrade/juju2/testing"
 )
 
 // LTS-dependent requires new entry upon new LTS release. There are numerous

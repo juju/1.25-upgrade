@@ -8,9 +8,9 @@ import (
 
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
 )
 
 type mockStorageAccessor struct {

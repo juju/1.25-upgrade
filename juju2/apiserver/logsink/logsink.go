@@ -16,9 +16,9 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/feature"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/websocket"
+	"github.com/juju/1.25-upgrade/juju2/feature"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.logsink")

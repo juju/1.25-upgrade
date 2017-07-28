@@ -8,9 +8,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
-	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	jujustorage "github.com/juju/1.25-upgrade/juju2/storage"
 )
 
 type mockPoolManager struct {

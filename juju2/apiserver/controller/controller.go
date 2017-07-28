@@ -16,17 +16,17 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/migrationtarget"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/params"
-	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/common/cloudspec"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	coremigration "github.com/juju/1.25-upgrade/juju2/core/migration"
+	"github.com/juju/1.25-upgrade/juju2/migration"
+	"github.com/juju/1.25-upgrade/juju2/permission"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")

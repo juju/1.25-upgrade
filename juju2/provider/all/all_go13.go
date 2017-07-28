@@ -7,5 +7,5 @@ package all
 
 // Register all the available providers.
 import (
-	_ "github.com/juju/juju/provider/lxd"
+	_ "github.com/juju/1.25-upgrade/juju2/provider/lxd"
 )

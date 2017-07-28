@@ -17,8 +17,8 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/jujud/agent"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent"
+	cmdutil "github.com/juju/1.25-upgrade/juju2/cmd/jujud/util"
 )
 
 type IntrospectCommand struct {

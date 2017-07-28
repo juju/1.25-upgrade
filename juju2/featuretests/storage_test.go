@@ -14,12 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	jujucmd "github.com/juju/juju/cmd/juju/commands"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
+	jujucmd "github.com/juju/1.25-upgrade/juju2/cmd/juju/commands"
+	jujutesting "github.com/juju/1.25-upgrade/juju2/juju/testing"
+	"github.com/juju/1.25-upgrade/juju2/provider/dummy"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/storage/provider"
 )
 
 const (

@@ -21,14 +21,14 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools"
+	"github.com/juju/1.25-upgrade/juju2/api/base"
+	"github.com/juju/1.25-upgrade/juju2/api/common"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
+	"github.com/juju/1.25-upgrade/juju2/downloader"
+	"github.com/juju/1.25-upgrade/juju2/network"
+	"github.com/juju/1.25-upgrade/juju2/status"
+	"github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 // Client represents the client-accessible part of the state.

@@ -8,12 +8,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/1.25-upgrade/juju2/apiserver/params"
+	"github.com/juju/1.25-upgrade/juju2/storage"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/hook"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/operation"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/remotestate"
+	"github.com/juju/1.25-upgrade/juju2/worker/uniter/resolver"
 )
 
 // StorageResolverOperations instances know how to make operations

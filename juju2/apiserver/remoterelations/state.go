@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
+	"github.com/juju/1.25-upgrade/juju2/core/crossmodel"
+	"github.com/juju/1.25-upgrade/juju2/state"
+	"github.com/juju/1.25-upgrade/juju2/status"
 )
 
 // StatePool provides the subset of a state pool required by the

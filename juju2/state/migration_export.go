@@ -16,10 +16,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/payload"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/1.25-upgrade/juju2/feature"
+	"github.com/juju/1.25-upgrade/juju2/payload"
+	"github.com/juju/1.25-upgrade/juju2/resource"
+	"github.com/juju/1.25-upgrade/juju2/storage/poolmanager"
 )
 
 // ExportConfig allows certain aspects of the model to be skipped

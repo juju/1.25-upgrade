@@ -6,7 +6,7 @@ package vsphere
 import (
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/constraints"
+	"github.com/juju/1.25-upgrade/juju2/constraints"
 )
 
 // PrecheckInstance is part of the environs.Environ interface.

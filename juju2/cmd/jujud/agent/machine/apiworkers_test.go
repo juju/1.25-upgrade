@@ -9,11 +9,11 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
-	dt "github.com/juju/juju/worker/dependency/testing"
+	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/cmd/jujud/agent/machine"
+	"github.com/juju/1.25-upgrade/juju2/testing"
+	"github.com/juju/1.25-upgrade/juju2/worker/dependency"
+	dt "github.com/juju/1.25-upgrade/juju2/worker/dependency/testing"
 )
 
 type APIWorkersSuite struct {
