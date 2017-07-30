@@ -453,6 +453,19 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
 
+	// There're no status records for instances in 1.25 - fake them.
+	instance := exMachine.Instance()
+	status, err := machine.InstanceStatus()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instStatusArgs := description.StatusArgs{
+		Value:   status,
+		Updated: time.Now(),
+	}
+	instance.SetStatus(instStatusArgs)
+	instance.SetStatusHistory([]description.StatusArgs{instStatusArgs})
+
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
 	for _, device := range blockDevices[machine.doc.Id] {
