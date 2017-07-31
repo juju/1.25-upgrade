@@ -4,6 +4,8 @@
 package commands
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/description"
 	"github.com/juju/errors"
@@ -78,6 +80,29 @@ func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
 	model, err := st.Export()
 	if err != nil {
 		return errors.Annotate(err, "exporting model representation")
+	}
+
+	// Check that the LXC containers can be migrated to LXD.
+	for _, host := range model.Machines() {
+		var lxcContainers []description.Machine
+		for _, container := range host.Containers() {
+			if container.ContainerType() != "lxc" {
+				continue
+			}
+			lxcContainers = append(lxcContainers, container)
+		}
+		if len(lxcContainers) == 0 {
+			continue
+		}
+		lxcContainerNames := make([]string, len(lxcContainers))
+		for i, container := range lxcContainers {
+			lxcContainerNames[i] = container.Id()
+		}
+		logger.Debugf("dry-running LXC migration for %s", strings.Join(lxcContainerNames, ", "))
+		opts := MigrateLXCOptions{DryRun: true}
+		if err := MigrateLXC(lxcContainers, host, opts); err != nil {
+			return errors.Annotatef(err, "dry-running LXC migration for host %q", host.Id())
+		}
 	}
 
 	// Check for LXC containers
