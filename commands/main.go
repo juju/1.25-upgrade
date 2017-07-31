@@ -3,6 +3,8 @@
 
 package commands
 
+//go:generate go run ../juju2/generate/filetoconst/filetoconst.go LXCMigrationScript ../../../lxc/lxd/scripts/lxc-to-lxd lxc2lxd.go 2017 commands
+
 import (
 	"os"
 
