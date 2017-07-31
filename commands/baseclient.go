@@ -174,20 +174,16 @@ func (c *baseClientCommand) Run(ctx *cmd.Context) error {
 		debug = "--debug"
 	}
 
-	result, err := runViaSSH(
+	rc, err := runViaSSH(
 		c.address,
 		fmt.Sprintf("./%s %s %s %s\n", pluginBase, c.remoteCommand, c.remoteArgs, debug),
-		"")
-
+	)
 	if err != nil {
 		return errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
 	}
 
-	fmt.Fprintln(ctx.Stdout, result.Stdout)
-	fmt.Fprintln(ctx.Stderr, result.Stderr)
-
-	if result.Code != 0 {
-		return &cmd.RcPassthroughError{result.Code}
+	if rc != 0 {
+		return &cmd.RcPassthroughError{rc}
 	}
 
 	return nil
