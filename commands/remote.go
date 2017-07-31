@@ -44,7 +44,7 @@ func localMD5Sum(plugin string) (string, error) {
 }
 
 func updateRemotePlugin(plugin, address string) error {
-	scp := exec.Command("scp", plugin, fmt.Sprintf("ubuntu@%s:~", address))
+	scp := exec.Command("scp", "-C", plugin, fmt.Sprintf("ubuntu@%s:~", address))
 	copyResult, err := scp.CombinedOutput()
 	if err != nil {
 		return errors.Annotate(err, "copying command to environment")

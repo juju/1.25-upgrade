@@ -90,6 +90,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
@@ -286,6 +289,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 	return result, nil
 }
 
+func (e *exporter) modelStatus() error {
+	// No model status in 1.25 - fake an entry, since it's required in 2.2.2.
+	args := description.StatusArgs{
+		Value:   "available",
+		Updated: time.Now(),
+	}
+	e.model.SetStatus(args)
+	e.model.SetStatusHistory([]description.StatusArgs{args})
+	return nil
+}
+
 func (e *exporter) modelUsers() error {
 	users, err := e.dbModel.Users()
 	if err != nil {
@@ -438,6 +452,19 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
+	// There're no status records for instances in 1.25 - fake them.
+	instance := exMachine.Instance()
+	status, err := machine.InstanceStatus()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instStatusArgs := description.StatusArgs{
+		Value:   status,
+		Updated: time.Now(),
+	}
+	instance.SetStatus(instStatusArgs)
+	instance.SetStatusHistory([]description.StatusArgs{instStatusArgs})
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
