@@ -183,8 +183,8 @@ func (c *baseClientCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
 	}
 
-	fmt.Fprintf(ctx.Stdout, result.Stdout)
-	fmt.Fprintf(ctx.Stderr, result.Stderr)
+	fmt.Fprintln(ctx.Stdout, result.Stdout)
+	fmt.Fprintln(ctx.Stderr, result.Stderr)
 
 	if result.Code != 0 {
 		return &cmd.RcPassthroughError{result.Code}
