@@ -4,9 +4,11 @@
 package commands
 
 import (
+	"bytes"
 	"crypto/md5"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -18,20 +20,20 @@ import (
 func remoteMD5Sum(plugin, address string) (string, error) {
 	pluginBase := filepath.Base(plugin)
 
-	result, err := runViaSSH(
+	var stdoutBuf bytes.Buffer
+	rc, err := runViaSSH(
 		address,
 		fmt.Sprintf("md5sum %s | cut -f 1 -d ' '\n", pluginBase),
-		"")
-
+		withStdout(&stdoutBuf),
+	)
 	if err != nil {
 		return "", errors.Annotate(err, "getting md5sum")
 	}
 
-	if result.Code != 0 {
-		return "", errors.Errorf("getting md5: %q, %q", result.Stdout, result.Stderr)
+	if rc != 0 {
+		return "", errors.Errorf("getting md5: %q", stdoutBuf.String())
 	}
-
-	return strings.TrimSpace(result.Stdout), nil
+	return strings.TrimSpace(stdoutBuf.String()), nil
 }
 
 func localMD5Sum(plugin string) (string, error) {
@@ -45,11 +47,12 @@ func localMD5Sum(plugin string) (string, error) {
 
 func updateRemotePlugin(plugin, address string) error {
 	scp := exec.Command("scp", "-C", plugin, fmt.Sprintf("ubuntu@%s:~", address))
-	copyResult, err := scp.CombinedOutput()
-	if err != nil {
+	scp.Stdout = os.Stdout
+	scp.Stderr = os.Stderr
+	scp.Stdin = os.Stdin
+	if err := scp.Run(); err != nil {
 		return errors.Annotate(err, "copying command to environment")
 	}
-	logger.Debugf("scp: %s", copyResult)
 	return nil
 }
 
