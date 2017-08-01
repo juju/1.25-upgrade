@@ -49,4 +49,6 @@ func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newStopAgentsImplCommand())
 	super.Register(newUpgradeAgentsCommand())
 	super.Register(newUpgradeAgentsImplCommand())
+	super.Register(newBackupLXCCommand())
+	super.Register(newBackupLXCImplCommand())
 }

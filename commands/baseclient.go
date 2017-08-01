@@ -157,7 +157,16 @@ func (c *baseClientCommand) loadInfo() error {
 	return nil
 }
 
-func (c *baseClientCommand) Run(ctx *cmd.Context) error {
+func (c *baseClientCommand) getRemoteCommand(cmd string, args ...string) string {
+	pluginBase := filepath.Base(c.plugin)
+	debug := ""
+	if logger.IsDebugEnabled() {
+		debug = "--debug"
+	}
+	return fmt.Sprintf("./%s %s %s %s\n", pluginBase, cmd, debug, strings.Join(args, " "))
+}
+
+func (c *baseClientCommand) prepareRemote(ctx *cmd.Context) error {
 	if c.needsController {
 		if err := c.setRemoteControllerInfo(); err != nil {
 			return errors.Trace(err)
@@ -166,25 +175,19 @@ func (c *baseClientCommand) Run(ctx *cmd.Context) error {
 	if err := checkUpdatePlugin(ctx, c.plugin, c.address); err != nil {
 		return errors.Annotate(err, "checking remote plugin")
 	}
+	return nil
+}
 
-	pluginBase := filepath.Base(c.plugin)
-
-	debug := ""
-	if logger.IsDebugEnabled() {
-		debug = "--debug"
+func (c *baseClientCommand) Run(ctx *cmd.Context) error {
+	if err := c.prepareRemote(ctx); err != nil {
+		return errors.Trace(err)
 	}
-
-	rc, err := runViaSSH(
-		c.address,
-		fmt.Sprintf("./%s %s %s %s\n", pluginBase, c.remoteCommand, c.remoteArgs, debug),
-	)
+	rc, err := runViaSSH(c.address, c.getRemoteCommand(c.remoteCommand, c.remoteArgs))
 	if err != nil {
 		return errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
 	}
-
 	if rc != 0 {
 		return &cmd.RcPassthroughError{rc}
 	}
-
 	return nil
 }

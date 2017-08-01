@@ -5,9 +5,11 @@ package commands
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"strings"
 
+	"github.com/juju/1.25-upgrade/juju1/state"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 )
@@ -57,6 +59,56 @@ cat << 'EOF' > /var/lib/juju/1.25-upgrade/scripts/lxc-to-lxd
 	}
 	if rc != 0 {
 		return errors.Errorf("lxc-to-lxd exited %d", rc)
+	}
+	return nil
+}
+
+// StopLXCContainer stops the specified LXC container machine.
+func StopLXCContainer(container, host *state.Machine) error {
+	hostAddr, err := getMachineAddress(host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	instanceId, err := container.InstanceId()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rc, err := runViaSSH(
+		hostAddr,
+		"lxc-stop -n "+string(instanceId),
+		withSystemIdentity(),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 && rc != 2 {
+		return errors.Errorf("lxc-stop exited %d", rc)
+	}
+	return nil
+}
+
+// BackupLXCContainer backups up the specified container as an archive,
+// written to the given writer.
+func BackupLXCContainer(container, host *state.Machine, out io.Writer) error {
+	hostAddr, err := getMachineAddress(host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	instanceId, err := container.InstanceId()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rc, err := runViaSSH(
+		hostAddr,
+		"tar -C /var/lib/lxc -cJ "+string(instanceId),
+		withSystemIdentity(),
+		withStdout(out),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 {
+		return errors.Errorf("backup of LXC container exited %d", rc)
 	}
 	return nil
 }
