@@ -5,6 +5,7 @@ package commands
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -14,15 +15,21 @@ import (
 	"os"
 	"path"
 	"strings"
+	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/juju/1.25-upgrade/juju2/api"
 	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
+
+//go:generate go run ../juju2/generate/filetoconst/filetoconst.go agentUpgradeScript agent-upgrade.py agentupgrade_script.go 2017 commands
 
 var upgradeAgentsDoc = ` 
 
@@ -135,11 +142,19 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Emit the upgrade script for pushing to other machines.
+	scriptPath, err := c.writeUpgradeScript(&scriptConfig{
+		ControllerTag:  conn.ControllerTag().String(),
+		ControllerInfo: c.controllerInfo,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Get a list of all the architectures and series for the machines?
 	toolsNeeded := set.NewStrings()
 	for _, m := range machines {
-		binary := version.MustParseBinary(m.Tools)
-		toolsNeeded.Add(fmt.Sprintf("%s-%s", binary.Series, binary.Arch))
+		toolsNeeded.Add(seriesArch(m))
 	}
 
 	// Get the tools from the controller.
@@ -151,7 +166,14 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	//
+	err = c.pushTools(ctx, ver, scriptPath, machines)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	results := parallelCall(machines, "python3 ~/1.25-agent-upgrade/agent-upgrade.py")
+
+	logger.Debugf("results: %#v", results)
 
 	return errors.Errorf("this command not yet finished")
 }
@@ -183,6 +205,62 @@ func (c *upgradeAgentsImplCommand) getTools(ctx *cmd.Context, client *http.Clien
 		return errors.Errorf("cannot unpack tools: %v", err)
 	}
 	return nil
+}
+
+func (c *upgradeAgentsImplCommand) pushTools(ctx *cmd.Context, ver version.Number, scriptPath string, machines []FlatMachine) error {
+	var group errgroup.Group
+	for i := range machines {
+		machine := machines[i]
+		group.Go(func() error {
+			return errors.Annotatef(
+				c.pushToolsToMachine(ctx, ver, scriptPath, machine),
+				"machine %s", machine.ID)
+		})
+	}
+	logger.Debugf("waiting for copies to finish")
+	return group.Wait()
+}
+
+func (c *upgradeAgentsImplCommand) pushToolsToMachine(ctx *cmd.Context, ver version.Number, scriptPath string, machine FlatMachine) error {
+	logger.Debugf("making target dir for machine %s", machine.ID)
+	rc, err := runViaSSH(
+		machine.Address,
+		"rm -rf 1.25-agent-upgrade; mkdir 1.25-agent-upgrade; chown ubuntu:ubuntu 1.25-agent-upgrade",
+		withSystemIdentity())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 {
+		return &cmd.RcPassthroughError{Code: rc}
+	}
+	toolsPath := path.Join(toolsDir, fmt.Sprintf("%s-%s", ver, seriesArch(machine)))
+	var options ssh.Options
+	options.SetIdentities(systemIdentity)
+	logger.Debugf("copying upgrade script and %s to machine %s", toolsPath, machine.ID)
+	args := []string{"-r", toolsPath, scriptPath, fmt.Sprintf("ubuntu@%s:~/1.25-agent-upgrade/", machine.Address)}
+	err = ssh.Copy(args, &options)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *upgradeAgentsImplCommand) writeUpgradeScript(config *scriptConfig) (string, error) {
+	tmpl, err := template.New("upgrade-script").Parse(agentUpgradeScript)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var script bytes.Buffer
+	err = tmpl.Execute(&script, config)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	scriptPath := path.Join(toolsDir, "agent-upgrade.py")
+	err = writeFile(scriptPath, 0644, &script)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return scriptPath, nil
 }
 
 // UnpackTools reads a set of juju tools in gzipped tar-archive
@@ -276,4 +354,14 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 	defer f.Close()
 	_, err = io.Copy(f, r)
 	return err
+}
+
+func seriesArch(machine FlatMachine) string {
+	binary := version.MustParseBinary(machine.Tools)
+	return fmt.Sprintf("%s-%s", binary.Series, binary.Arch)
+}
+
+type scriptConfig struct {
+	ControllerInfo *api.Info
+	ControllerTag  string
 }
