@@ -9,11 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/juju/1.25-upgrade/juju1/state"
 )
 
 var backupLXCDoc = ` 
@@ -63,21 +64,9 @@ func (c *backupLXCCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Get a listing of all of the LXC containers in the environment.
-	var buf bytes.Buffer
-	rc, err := runViaSSH(
-		c.address,
-		c.getRemoteCommand(c.remoteCommand),
-		withStdout(&buf),
-	)
+	lxcContainers, err := getLXCContainerList(&c.baseClientCommand)
 	if err != nil {
-		return errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
-	}
-	if rc != 0 {
-		return &cmd.RcPassthroughError{rc}
-	}
-	var lxcContainers lxcContainerList
-	if err := json.Unmarshal(buf.Bytes(), &lxcContainers); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "getting LXC container list")
 	}
 
 	doBackup := func(containerName, outpath string) error {
@@ -97,14 +86,14 @@ func (c *backupLXCCommand) Run(ctx *cmd.Context) error {
 			return errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
 		}
 		if rc != 0 {
-			return &cmd.RcPassthroughError{rc}
+			return errors.Errorf("creating LXC backup exited %d", rc)
 		}
 		return utils.ReplaceFile(temp, outpath)
 	}
 
 	// Create a backup of each container.
 	var group errgroup.Group
-	for _, container := range lxcContainers.Containers {
+	for _, container := range lxcContainers {
 		containerName := container.Id
 		outpath := filepath.Join(c.backupDir, container.InstanceId+".tar.xz")
 		group.Go(func() error {
@@ -116,6 +105,27 @@ func (c *backupLXCCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 	return group.Wait()
+}
+
+func getLXCContainerList(c *baseClientCommand) ([]lxcContainer, error) {
+	// Get a listing of all of the LXC containers in the environment.
+	var buf bytes.Buffer
+	rc, err := runViaSSH(
+		c.address,
+		c.getRemoteCommand(c.remoteCommand),
+		withStdout(&buf),
+	)
+	if err != nil {
+		return nil, errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
+	}
+	if rc != 0 {
+		return nil, &cmd.RcPassthroughError{rc}
+	}
+	var lxcContainers lxcContainerList
+	if err := json.Unmarshal(buf.Bytes(), &lxcContainers); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return lxcContainers.Containers, nil
 }
 
 type lxcContainerList struct {
@@ -173,25 +183,7 @@ func (c *backupLXCImplCommand) Run(ctx *cmd.Context) error {
 
 	if c.containerName == "" {
 		// Output a listing of LXC containers.
-		var lxcContainers lxcContainerList
-		machines, err := st.AllMachines()
-		if err != nil {
-			return errors.Annotate(err, "getting machines")
-		}
-		for _, m := range machines {
-			if m.ContainerType() != "lxc" {
-				continue
-			}
-			instanceId, err := m.InstanceId()
-			if err != nil {
-				return errors.Annotate(err, "getting container instance ID")
-			}
-			lxcContainers.Containers = append(lxcContainers.Containers, lxcContainer{
-				Id:         m.Id(),
-				InstanceId: string(instanceId),
-			})
-		}
-		return json.NewEncoder(ctx.GetStdout()).Encode(&lxcContainers)
+		return listLXCContainers(ctx, st)
 	}
 
 	containerMachine, err := st.Machine(c.containerName)
@@ -213,4 +205,27 @@ func (c *backupLXCImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "backing up LXC container")
 	}
 	return nil
+}
+
+func listLXCContainers(ctx *cmd.Context, st *state.State) error {
+	// Output a listing of LXC containers.
+	var lxcContainers lxcContainerList
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Annotate(err, "getting machines")
+	}
+	for _, m := range machines {
+		if m.ContainerType() != "lxc" {
+			continue
+		}
+		instanceId, err := m.InstanceId()
+		if err != nil {
+			return errors.Annotate(err, "getting container instance ID")
+		}
+		lxcContainers.Containers = append(lxcContainers.Containers, lxcContainer{
+			Id:         m.Id(),
+			InstanceId: string(instanceId),
+		})
+	}
+	return json.NewEncoder(ctx.GetStdout()).Encode(&lxcContainers)
 }
