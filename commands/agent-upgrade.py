@@ -23,7 +23,7 @@ AGENTS_DIR = path.join(BASE_DIR, 'agents')
 
 UPGRADE_DIR, SCRIPT = path.split(__file__)
 
-HOOK_TOOLS = """
+HOOK_TOOLS = """\
 action-fail
 action-get
 action-set
@@ -113,6 +113,8 @@ def rollback():
         backup_path = path.join(ROLLBACK_DIR, agent + '_agent.conf')
         shutil.copy(backup_path, agent_conf)
 
+    added_tools = path.join(TOOLS_DIR, path.basename(find_new_tools()))
+    shutil.rmtree(added_tools)
     shutil.rmtree(ROLLBACK_DIR)
 
 if __name__ == "__main__":

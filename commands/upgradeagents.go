@@ -31,14 +31,14 @@ import (
 
 //go:generate go run ../juju2/generate/filetoconst/filetoconst.go agentUpgradeScript agent-upgrade.py agentupgrade_script.go 2017 commands
 
-var upgradeAgentsDoc = ` 
+var upgradeAgentsDoc = `
 
 The purpose of the upgrade-agents command is to upgrade the agents on the 1.25
 environment to the version used by the controller.
 
 This command updates the tools symlinks for the agents, and updates their
 agent config files to specify the correct version, along with the CA Cert and
-addersses of the controller.
+addresses of the controller.
 
 `
 
@@ -123,8 +123,6 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
-
-	_ = machines
 
 	conn, err := c.getControllerConnection()
 	if err != nil {
