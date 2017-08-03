@@ -4,11 +4,16 @@
 package commands
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared/api"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/1.25-upgrade/juju1/state"
@@ -90,6 +95,9 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := ensureLXDHostPackages(lxcByHost); err != nil {
+		return errors.Trace(err)
+	}
 
 	// List LXD containers on each host, so we know which LXC
 	// containers still need migrating. This is required to make
@@ -116,6 +124,22 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 	// Rename the LXD containers and set metadata.
 	if err := renameLXDContainers(lxcByHost, lxdByHost, containerNames, environUUID); err != nil {
 		return errors.Annotate(err, "renaming LXD containers")
+	}
+
+	// Start the LXD containers back up, so the other upgrade
+	// commands (upgrade agents, etc.) can work. The agents must
+	// be stopped.
+	if err := startLXDContainers(lxcByHost, lxdByHost, containerNames); err != nil {
+		return errors.Annotate(err, "starting LXD containers")
+	}
+	if err := waitLXDContainersReady(
+		lxcByHost, containerNames,
+		time.Minute, // should be long enough for anyone
+	); err != nil {
+		return errors.Annotate(err, "waiting for LXD containers to have addresses")
+	}
+	if err := stopLXDContainerAgents(ctx, st, lxcByHost); err != nil {
+		return errors.Annotate(err, "stopping Juju agents in LXD containers")
 	}
 
 	return nil
@@ -154,9 +178,9 @@ func getLXCContainersFromState(st *state.State) (map[*state.Machine][]*state.Mac
 // getLXDContainersFromMachines returns a map of host machines
 // to LXD containers contained within them. Hosts without LXD
 // containers are not included in the map.
-func getLXDContainersFromMachines(hosts []*state.Machine) (map[*state.Machine]map[string]*api.Container, error) {
+func getLXDContainersFromMachines(hosts []*state.Machine) (map[*state.Machine]map[string]*lxdContainer, error) {
 	var group errgroup.Group
-	lxdContainers := make([]map[string]*api.Container, len(hosts))
+	lxdContainers := make([]map[string]*lxdContainer, len(hosts))
 	for i, host := range hosts {
 		i, host := i, host // copy for closure
 		group.Go(func() error {
@@ -174,7 +198,7 @@ func getLXDContainersFromMachines(hosts []*state.Machine) (map[*state.Machine]ma
 	if err := group.Wait(); err != nil {
 		return nil, errors.Annotate(err, "listing LXD containers")
 	}
-	lxdByHost := make(map[*state.Machine]map[string]*api.Container)
+	lxdByHost := make(map[*state.Machine]map[string]*lxdContainer)
 	for i, containers := range lxdContainers {
 		lxdByHost[hosts[i]] = containers
 	}
@@ -230,7 +254,7 @@ func getContainerNames(
 // grouped by host.
 func getLXCContainersToMigrate(
 	lxcByHost map[*state.Machine][]*state.Machine,
-	lxdByHost map[*state.Machine]map[string]*api.Container,
+	lxdByHost map[*state.Machine]map[string]*lxdContainer,
 	containerNames map[*state.Machine]containerNames,
 ) map[*state.Machine][]*state.Machine {
 	lxcToMigrateByHost := make(map[*state.Machine][]*state.Machine)
@@ -311,7 +335,7 @@ func migrateLXCContainers(lxcByHost map[*state.Machine][]*state.Machine) error {
 // if they aren't already named as such.
 func renameLXDContainers(
 	lxcByHost map[*state.Machine][]*state.Machine,
-	lxdByHost map[*state.Machine]map[string]*api.Container,
+	lxdByHost map[*state.Machine]map[string]*lxdContainer,
 	containerNames map[*state.Machine]containerNames,
 	environUUID string,
 ) error {
@@ -343,6 +367,214 @@ func renameLXDContainers(
 				)
 			})
 		}
+	}
+	return group.Wait()
+}
+
+// startLXDContainers starts the LXD containers that have
+// just been migrated from LXC, or were already migrated
+// but not yet started.
+func startLXDContainers(
+	lxcByHost map[*state.Machine][]*state.Machine,
+	lxdByHost map[*state.Machine]map[string]*lxdContainer,
+	containerNames map[*state.Machine]containerNames,
+) error {
+	running := make(map[string]bool) // keyed by LXD container name
+	for _, containers := range lxdByHost {
+		for name, container := range containers {
+			if container.IsActive() {
+				running[name] = true
+			}
+		}
+	}
+	var group errgroup.Group
+	for host, containers := range lxcByHost {
+		// By this stage, all of the LXC containers
+		// have been migrated to LXD and renamed.
+		// If they don't feature in "lxdByHost",
+		// then they were migrated by this process,
+		// and they're known to not be running.
+		toStart := make([]string, 0, len(containers))
+		for _, container := range containers {
+			newName := containerNames[container].newName
+			if !running[newName] {
+				toStart = append(toStart, newName)
+			}
+		}
+		if len(toStart) == 0 {
+			logger.Debugf("no LXD containers to start on %q", host.Id())
+			continue
+		}
+		logger.Debugf("starting LXD containers on %q: %q", host.Id(), toStart)
+		host := host // copy for closure
+		group.Go(func() error {
+			return errors.Annotatef(
+				StartLXDContainers(toStart, host),
+				"starting LXD containers on %q: %q",
+				host.Id(), toStart,
+			)
+		})
+	}
+	return group.Wait()
+}
+
+// waitLXDContainersReady waits for the LXD containers to have
+// addresses, as recorded in the state database, and be ready to
+// accept SSH connections.
+func waitLXDContainersReady(
+	lxcByHost map[*state.Machine][]*state.Machine,
+	containerNames map[*state.Machine]containerNames,
+	timeout time.Duration,
+) error {
+	containerAddrs := make(map[string]string) // keyed by LXD container name
+	for _, containers := range lxcByHost {
+		for _, container := range containers {
+			addr, err := getMachineAddress(container)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			name := containerNames[container].newName
+			containerAddrs[name] = addr
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	group, ctx := errgroup.WithContext(ctx)
+	const interval = time.Second // time to wait between checks
+
+	waitHostLXDContainersReady := func(host *state.Machine) error {
+		hostAddr, err := getMachineAddress(host)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		group, ctx := errgroup.WithContext(ctx)
+		waitReady := func(containerName, containerAddr string) error {
+			for {
+				logger.Debugf(
+					"waiting for %q to be ready for SSH connections via %q",
+					containerName, containerAddr,
+				)
+				if _, err := runViaSSH(
+					containerAddr, "/bin/true",
+					withSystemIdentity(),
+					withProxyCommandForHost(hostAddr),
+				); err == nil {
+					return nil
+				}
+				select {
+				case <-time.After(interval):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		}
+		for name, addr := range containerAddrs {
+			name, addr := name, addr // copy for closure
+			group.Go(func() error {
+				return errors.Annotatef(
+					waitReady(name, addr),
+					"waiting for %q to be ready for SSH connections",
+					name,
+				)
+			})
+		}
+		return group.Wait()
+	}
+
+	logger.Debugf("waiting for LXD containers to be ready for SSH connections")
+	for host := range lxcByHost {
+		host := host // copy for closure
+		group.Go(func() error {
+			return errors.Annotatef(
+				waitHostLXDContainersReady(host),
+				"waiting for LXD containers on %q to be ready for SSH connections",
+				host.Id(),
+			)
+		})
+	}
+	return group.Wait()
+}
+
+// stopLXDContainerAgents stops the Juju agents running inside
+// LXD containers. The LXD containers are expected to be running.
+func stopLXDContainerAgents(
+	ctx *cmd.Context,
+	st *state.State,
+	lxcByHost map[*state.Machine][]*state.Machine,
+) error {
+	// Stop the Juju agents on the LXD containers.
+	var flatMachines []FlatMachine
+	for _, containers := range lxcByHost {
+		for _, container := range containers {
+			fm, err := makeFlatMachine(st, container)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			flatMachines = append(flatMachines, fm)
+		}
+	}
+
+	logger.Debugf("stopping Juju agents running in LXD machines")
+	if _, err := agentServiceCommand(ctx, flatMachines, "stop"); err != nil {
+		return errors.Annotate(err, "stopping agents in LXD containers")
+	}
+	return nil
+}
+
+// ensureLXDPackages ensures that the required packages are installed on the
+// container hosts, for migrating the LXC containers to LXD.
+func ensureLXDHostPackages(lxcByHost map[*state.Machine][]*state.Machine) error {
+	packages := []string{
+		"lxd",
+		"lxd-client",
+		"python3-lxc", // required for lxc-to-lxd script
+	}
+	var group errgroup.Group
+	for host := range lxcByHost {
+		host := host // copy for closure
+		logger.Debugf("installing packages on %q: %q", host.Id(), packages)
+		group.Go(func() error {
+			hostAddr, err := getMachineAddress(host)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			cmd := "apt-get"
+			if host.Series() == "trusty" {
+				// On Trusty systems, we must use trusty-backports.
+				// See: https://linuxcontainers.org/lxd/getting-started-cli/.
+				cmd += " -t trusty-backports"
+			}
+			cmd += " install -q -y " + strings.Join(packages, " ")
+
+			var outputBuf bytes.Buffer
+			rc, err := runViaSSH(
+				hostAddr, cmd,
+				withSystemIdentity(),
+				withStdout(&outputBuf),
+				withStderr(&outputBuf),
+			)
+			if err != nil {
+				return errors.Annotatef(
+					err, "installing packages on %q", host.Id(),
+				)
+			}
+			if rc != 0 {
+				pw := &prefixWriter{
+					Writer: os.Stderr,
+					prefix: fmt.Sprintf("(machine %s) ", host.Id()),
+				}
+				defer pw.Flush()
+				io.Copy(pw, &outputBuf)
+
+				return errors.Errorf(
+					"installing packages on %q exited %d",
+					host.Id(), rc,
+				)
+			}
+			return nil
+		})
 	}
 	return group.Wait()
 }

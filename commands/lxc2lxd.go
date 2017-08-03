@@ -122,6 +122,26 @@ func BackupLXCContainer(container, host *state.Machine, out io.Writer) error {
 	return nil
 }
 
+// StartLXCContainer starts the specified LXD container machine.
+func StartLXDContainers(containerNames []string, host *state.Machine) error {
+	hostAddr, err := getMachineAddress(host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rc, err := runViaSSH(
+		hostAddr,
+		"lxc start "+strings.Join(containerNames, " "),
+		withSystemIdentity(),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 {
+		return errors.Errorf("lxc start exited %d", rc)
+	}
+	return nil
+}
+
 // RenameLXDContainer renames a LXD container on the given host.
 func RenameLXDContainer(newName, oldName string, host *state.Machine) error {
 	hostAddr, err := getMachineAddress(host)
@@ -163,7 +183,7 @@ func SetLXDContainerConfig(containerName, key, value string, host *state.Machine
 }
 
 // ListLXDContainers lists the LXD containers on the given host.
-func ListLXDContainers(host *state.Machine) (map[string]*api.Container, error) {
+func ListLXDContainers(host *state.Machine) (map[string]*lxdContainer, error) {
 	hostAddr, err := getMachineAddress(host)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -184,18 +204,18 @@ func ListLXDContainers(host *state.Machine) (map[string]*api.Container, error) {
 		return nil, errors.Errorf("listing LXD containers exited %d", rc)
 	}
 
-	var lxcList []lxcListContainerItem
+	var lxcList []*lxdContainer
 	if err := json.Unmarshal(buf.Bytes(), &lxcList); err != nil {
 		return nil, errors.Trace(err)
 	}
-	containers := make(map[string]*api.Container)
+	containers := make(map[string]*lxdContainer)
 	for _, item := range lxcList {
-		containers[item.Name] = item.Container
+		containers[item.Name] = item
 	}
 	return containers, nil
 }
 
-type lxcListContainerItem struct {
+type lxdContainer struct {
 	*api.Container
 	State     *api.ContainerState     `json:"state" yaml:"state"`
 	Snapshots []api.ContainerSnapshot `json:"snapshots" yaml:"snapshots"`

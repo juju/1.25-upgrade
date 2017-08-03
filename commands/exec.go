@@ -176,3 +176,44 @@ func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 	}
 	return results, group.Wait()
 }
+
+type prefixWriter struct {
+	io.Writer
+	prefix string
+	buf    bytes.Buffer
+}
+
+func (w *prefixWriter) Write(data []byte) (int, error) {
+	w.buf.Write(data)
+	for {
+		line, err := w.buf.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return len(data), err
+		}
+		if err := w.write(line); err != nil {
+			return 0, err
+		}
+	}
+}
+
+func (w *prefixWriter) Flush() error {
+	line := w.buf.Bytes()
+	if len(line) > 0 {
+		w.buf.Truncate(0)
+		return w.write(line)
+	}
+	return nil
+}
+
+func (w *prefixWriter) write(line []byte) error {
+	if _, err := w.Writer.Write([]byte(w.prefix)); err != nil {
+		return err
+	}
+	if _, err := w.Writer.Write(line); err != nil {
+		return err
+	}
+	return nil
+}

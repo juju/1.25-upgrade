@@ -18,6 +18,11 @@ Check the status of all the agents.
   juju 1.25-upgrade stop-agents <envname>
 
 
+## Stop and backup the LXC containers in the source environment.
+## Migrate LXC containers in the source environment to LXD.
+### Start LXD containers, stop agents
+
+
 ## Import the environment into the controller
 
   juju 1.25-upgrade import <envname> <controller>
