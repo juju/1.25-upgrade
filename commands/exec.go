@@ -56,18 +56,23 @@ func withStderr(w io.Writer) execOption {
 	}
 }
 
+func defaultSSHOptions() ssh.Options {
+	var options ssh.Options
+	// Strict host key checking must be disabled because Juju 1.25 did not
+	// populate SSH host keys.
+	options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	options.SetKnownHostsFile(os.DevNull)
+	return options
+}
+
 // runViaSSH runs script in the remote machine with address addr.
 func runViaSSH(addr, script string, opts ...execOption) (int, error) {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
 
-	var options execOptions
+	options := execOptions{Options: defaultSSHOptions()}
 	options.stdout = os.Stdout
 	options.stderr = os.Stderr
-	// Strict host key checking must be disabled because Juju 1.25 did not
-	// populate SSH host keys.
-	options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
-	options.SetKnownHostsFile(os.DevNull)
 	for _, opt := range opts {
 		opt(&options)
 	}
