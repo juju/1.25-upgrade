@@ -232,7 +232,7 @@ func (c *upgradeAgentsImplCommand) pushToolsToMachine(ctx *cmd.Context, ver vers
 		return &cmd.RcPassthroughError{Code: rc}
 	}
 	toolsPath := path.Join(toolsDir, fmt.Sprintf("%s-%s", ver, seriesArch(machine)))
-	var options ssh.Options
+	options := defaultSSHOptions()
 	options.SetIdentities(systemIdentity)
 	logger.Debugf("copying upgrade script and %s to machine %s", toolsPath, machine.ID)
 	args := []string{"-r", toolsPath, scriptPath, fmt.Sprintf("ubuntu@%s:~/1.25-agent-upgrade/", machine.Address)}
