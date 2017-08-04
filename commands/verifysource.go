@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 var verifySourceDoc = `
@@ -77,35 +78,34 @@ func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
 	}
 	defer st.Close()
 
+	// Check that the LXC containers can be migrated to LXD.
+	opts := MigrateLXCOptions{DryRun: true}
+	byHost, err := getLXCContainersFromState(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var group errgroup.Group
+	for host, containers := range byHost {
+		containerNames := make([]string, len(containers))
+		for i, container := range containers {
+			containerNames[i] = container.Id()
+		}
+		logger.Debugf("dry-running LXC migration for %s", strings.Join(containerNames, ", "))
+		host, containers := host, containers // copy for closure
+		group.Go(func() error {
+			err := MigrateLXC(containers, host, opts)
+			return errors.Annotatef(err, "dry-running LXC migration for host %q", host.Id())
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return errors.Annotate(err, "dry-running LXC migration")
+	}
+
 	model, err := st.Export()
 	if err != nil {
 		return errors.Annotate(err, "exporting model representation")
 	}
 
-	// Check that the LXC containers can be migrated to LXD.
-	for _, host := range model.Machines() {
-		var lxcContainers []description.Machine
-		for _, container := range host.Containers() {
-			if container.ContainerType() != "lxc" {
-				continue
-			}
-			lxcContainers = append(lxcContainers, container)
-		}
-		if len(lxcContainers) == 0 {
-			continue
-		}
-		lxcContainerNames := make([]string, len(lxcContainers))
-		for i, container := range lxcContainers {
-			lxcContainerNames[i] = container.Id()
-		}
-		logger.Debugf("dry-running LXC migration for %s", strings.Join(lxcContainerNames, ", "))
-		opts := MigrateLXCOptions{DryRun: true}
-		if err := MigrateLXC(lxcContainers, host, opts); err != nil {
-			return errors.Annotatef(err, "dry-running LXC migration for host %q", host.Id())
-		}
-	}
-
-	// Check for LXC containers
 	bytes, err := description.Serialize(model)
 	if err != nil {
 		return errors.Annotate(err, "serializing model representation")
