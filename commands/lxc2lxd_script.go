@@ -25,8 +25,8 @@ except ImportError:
 # is strictly only true for 'lxc.aa_profile'.
 keys_to_check = [
     'lxc.pts',
-    # 'lxc.tty',
-    # 'lxc.devttydir',
+    'lxc.tty',
+    'lxc.devttydir',
     # 'lxc.kmsg',
     'lxc.aa_profile',
     # 'lxc.cgroup.',
@@ -36,7 +36,7 @@ keys_to_check = [
     'lxc.mount',
     # 'lxc.rootfs.mount',
     # 'lxc.rootfs.options',
-    # 'lxc.pivotdir',
+    'lxc.pivotdir',
     # 'lxc.hook.pre-start',
     # 'lxc.hook.pre-mount',
     # 'lxc.hook.mount',
@@ -44,7 +44,7 @@ keys_to_check = [
     # 'lxc.hook.start',
     # 'lxc.hook.stop',
     # 'lxc.hook.post-stop',
-    # 'lxc.hook.clone',
+    'lxc.hook.clone',
     # 'lxc.hook.destroy',
     # 'lxc.hook',
     'lxc.network.type',
@@ -94,9 +94,9 @@ keys_to_check = [
     'lxc.rebootsignal',
     'lxc.stopsignal',
     'lxc.mount.entry',
-    'lxc.cap.drop'
+    'lxc.cap.drop',
     # 'lxc.cap.keep',
-    # 'lxc.seccomp',
+    'lxc.seccomp',
     # 'lxc.se_context',
     ]
 
@@ -170,7 +170,7 @@ def config_parse(path):
             if key == "lxc.mount":
                 if not os.path.exists(value):
                     print("Container fstab file doesn't exist, skipping...")
-                    return False
+                    continue
 
                 with open(value, "r") as fd:
                     for line in fd:
@@ -225,7 +225,7 @@ def convert_container(lxd_socket, container_name, args):
     # Load the container
     try:
         container = lxc.Container(container_name, args.lxcpath)
-    except:
+    except Exception:
         print("Invalid container configuration, skipping...")
         return False
 
@@ -333,7 +333,7 @@ def convert_container(lxd_socket, container_name, args):
     print("Processing network configuration")
     try:
         count = len(container.get_config_item("lxc.network"))
-    except:
+    except Exception:
         count = 0
 
     for i in range(count):
@@ -406,6 +406,10 @@ def convert_container(lxd_socket, container_name, args):
             print("Invalid mount configuration, skipping...")
             return False
 
+        # Ignore mounts that are present in LXD containers by default.
+        if mount[0] in ("proc", "sysfs"):
+            continue
+
         device = {'type': "disk"}
 
         # Deal with read-only mounts
@@ -464,7 +468,7 @@ def convert_container(lxd_socket, container_name, args):
     # Convert seccomp
     print("Processing container seccomp configuration")
     value = config_get(lxc_config, "lxc.seccomp")
-    if value:
+    if value and value[0] != "/usr/share/lxc/config/common.seccomp":
         print("Custom seccomp profiles aren't supported, skipping...")
         return False
 
@@ -479,8 +483,12 @@ def convert_container(lxd_socket, container_name, args):
     print("Processing container capabilities configuration")
     value = config_get(lxc_config, "lxc.cap.drop")
     if value:
-        print("Custom capabilities aren't supported, skipping...")
-        return False
+        for cap in value:
+            # Ignore capabilities that are dropped in LXD containers by default.
+            if cap in ("mac_admin", "mac_override", "sys_module", "sys_time"):
+                continue
+            print("Custom capabilities aren't supported, skipping...")
+            return False
 
     value = config_get(lxc_config, "lxc.cap.keep")
     if value:
@@ -513,7 +521,7 @@ def convert_container(lxd_socket, container_name, args):
             new['architecture'] = arches[arch[0]]
         else:
             print("Unknown architecture, assuming native.")
-    except:
+    except Exception:
         print("Couldn't find container architecture, assuming native.")
 
     # Define the container in LXD
@@ -583,7 +591,7 @@ parser.add_argument("--all", action="store_true", default=False,
 parser.add_argument("--delete", action="store_true", default=False,
                     help="Delete the source container")
 parser.add_argument("--move-rootfs", action="store_true", default=False,
-                    help="Copy the container rootfs rather than moving it")
+                    help="Move the container rootfs rather than copying it")
 parser.add_argument("--lxcpath", type=str, default=False,
                     help="Alternate LXC path")
 parser.add_argument("--lxdpath", type=str, default="/var/lib/lxd",

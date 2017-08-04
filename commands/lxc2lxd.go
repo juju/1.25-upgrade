@@ -17,7 +17,7 @@ import (
 	"github.com/juju/1.25-upgrade/juju1/state"
 )
 
-//go:generate go run ../juju2/generate/filetoconst/filetoconst.go LXCMigrationScript ../../../lxc/lxd/scripts/lxc-to-lxd lxc2lxd_script.go 2017 commands
+//go:generate go run ../juju2/generate/filetoconst/filetoconst.go LXCMigrationScript lxc-to-lxd lxc2lxd_script.go 2017 commands
 
 type MigrateLXCOptions struct {
 	DryRun     bool

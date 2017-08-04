@@ -18,8 +18,8 @@ except ImportError:
 # is strictly only true for 'lxc.aa_profile'.
 keys_to_check = [
     'lxc.pts',
-    # 'lxc.tty',
-    # 'lxc.devttydir',
+    'lxc.tty',
+    'lxc.devttydir',
     # 'lxc.kmsg',
     'lxc.aa_profile',
     # 'lxc.cgroup.',
@@ -29,7 +29,7 @@ keys_to_check = [
     'lxc.mount',
     # 'lxc.rootfs.mount',
     # 'lxc.rootfs.options',
-    # 'lxc.pivotdir',
+    'lxc.pivotdir',
     # 'lxc.hook.pre-start',
     # 'lxc.hook.pre-mount',
     # 'lxc.hook.mount',
@@ -37,7 +37,7 @@ keys_to_check = [
     # 'lxc.hook.start',
     # 'lxc.hook.stop',
     # 'lxc.hook.post-stop',
-    # 'lxc.hook.clone',
+    'lxc.hook.clone',
     # 'lxc.hook.destroy',
     # 'lxc.hook',
     'lxc.network.type',
