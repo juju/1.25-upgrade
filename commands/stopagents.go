@@ -81,21 +81,25 @@ func (c *stopAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
 
-	serviceCommand(ctx, machines, "stop")
+	if err := serviceCommand(ctx, machines, "stop"); err != nil {
+		return errors.Annotate(err, "stopping agents")
+	}
 
 	// The information is then gathered and parsed and formatted here before
 	// the data is passed back to the caller.
-	serviceStatus(ctx, machines)
-
-	return nil
+	return printServiceStatus(ctx, machines)
 }
 
-func serviceCommand(ctx *cmd.Context, machines []FlatMachine, verb string) {
-	results := serviceCall(machines, verb)
-
-	for _, r := range results {
+func serviceCommand(ctx *cmd.Context, machines []FlatMachine, verb string) error {
+	results, err := serviceCall(machines, verb)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for i, r := range results {
+		m := machines[i]
 		if r.Code != 0 {
-			logger.Warningf("machine: %s rc: %d\nstdout:%s\nstderr:%s", r.MachineID, r.Code, r.Stdout, r.Stderr)
+			logger.Warningf("machine: %s rc: %d\nstdout:%s\nstderr:%s", m.ID, r.Code, r.Stdout, r.Stderr)
 		}
 	}
+	return nil
 }

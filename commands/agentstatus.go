@@ -96,14 +96,15 @@ func (c *agentStatusImplCommand) Run(ctx *cmd.Context) error {
 
 	// The information is then gathered and parsed and formatted here before
 	// the data is passed back to the caller.
-	serviceStatus(ctx, machines)
-
-	return nil
+	return printServiceStatus(ctx, machines)
 }
 
-func serviceStatus(ctx *cmd.Context, machines []FlatMachine) {
-	results := serviceCall(machines, "status")
-	values := parseStatus(results)
+func printServiceStatus(ctx *cmd.Context, machines []FlatMachine) error {
+	results, err := serviceCall(machines, "status")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	values := parseStatus(machines, results)
 	writer := output.TabWriter(ctx.Stdout)
 	wrapper := output.Wrapper{writer}
 	wrapper.Println("AGENT", "STATUS", "VERSION")
@@ -111,6 +112,7 @@ func serviceStatus(ctx *cmd.Context, machines []FlatMachine) {
 		wrapper.Println(v.agent, v.status, v.version)
 	}
 	writer.Flush()
+	return nil
 }
 
 type statusResult struct {
@@ -119,10 +121,11 @@ type statusResult struct {
 	version string
 }
 
-func parseStatus(status []DistResult) []statusResult {
+func parseStatus(machines []FlatMachine, statusExecResults []execResult) []statusResult {
 	var results []statusResult
 
-	for _, r := range status {
+	for i, r := range statusExecResults {
+		machine := machines[i]
 		agents := strings.Split(r.Stdout, "-- end-of-agent --\n")
 		for _, agent := range agents[:len(agents)-1] {
 			var result statusResult
@@ -131,7 +134,7 @@ func parseStatus(status []DistResult) []statusResult {
 			lsParts := strings.Split(parts[1], " ")
 			toolsPath := lsParts[len(lsParts)-1]
 			result.version = path.Base(toolsPath)
-			switch r.Series {
+			switch machine.Series {
 			case "trusty":
 				result.status = upstartStatus(parts[2])
 			default:
@@ -178,8 +181,7 @@ func systemdStatus(output string) string {
 	}
 }
 
-func serviceCall(machines []FlatMachine, command string) []DistResult {
-
+func serviceCall(machines []FlatMachine, command string) ([]execResult, error) {
 	script := fmt.Sprintf(`
 set -xu
 cd /var/lib/juju/agents
@@ -192,7 +194,8 @@ do
 done
 	`, command)
 
-	return parallelCall(machines, script)
+	targets := flatMachineExecTargets(machines...)
+	return parallelExec(targets, script)
 }
 
 func getMachines(st *state.State) ([]FlatMachine, error) {
@@ -200,25 +203,44 @@ func getMachines(st *state.State) ([]FlatMachine, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting 1.25 machines")
 	}
-	var result []FlatMachine
+	result := make([]FlatMachine, len(machines))
 	for i, m := range machines {
-		address, err := getMachineAddress(m)
+		fm, err := makeFlatMachine(st, m)
 		if err != nil {
-			return nil, errors.Annotatef(err, "address for machine %q", m.Id())
-		}
-		fm := FlatMachine{
-			Model:   st.EnvironUUID(),
-			Series:  m.Series(),
-			ID:      m.Id(),
-			Address: address,
-		}
-		if tools, err := m.AgentTools(); err == nil {
-			fm.Tools = tools.Version.String()
+			return nil, errors.Trace(err)
 		}
 		logger.Debugf("%d: %#v", i, fm)
-		result = append(result, fm)
+		result[i] = fm
 	}
 	return result, nil
+}
+
+func makeFlatMachine(st *state.State, m *state.Machine) (FlatMachine, error) {
+	address, err := getMachineAddress(m)
+	if err != nil {
+		return FlatMachine{}, errors.Annotatef(err, "address for machine %q", m.Id())
+	}
+	fm := FlatMachine{
+		Model:   st.EnvironUUID(),
+		Series:  m.Series(),
+		ID:      m.Id(),
+		Address: address,
+	}
+	if tools, err := m.AgentTools(); err == nil {
+		fm.Tools = tools.Version.String()
+	}
+	if parentId, ok := m.ParentId(); ok {
+		host, err := st.Machine(parentId)
+		if err != nil {
+			return FlatMachine{}, errors.Trace(err)
+		}
+		hostAddress, err := getMachineAddress(host)
+		if err != nil {
+			return FlatMachine{}, errors.Trace(err)
+		}
+		fm.HostAddress = hostAddress
+	}
+	return fm, nil
 }
 
 func getMachineAddress(m *state.Machine) (string, error) {

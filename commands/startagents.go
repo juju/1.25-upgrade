@@ -81,11 +81,11 @@ func (c *startAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
 
-	serviceCommand(ctx, machines, "start")
+	if err := serviceCommand(ctx, machines, "start"); err != nil {
+		return errors.Annotate(err, "starting agents")
+	}
 
 	// The information is then gathered and parsed and formatted here before
 	// the data is passed back to the caller.
-	serviceStatus(ctx, machines)
-
-	return nil
+	return printServiceStatus(ctx, machines)
 }
