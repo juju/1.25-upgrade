@@ -169,7 +169,11 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	results := parallelCall(machines, "python3 ~/1.25-agent-upgrade/agent-upgrade.py")
+	targets := flatMachineExecTargets(machines...)
+	results, err := parallelExec(targets, "python3 ~/1.25-agent-upgrade/agent-upgrade.py")
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	logger.Debugf("results: %#v", results)
 

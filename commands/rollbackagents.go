@@ -84,14 +84,17 @@ func (c *rollbackAgentsImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
-
-	results := parallelCall(machines, "python3 ~/1.25-agent-upgrade/agent-upgrade.py rollback")
+	targets := flatMachineExecTargets(machines...)
+	results, err := parallelExec(targets, "python3 ~/1.25-agent-upgrade/agent-upgrade.py rollback")
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	var badMachines []string
-	for _, res := range results {
-		if res.Error != nil {
-			logger.Errorf("failed to rollback on machine %s: %s", res.MachineID, res.Error)
-			badMachines = append(badMachines, res.MachineID)
+	for i, res := range results {
+		if res.Code != 0 {
+			logger.Errorf("failed to rollback on machine %s: exited with %d", machines[i].ID, res.Code)
+			badMachines = append(badMachines, machines[i].ID)
 		}
 	}
 

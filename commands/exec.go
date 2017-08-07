@@ -4,27 +4,15 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"sync"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
+	"golang.org/x/sync/errgroup"
 )
 
 const systemIdentity = "/var/lib/juju/system-identity"
-
-type FlatMachine struct {
-	Model   string
-	Series  string
-	ID      string
-	Address string
-	Tools   string
-}
-
-type RunResult struct {
-	Code int
-}
 
 type execOptions struct {
 	ssh.Options
@@ -53,6 +41,25 @@ func withStdout(w io.Writer) execOption {
 func withStderr(w io.Writer) execOption {
 	return func(opts *execOptions) {
 		opts.stderr = w
+	}
+}
+
+// withProxyCommandForHost returns an option decorator for setting
+// an SSH proxy command to proxy through the given host.
+func withProxyCommandForHost(hostAddr string) execOption {
+	return withProxyCommand(
+		"ssh", "-q",
+		"-i", systemIdentity,
+		"-o", "StrictHostKeyChecking no",
+		"-o UserKnownHostsFile /dev/null",
+		"ubuntu@"+hostAddr,
+		"nc %h %p",
+	)
+}
+
+func withProxyCommand(cmd ...string) execOption {
+	return func(opts *execOptions) {
+		opts.SetProxyCommand(cmd...)
 	}
 }
 
@@ -96,48 +103,76 @@ func runViaSSH(addr, script string, opts ...execOption) (int, error) {
 	return 0, nil
 }
 
-type DistResult struct {
-	Model     string
-	Series    string
-	MachineID string
-	Error     error
-	Code      int
-	Stdout    string
-	Stderr    string
+type FlatMachine struct {
+	Model   string
+	Series  string
+	ID      string
+	Address string
+	Tools   string
+
+	// HostAddress, if non-empty, is the address of the
+	// host machine that contains this machine. If this
+	// is set, it implies the machine is a container.
+	HostAddress string
 }
 
-func parallelCall(machines []FlatMachine, script string) []DistResult {
+func flatMachineExecTargets(machines ...FlatMachine) []execTarget {
+	targets := make([]execTarget, len(machines))
+	for i, m := range machines {
+		targets[i] = execTarget{
+			m.Address,
+			m.HostAddress,
+		}
+	}
+	return targets
+}
 
-	var wg sync.WaitGroup
-	results := make([]DistResult, len(machines))
+type execTarget struct {
+	addr     string
+	hostAddr string
+}
 
-	for i, machine := range machines {
-		wg.Add(1)
-		go func(i int, machine FlatMachine) {
-			defer wg.Done()
+type execResult struct {
+	Code   int
+	Stdout string
+	Stderr string
+}
+
+// parallelExec executes a script on each of the given targets,
+// and returns their results. An error is only returned if any
+// of the the SSH executions cannot proceed; if the execution
+// proceeds, but the specified script fails, an error will not
+// be returned; the exit code and output will be captured in
+// the results.
+func parallelExec(targets []execTarget, script string) ([]execResult, error) {
+	results := make([]execResult, len(targets))
+	var group errgroup.Group
+	for i, target := range targets {
+		i, target := i, target // copy for closure
+		group.Go(func() error {
 			var stdoutBuf bytes.Buffer
 			var stderrBuf bytes.Buffer
-			rc, err := runViaSSH(
-				machine.Address, script,
+			opts := []execOption{
 				withSystemIdentity(),
 				withStdout(&stdoutBuf),
 				withStderr(&stderrBuf),
-			)
-			results[i] = DistResult{
-				Model:     machine.Model,
-				Series:    machine.Series,
-				MachineID: machine.ID,
-				Error:     err,
-				Code:      rc,
-				Stdout:    stdoutBuf.String(),
-				Stderr:    stderrBuf.String(),
 			}
-		}(i, machine)
+			if target.hostAddr != "" {
+				// This is a container; proxy through
+				// the host machine.
+				opts = append(opts, withProxyCommandForHost(target.hostAddr))
+			}
+			rc, err := runViaSSH(target.addr, script, opts...)
+			if err != nil {
+				return err
+			}
+			results[i] = execResult{
+				Code:   rc,
+				Stdout: stdoutBuf.String(),
+				Stderr: stderrBuf.String(),
+			}
+			return nil
+		})
 	}
-
-	logger.Debugf("Waiting for copies for finish")
-	wg.Wait()
-
-	// TODO Sort the results
-	return results
+	return results, group.Wait()
 }
