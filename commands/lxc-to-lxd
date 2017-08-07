@@ -1,11 +1,4 @@
-// Copyright 2017 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package commands
-
-// Generated code - do not edit.
-
-const LXCMigrationScript = `#!/usr/bin/env python3
+#!/usr/bin/env python3
 import argparse
 import http.client
 import json
@@ -643,4 +636,3 @@ for name, result in results.items():
 
 if False in results.values():
     sys.exit(1)
-`
