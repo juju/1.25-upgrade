@@ -144,6 +144,7 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	scriptPath, err := c.writeUpgradeScript(&scriptConfig{
 		ControllerTag:  conn.ControllerTag().String(),
 		ControllerInfo: c.controllerInfo,
+		Version:        ver,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -170,11 +171,23 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	}
 
 	targets := flatMachineExecTargets(machines...)
-	results, err := parallelExec(targets, "python3 ~/1.25-agent-upgrade/agent-upgrade.py")
+	results, err := parallelExec(targets, "apt-get install --yes python3 python3-yaml; python3 ~/1.25-agent-upgrade/agent-upgrade.py")
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	for i, result := range results {
+		if result.Code != 0 {
+			fmt.Fprintf(
+				ctx.Stdout,
+				"Upgrading agents on machine %s returned %d:\nOutput was:\n%s\n\nError was:\n%s\n",
+				machines[i].ID,
+				result.Code,
+				result.Stdout,
+				result.Stderr,
+			)
+		}
+	}
 	logger.Debugf("results: %#v", results)
 
 	return errors.Errorf("this command not yet finished")
@@ -366,4 +379,5 @@ func seriesArch(machine FlatMachine) string {
 type scriptConfig struct {
 	ControllerInfo *api.Info
 	ControllerTag  string
+	Version        version.Number
 }
