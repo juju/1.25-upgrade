@@ -132,7 +132,6 @@ done
 				prefix: fmt.Sprintf("(%s:stdout) ", machines[i].ID),
 			}
 			io.WriteString(w, result.Stdout)
-			w.Flush()
 		}
 		if strings.TrimSpace(result.Stderr) != "" {
 			w := &prefixWriter{
@@ -140,7 +139,6 @@ done
 				prefix: fmt.Sprintf("(%s:stderr) ", machines[i].ID),
 			}
 			io.WriteString(w, result.Stderr)
-			w.Flush()
 		}
 	}
 	if len(failed) == 0 {

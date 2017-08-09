@@ -177,43 +177,39 @@ func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 	return results, group.Wait()
 }
 
+// prefixWriter is an implementation of io.Writer, which prefixes each line
+// written with a given string.
 type prefixWriter struct {
 	io.Writer
-	prefix string
-	buf    bytes.Buffer
+	prefix  string
+	started bool
 }
 
+// Write is part of the io.Writer interfaces.
 func (w *prefixWriter) Write(data []byte) (int, error) {
-	w.buf.Write(data)
-	for {
-		line, err := w.buf.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				err = nil
+	ndata := len(data)
+	for len(data) > 0 {
+		if !w.started {
+			if _, err := io.WriteString(w.Writer, w.prefix); err != nil {
+				return -1, err
 			}
-			return len(data), err
+			w.started = true
 		}
-		if err := w.write(line); err != nil {
-			return 0, err
+		i := bytes.IndexRune(data, '\n')
+		if i >= 0 {
+			// There's a newline, so write out the line to the
+			// underlying writer, and clear w.started.
+			w.started = false
+		} else {
+			// No more newlines, just write out the remainder
+			// of the data.
+			i = len(data) - 1
 		}
+		n, err := w.Writer.Write(data[:i+1])
+		if err != nil {
+			return n, err
+		}
+		data = data[i+1:]
 	}
-}
-
-func (w *prefixWriter) Flush() error {
-	line := w.buf.Bytes()
-	if len(line) > 0 {
-		w.buf.Truncate(0)
-		return w.write(line)
-	}
-	return nil
-}
-
-func (w *prefixWriter) write(line []byte) error {
-	if _, err := w.Writer.Write([]byte(w.prefix)); err != nil {
-		return err
-	}
-	if _, err := w.Writer.Write(line); err != nil {
-		return err
-	}
-	return nil
+	return ndata, nil
 }
