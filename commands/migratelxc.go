@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/1.25-upgrade/juju1/state"
@@ -379,11 +380,11 @@ func startLXDContainers(
 	lxdByHost map[*state.Machine]map[string]*lxdContainer,
 	containerNames map[*state.Machine]containerNames,
 ) error {
-	running := make(map[string]bool) // keyed by LXD container name
+	running := make(set.Strings) // keyed by LXD container name
 	for _, containers := range lxdByHost {
 		for name, container := range containers {
 			if container.IsActive() {
-				running[name] = true
+				running.Add(name)
 			}
 		}
 	}
@@ -394,10 +395,16 @@ func startLXDContainers(
 		// If they don't feature in "lxdByHost",
 		// then they were migrated by this process,
 		// and they're known to not be running.
+		//
+		// NOTE(axw) lxcByHost is based on the
+		// container machines recorded in state,
+		// so it will contain records for LXC
+		// containers that have already been
+		// migrated to LXD.
 		toStart := make([]string, 0, len(containers))
 		for _, container := range containers {
 			newName := containerNames[container].newName
-			if !running[newName] {
+			if !running.Contains(newName) {
 				toStart = append(toStart, newName)
 			}
 		}
@@ -426,74 +433,54 @@ func waitLXDContainersReady(
 	containerNames map[*state.Machine]containerNames,
 	timeout time.Duration,
 ) error {
-	containerAddrs := make(map[string]string) // keyed by LXD container name
-	for _, containers := range lxcByHost {
-		for _, container := range containers {
-			addr, err := getMachineAddress(container)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			name := containerNames[container].newName
-			containerAddrs[name] = addr
-		}
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	group, ctx := errgroup.WithContext(ctx)
-	const interval = time.Second // time to wait between checks
 
-	waitHostLXDContainersReady := func(host *state.Machine) error {
+	logger.Debugf("waiting for LXD containers to be ready for SSH connections")
+	for host, containers := range lxcByHost {
 		hostAddr, err := getMachineAddress(host)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		group, ctx := errgroup.WithContext(ctx)
-		waitReady := func(containerName, containerAddr string) error {
-			for {
-				logger.Debugf(
-					"waiting for %q to be ready for SSH connections via %q",
-					containerName, containerAddr,
-				)
-				if _, err := runViaSSH(
-					containerAddr, "/bin/true",
-					withSystemIdentity(),
-					withProxyCommandForHost(hostAddr),
-				); err == nil {
-					return nil
-				}
-				select {
-				case <-time.After(interval):
-				case <-ctx.Done():
-					return ctx.Err()
-				}
+		for _, container := range containers {
+			containerAddr, err := getMachineAddress(container)
+			if err != nil {
+				return errors.Trace(err)
 			}
-		}
-		for name, addr := range containerAddrs {
-			name, addr := name, addr // copy for closure
+			containerName := containerNames[container].newName
 			group.Go(func() error {
 				return errors.Annotatef(
-					waitReady(name, addr),
+					waitLXDContainerReady(ctx, containerName, containerAddr, hostAddr),
 					"waiting for %q to be ready for SSH connections",
-					name,
+					containerName,
 				)
 			})
 		}
-		return group.Wait()
-	}
-
-	logger.Debugf("waiting for LXD containers to be ready for SSH connections")
-	for host := range lxcByHost {
-		host := host // copy for closure
-		group.Go(func() error {
-			return errors.Annotatef(
-				waitHostLXDContainersReady(host),
-				"waiting for LXD containers on %q to be ready for SSH connections",
-				host.Id(),
-			)
-		})
 	}
 	return group.Wait()
+}
+
+func waitLXDContainerReady(ctx context.Context, containerName, containerAddr, hostAddr string) error {
+	const interval = time.Second // time to wait between checks
+	for {
+		logger.Debugf(
+			"waiting for %q to be ready for SSH connections via %q",
+			containerName, containerAddr,
+		)
+		if _, err := runViaSSH(
+			containerAddr, "/bin/true",
+			withSystemIdentity(),
+			withProxyCommandForHost(hostAddr),
+		); err == nil {
+			return nil
+		}
+		select {
+		case <-time.After(interval):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // stopLXDContainerAgents stops the Juju agents running inside
@@ -565,7 +552,6 @@ func ensureLXDHostPackages(lxcByHost map[*state.Machine][]*state.Machine) error 
 					Writer: os.Stderr,
 					prefix: fmt.Sprintf("(machine %s) ", host.Id()),
 				}
-				defer pw.Flush()
 				io.Copy(pw, &outputBuf)
 
 				return errors.Errorf(
