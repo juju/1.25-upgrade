@@ -176,3 +176,40 @@ func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 	}
 	return results, group.Wait()
 }
+
+// prefixWriter is an implementation of io.Writer, which prefixes each line
+// written with a given string.
+type prefixWriter struct {
+	io.Writer
+	prefix  string
+	started bool
+}
+
+// Write is part of the io.Writer interfaces.
+func (w *prefixWriter) Write(data []byte) (int, error) {
+	ndata := len(data)
+	for len(data) > 0 {
+		if !w.started {
+			if _, err := io.WriteString(w.Writer, w.prefix); err != nil {
+				return -1, err
+			}
+			w.started = true
+		}
+		i := bytes.IndexRune(data, '\n')
+		if i >= 0 {
+			// There's a newline, so write out the line to the
+			// underlying writer, and clear w.started.
+			w.started = false
+		} else {
+			// No more newlines, just write out the remainder
+			// of the data.
+			i = len(data) - 1
+		}
+		n, err := w.Writer.Write(data[:i+1])
+		if err != nil {
+			return n, err
+		}
+		data = data[i+1:]
+	}
+	return ndata, nil
+}

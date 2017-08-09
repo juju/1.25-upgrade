@@ -4,17 +4,10 @@
 package commands
 
 import (
-	"fmt"
-	"path"
-	"regexp"
-	"sort"
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
 	"github.com/juju/1.25-upgrade/juju1/state"
-	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 )
 
 var agentStatusDoc = ` 
@@ -97,105 +90,6 @@ func (c *agentStatusImplCommand) Run(ctx *cmd.Context) error {
 	// The information is then gathered and parsed and formatted here before
 	// the data is passed back to the caller.
 	return printServiceStatus(ctx, machines)
-}
-
-func printServiceStatus(ctx *cmd.Context, machines []FlatMachine) error {
-	results, err := serviceCall(machines, "status")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	values := parseStatus(machines, results)
-	writer := output.TabWriter(ctx.Stdout)
-	wrapper := output.Wrapper{writer}
-	wrapper.Println("AGENT", "STATUS", "VERSION")
-	for _, v := range values {
-		wrapper.Println(v.agent, v.status, v.version)
-	}
-	writer.Flush()
-	return nil
-}
-
-type statusResult struct {
-	agent   string
-	status  string
-	version string
-}
-
-func parseStatus(machines []FlatMachine, statusExecResults []execResult) []statusResult {
-	var results []statusResult
-
-	for i, r := range statusExecResults {
-		machine := machines[i]
-		agents := strings.Split(r.Stdout, "-- end-of-agent --\n")
-		for _, agent := range agents[:len(agents)-1] {
-			var result statusResult
-			parts := strings.SplitN(agent, "\n", 3)
-			result.agent = parts[0]
-			lsParts := strings.Split(parts[1], " ")
-			toolsPath := lsParts[len(lsParts)-1]
-			result.version = path.Base(toolsPath)
-			switch machine.Series {
-			case "trusty":
-				result.status = upstartStatus(parts[2])
-			default:
-				result.status = systemdStatus(parts[2])
-			}
-			logger.Debugf("%#v", result)
-			results = append(results, result)
-		}
-	}
-
-	sort.Sort(statusResults(results))
-	return results
-}
-
-type statusResults []statusResult
-
-func (r statusResults) Len() int           { return len(r) }
-func (r statusResults) Less(i, j int) bool { return r[i].agent < r[j].agent }
-func (r statusResults) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-
-var upstartRegexp = regexp.MustCompile(`jujud-[\w-]+ ([\w/]+)`)
-
-func upstartStatus(output string) string {
-	matches := upstartRegexp.FindStringSubmatch(output)
-	switch len(matches) {
-	case 2:
-		return matches[1]
-	default:
-		logger.Warningf("unable to determine status from:\n%s", output)
-		return "unknown"
-	}
-}
-
-var systemdRegexp = regexp.MustCompile(`Active: (\w+ \(\w+\))`)
-
-func systemdStatus(output string) string {
-	matches := systemdRegexp.FindStringSubmatch(output)
-	switch len(matches) {
-	case 2:
-		return matches[1]
-	default:
-		logger.Warningf("unable to determine status from:\n%s", output)
-		return "unknown"
-	}
-}
-
-func serviceCall(machines []FlatMachine, command string) ([]execResult, error) {
-	script := fmt.Sprintf(`
-set -xu
-cd /var/lib/juju/agents
-for agent in *
-do
-	echo $agent
-	ls -al /var/lib/juju/tools/$agent
-	sudo service jujud-$agent %s
-	echo "-- end-of-agent --"
-done
-	`, command)
-
-	targets := flatMachineExecTargets(machines...)
-	return parallelExec(targets, script)
 }
 
 func getMachines(st *state.State) ([]FlatMachine, error) {
