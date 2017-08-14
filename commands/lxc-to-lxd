@@ -338,14 +338,17 @@ def convert_container(lxd_socket, container_name, args):
         # Get everything else
         dev = container.network[i]
 
+        # NOTE(axw) we ignore IP configuration, because
+        # it's configured inside the container anyway.
+        #
         # Validate configuration
-        if dev.ipv4 or dev.ipv4_gateway:
-            print("IPv4 network configuration isn't supported, skipping...")
-            return False
-
-        if dev.ipv6 or dev.ipv6_gateway:
-            print("IPv6 network configuration isn't supported, skipping...")
-            return False
+        #if dev.ipv4 or dev.ipv4_gateway:
+        #    print("IPv4 network configuration isn't supported, skipping...")
+        #    return False
+        #
+        #if dev.ipv6 or dev.ipv6_gateway:
+        #    print("IPv6 network configuration isn't supported, skipping...")
+        #    return False
 
         if dev.script_up or dev.script_down:
             print("Network config scripts aren't supported, skipping...")
