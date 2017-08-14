@@ -104,11 +104,12 @@ func runViaSSH(addr, script string, opts ...execOption) (int, error) {
 }
 
 type FlatMachine struct {
-	Model   string
-	Series  string
-	ID      string
-	Address string
-	Tools   string
+	Model      string
+	Series     string
+	ID         string
+	InstanceID string
+	Address    string
+	Tools      string
 
 	// HostAddress, if non-empty, is the address of the
 	// host machine that contains this machine. If this
