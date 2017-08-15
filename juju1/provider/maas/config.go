@@ -87,21 +87,28 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 		}
 	}
 
-	if oldCfg != nil {
-		oldAttrs := oldCfg.UnknownAttrs()
-		validMaasAgentName := false
-		if oldName, ok := oldAttrs["maas-agent-name"]; !ok || oldName == nil {
-			// If maas-agent-name was nil (because the config was
-			// generated pre-1.16.2 the only correct value for it is ""
-			// See bug #1256179
-			validMaasAgentName = (validated["maas-agent-name"] == "")
-		} else {
-			validMaasAgentName = (validated["maas-agent-name"] == oldName)
+	// NOTE(axw) for the purposes of migration from 1.25 to 2.x, we need to
+	// be able to be able to update the agent_name from the existing UUID to
+	// the environ/model UUID, to match expectations of Juju 2.x. The change
+	// must be accompanied by a MAAS database update to the maasserver_node
+	// records.
+	/*
+		if oldCfg != nil {
+			oldAttrs := oldCfg.UnknownAttrs()
+			validMaasAgentName := false
+			if oldName, ok := oldAttrs["maas-agent-name"]; !ok || oldName == nil {
+				// If maas-agent-name was nil (because the config was
+				// generated pre-1.16.2 the only correct value for it is ""
+				// See bug #1256179
+				validMaasAgentName = (validated["maas-agent-name"] == "")
+			} else {
+				validMaasAgentName = (validated["maas-agent-name"] == oldName)
+			}
+			if !validMaasAgentName {
+				return nil, fmt.Errorf("cannot change maas-agent-name")
+			}
 		}
-		if !validMaasAgentName {
-			return nil, fmt.Errorf("cannot change maas-agent-name")
-		}
-	}
+	*/
 	envCfg := new(maasEnvironConfig)
 	envCfg.Config = cfg
 	envCfg.attrs = validated

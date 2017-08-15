@@ -55,4 +55,6 @@ func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newMigrateLXCImplCommand())
 	super.Register(newRollbackAgentsCommand())
 	super.Register(newRollbackAgentsImplCommand())
+	super.Register(newUpdateMAASAgentNameCommand())
+	super.Register(newUpdateMAASAgentNameImplCommand())
 }

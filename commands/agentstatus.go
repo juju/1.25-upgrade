@@ -120,8 +120,15 @@ func makeFlatMachine(st *state.State, m *state.Machine) (FlatMachine, error) {
 		ID:      m.Id(),
 		Address: address,
 	}
+	if instanceId, err := m.InstanceId(); err == nil {
+		fm.InstanceID = string(instanceId)
+	} else if !errors.IsNotProvisioned(err) {
+		return FlatMachine{}, errors.Trace(err)
+	}
 	if tools, err := m.AgentTools(); err == nil {
 		fm.Tools = tools.Version.String()
+	} else if !errors.IsNotFound(err) {
+		return FlatMachine{}, errors.Trace(err)
 	}
 	if parentId, ok := m.ParentId(); ok {
 		host, err := st.Machine(parentId)
