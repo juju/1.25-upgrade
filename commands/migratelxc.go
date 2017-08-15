@@ -4,12 +4,8 @@
 package commands
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
 	"io/ioutil"
-	"os"
 	"strings"
 	"time"
 
@@ -95,9 +91,6 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 	environUUID := st.EnvironUUID()
 	containerNames, err := getContainerNames(lxcByHost, environUUID)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := ensureLXDHostPackages(lxcByHost); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -508,60 +501,4 @@ func stopLXDContainerAgents(
 	logger.Debugf("stopping Juju agents running in LXD machines")
 	_, err := agentServiceCommand(ctx, flatMachines, "stop")
 	return errors.Trace(err)
-}
-
-// ensureLXDPackages ensures that the required packages are installed on the
-// container hosts, for migrating the LXC containers to LXD.
-func ensureLXDHostPackages(lxcByHost map[*state.Machine][]*state.Machine) error {
-	packages := []string{
-		"lxd",
-		"lxd-client",
-		"python3-lxc", // required for lxc-to-lxd script
-	}
-	var group errgroup.Group
-	for host := range lxcByHost {
-		host := host // copy for closure
-		logger.Debugf("installing packages on %q: %q", host.Id(), packages)
-		group.Go(func() error {
-			hostAddr, err := getMachineAddress(host)
-			if err != nil {
-				return errors.Trace(err)
-			}
-
-			cmd := "apt-get"
-			if host.Series() == "trusty" {
-				// On Trusty systems, we must use trusty-backports.
-				// See: https://linuxcontainers.org/lxd/getting-started-cli/.
-				cmd += " -t trusty-backports"
-			}
-			cmd += " install -q -y " + strings.Join(packages, " ")
-
-			var outputBuf bytes.Buffer
-			rc, err := runViaSSH(
-				hostAddr, cmd,
-				withSystemIdentity(),
-				withStdout(&outputBuf),
-				withStderr(&outputBuf),
-			)
-			if err != nil {
-				return errors.Annotatef(
-					err, "installing packages on %q", host.Id(),
-				)
-			}
-			if rc != 0 {
-				pw := &prefixWriter{
-					Writer: os.Stderr,
-					prefix: fmt.Sprintf("(machine %s) ", host.Id()),
-				}
-				io.Copy(pw, &outputBuf)
-
-				return errors.Errorf(
-					"installing packages on %q exited %d",
-					host.Id(), rc,
-				)
-			}
-			return nil
-		})
-	}
-	return group.Wait()
 }

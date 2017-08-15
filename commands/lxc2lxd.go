@@ -19,6 +19,14 @@ import (
 
 //go:generate go run ../juju2/generate/filetoconst/filetoconst.go LXCMigrationScript lxc-to-lxd lxc2lxd_script.go 2017 commands
 
+// lxdPackages contains the packages required for running LXD containers,
+// and for the lxc-to-lxd migration.
+var lxdPackages = []string{
+	"lxd",
+	"lxd-client",
+	"python3-lxc", // required for lxc-to-lxd script
+}
+
 type MigrateLXCOptions struct {
 	DryRun     bool
 	MoveRootfs bool
@@ -42,15 +50,33 @@ func MigrateLXC(containers []*state.Machine, host *state.Machine, opts MigrateLX
 		args = append(args, string(instanceId))
 	}
 
+	// Make sure the LXD packages are installed.
+	// This is required even for a dry-run.
+	aptCmd := "apt-get"
+	if host.Series() == "trusty" {
+		// On Trusty systems, we must use trusty-backports.
+		// See: https://linuxcontainers.org/lxd/getting-started-cli/.
+		aptCmd += " -t trusty-backports"
+	}
+	aptCmd += " install -q -y " + strings.Join(lxdPackages, " ")
+
 	var buf bytes.Buffer
-	buf.WriteString(`
+	fmt.Fprintf(&buf, `
+set -e
 mkdir -p /var/lib/juju/1.25-upgrade/scripts
+%s
 cat << 'EOF' > /var/lib/juju/1.25-upgrade/scripts/lxc-to-lxd
-`)
-	buf.WriteString(LXCMigrationScript)
-	buf.WriteString("\nEOF\n")
-	buf.WriteString("python3 /var/lib/juju/1.25-upgrade/scripts/lxc-to-lxd ")
-	buf.WriteString(strings.Join(args, " "))
+%s
+EOF
+python3 /var/lib/juju/1.25-upgrade/scripts/lxc-to-lxd %s
+`, aptCmd, LXCMigrationScript, strings.Join(args, " "))
+
+	// write lxc-to-lxd output to stderr,
+	// prefixed by the host name.
+	output := &prefixWriter{
+		Writer: os.Stderr,
+		prefix: fmt.Sprintf("(machine %s) ", host.Id()),
+	}
 
 	hostAddr, err := getMachineAddress(host)
 	if err != nil {
@@ -60,8 +86,8 @@ cat << 'EOF' > /var/lib/juju/1.25-upgrade/scripts/lxc-to-lxd
 		hostAddr,
 		buf.String(),
 		withSystemIdentity(),
-		// write lxc-to-lxd output to stderr
-		withStdout(os.Stderr),
+		withStdout(output),
+		withStderr(output),
 	)
 	if err != nil {
 		return errors.Trace(err)
