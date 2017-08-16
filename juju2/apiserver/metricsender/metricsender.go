@@ -28,31 +28,37 @@ var (
 )
 
 func handleModelResponse(st ModelBackend, modelUUID string, modelResp wireformat.EnvResponse) int {
-	err := st.SetMetricBatchesSent(modelResp.AcknowledgedBatches)
-	if err != nil {
-		logger.Errorf("failed to set sent on metrics %v", err)
-	}
-	for unitName, status := range modelResp.UnitStatuses {
-		unit, err := st.Unit(unitName)
+	// NOTE(axw) the code below has been commented out because it does
+	// not build against the dependencies we require for the juju1 tree.
+	// This code is unused by the migration commands.
+	/*
+		err := st.SetMetricBatchesSent(modelResp.AcknowledgedBatches)
 		if err != nil {
-			logger.Errorf("failed to retrieve unit %q: %v", unitName, err)
-			continue
+			logger.Errorf("failed to set sent on metrics %v", err)
 		}
-		err = unit.SetMeterStatus(status.Status, status.Info)
-		if err != nil {
-			logger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
+		for unitName, status := range modelResp.UnitStatuses {
+			unit, err := st.Unit(unitName)
+			if err != nil {
+				logger.Errorf("failed to retrieve unit %q: %v", unitName, err)
+				continue
+			}
+			err = unit.SetMeterStatus(status.Status, status.Info)
+			if err != nil {
+				logger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
+			}
 		}
-	}
-	if modelResp.ModelStatus.Status != "" {
-		err = st.SetModelMeterStatus(
-			modelResp.ModelStatus.Status,
-			modelResp.ModelStatus.Info,
-		)
-		if err != nil {
-			logger.Errorf("failed to set the model meter status: %v", err)
+		if modelResp.ModelStatus.Status != "" {
+			err = st.SetModelMeterStatus(
+				modelResp.ModelStatus.Status,
+				modelResp.ModelStatus.Info,
+			)
+			if err != nil {
+				logger.Errorf("failed to set the model meter status: %v", err)
+			}
 		}
-	}
-	return len(modelResp.AcknowledgedBatches)
+		return len(modelResp.AcknowledgedBatches)
+	*/
+	return 0
 }
 
 func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireformat.Response) int {
@@ -190,13 +196,16 @@ func ToWire(mb *state.MetricBatch) *wireformat.MetricBatch {
 		}
 	}
 	return &wireformat.MetricBatch{
-		UUID:           mb.UUID(),
-		ModelUUID:      mb.ModelUUID(),
-		UnitName:       mb.Unit(),
-		CharmUrl:       mb.CharmURL(),
-		Created:        mb.Created().UTC(),
-		Metrics:        metrics,
-		Credentials:    mb.Credentials(),
-		SLACredentials: mb.SLACredentials(),
+		UUID:        mb.UUID(),
+		ModelUUID:   mb.ModelUUID(),
+		UnitName:    mb.Unit(),
+		CharmUrl:    mb.CharmURL(),
+		Created:     mb.Created().UTC(),
+		Metrics:     metrics,
+		Credentials: mb.Credentials(),
+		// NOTE(axw) the code below has been commented out because it does
+		// not build against the dependencies we require for the juju1 tree.
+		// This code is unused by the migration commands.
+		//SLACredentials: mb.SLACredentials(),
 	}
 }

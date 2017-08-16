@@ -295,89 +295,95 @@ func (mi *maas2Instance) volumes(
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,
 ) {
-	if mi.constraintMatches.Storage == nil {
-		return nil, nil, errors.NotFoundf("constraint storage mapping")
-	}
-
-	var volumes []storage.Volume
-	var attachments []storage.VolumeAttachment
-
-	// Set up a collection of volumes tags which
-	// we specifically asked for when the node was acquired.
-	validVolumes := set.NewStrings()
-	for _, v := range requestedVolumes {
-		validVolumes.Add(v.Id())
-	}
-
-	for label, devices := range mi.constraintMatches.Storage {
-		// We don't explicitly allow the root volume to be specified yet.
-		if label == rootDiskLabel {
-			continue
+	// NOTE(axw) the code below has been commented out because it does
+	// not build against the dependencies we require for the juju1 tree.
+	// This code is unused by the migration commands.
+	/*
+		if mi.constraintMatches.Storage == nil {
+			return nil, nil, errors.NotFoundf("constraint storage mapping")
 		}
 
-		// We only care about the volumes we specifically asked for.
-		if !validVolumes.Contains(label) {
-			continue
+		var volumes []storage.Volume
+		var attachments []storage.VolumeAttachment
+
+		// Set up a collection of volumes tags which
+		// we specifically asked for when the node was acquired.
+		validVolumes := set.NewStrings()
+		for _, v := range requestedVolumes {
+			validVolumes.Add(v.Id())
 		}
 
-		// There should be exactly one block device per label.
-		if len(devices) == 0 {
-			continue
-		} else if len(devices) > 1 {
-			// This should never happen, as we only request one block
-			// device per label. If it does happen, we'll just report
-			// the first block device and log this warning.
-			logger.Warningf(
-				"expected 1 block device for label %s, received %d",
-				label, len(devices),
-			)
-		}
-
-		device := devices[0]
-		volumeTag := names.NewVolumeTag(label)
-		vol := storage.Volume{
-			volumeTag,
-			storage.VolumeInfo{
-				VolumeId:   volumeTag.String(),
-				Size:       uint64(device.Size() / humanize.MiByte),
-				Persistent: false,
-			},
-		}
-		attachment := storage.VolumeAttachment{
-			volumeTag,
-			mTag,
-			storage.VolumeAttachmentInfo{
-				ReadOnly: false,
-			},
-		}
-
-		const devDiskByIdPrefix = "/dev/disk/by-id/"
-		const devPrefix = "/dev/"
-
-		idPath := device.IDPath()
-		if idPath == devPrefix+device.Name() {
-			// On vMAAS (i.e. with virtio), the device name
-			// will be stable, and is what is used to form
-			// id_path.
-			deviceName := idPath[len(devPrefix):]
-			attachment.DeviceName = deviceName
-		} else if strings.HasPrefix(idPath, devDiskByIdPrefix) {
-			const wwnPrefix = "wwn-"
-			id := idPath[len(devDiskByIdPrefix):]
-			if strings.HasPrefix(id, wwnPrefix) {
-				vol.WWN = id[len(wwnPrefix):]
-			} else {
-				vol.HardwareId = id
+		for label, devices := range mi.constraintMatches.Storage {
+			// We don't explicitly allow the root volume to be specified yet.
+			if label == rootDiskLabel {
+				continue
 			}
-		} else {
-			// It's neither /dev/<name> nor /dev/disk/by-id/<hardware-id>,
-			// so set it as the device link and hope for
-			// the best. At worst, the path won't exist
-			// and the storage will remain pending.
-			attachment.DeviceLink = idPath
+
+			// We only care about the volumes we specifically asked for.
+			if !validVolumes.Contains(label) {
+				continue
+			}
+
+			// There should be exactly one block device per label.
+			if len(devices) == 0 {
+				continue
+			} else if len(devices) > 1 {
+				// This should never happen, as we only request one block
+				// device per label. If it does happen, we'll just report
+				// the first block device and log this warning.
+				logger.Warningf(
+					"expected 1 block device for label %s, received %d",
+					label, len(devices),
+				)
+			}
+
+			device := devices[0]
+			volumeTag := names.NewVolumeTag(label)
+			vol := storage.Volume{
+				volumeTag,
+				storage.VolumeInfo{
+					VolumeId:   volumeTag.String(),
+					Size:       uint64(device.Size() / humanize.MiByte),
+					Persistent: false,
+				},
+			}
+			attachment := storage.VolumeAttachment{
+				volumeTag,
+				mTag,
+				storage.VolumeAttachmentInfo{
+					ReadOnly: false,
+				},
+			}
+
+			const devDiskByIdPrefix = "/dev/disk/by-id/"
+			const devPrefix = "/dev/"
+
+			idPath := device.IDPath()
+			if idPath == devPrefix+device.Name() {
+				// On vMAAS (i.e. with virtio), the device name
+				// will be stable, and is what is used to form
+				// id_path.
+				deviceName := idPath[len(devPrefix):]
+				attachment.DeviceName = deviceName
+			} else if strings.HasPrefix(idPath, devDiskByIdPrefix) {
+				const wwnPrefix = "wwn-"
+				id := idPath[len(devDiskByIdPrefix):]
+				if strings.HasPrefix(id, wwnPrefix) {
+					vol.WWN = id[len(wwnPrefix):]
+				} else {
+					vol.HardwareId = id
+				}
+			} else {
+				// It's neither /dev/<name> nor /dev/disk/by-id/<hardware-id>,
+				// so set it as the device link and hope for
+				// the best. At worst, the path won't exist
+				// and the storage will remain pending.
+				attachment.DeviceLink = idPath
+			}
+			volumes = append(volumes, vol)
+			attachments = append(attachments, attachment)
 		}
-		volumes = append(volumes, vol)
-		attachments = append(attachments, attachment)
-	}
-	return volumes, attachments, nil
+		return volumes, attachments, nil
+	*/
+	return nil, nil, errors.NotImplementedf("volumes")
 }
