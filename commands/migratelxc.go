@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -468,11 +469,13 @@ func waitLXDContainerReady(ctx context.Context, containerName, containerAddr, ho
 			"waiting for %q to be ready for SSH connections via %q",
 			containerName, containerAddr,
 		)
-		if _, err := runViaSSH(
+		if rc, err := runViaSSH(
 			containerAddr, "/bin/true",
 			withSystemIdentity(),
 			withProxyCommandForHost(hostAddr),
-		); err == nil {
+			withStdout(ioutil.Discard),
+			withStderr(ioutil.Discard),
+		); err == nil && rc == 0 {
 			return nil
 		}
 		select {
@@ -503,10 +506,8 @@ func stopLXDContainerAgents(
 	}
 
 	logger.Debugf("stopping Juju agents running in LXD machines")
-	if _, err := agentServiceCommand(ctx, flatMachines, "stop"); err != nil {
-		return errors.Annotate(err, "stopping agents in LXD containers")
-	}
-	return nil
+	_, err := agentServiceCommand(ctx, flatMachines, "stop")
+	return errors.Trace(err)
 }
 
 // ensureLXDPackages ensures that the required packages are installed on the
