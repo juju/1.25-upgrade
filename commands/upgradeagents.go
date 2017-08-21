@@ -124,6 +124,12 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
 
+	// Save machine addresses so that we don't need to be able to talk
+	// to the database to rollback the agent upgrades.
+	if err := c.saveMachines(machines); err != nil {
+		return errors.Annotate(err, "saving machine addresses")
+	}
+
 	conn, err := c.getControllerConnection()
 	if err != nil {
 		return errors.Annotate(err, "getting controller connection")
@@ -220,6 +226,17 @@ func (c *upgradeAgentsImplCommand) getTools(ctx *cmd.Context, client *http.Clien
 		return errors.Errorf("cannot unpack tools: %v", err)
 	}
 	return nil
+}
+
+func (c *upgradeAgentsImplCommand) saveMachines(machines []FlatMachine) error {
+	fileData, err := json.Marshal(machines)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(writeFile(
+		path.Join(toolsDir, "saved-machines.json"),
+		0644,
+		bytes.NewBuffer(fileData)))
 }
 
 func (c *upgradeAgentsImplCommand) pushTools(ctx *cmd.Context, ver version.Number, scriptPath string, machines []FlatMachine) error {
