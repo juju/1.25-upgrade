@@ -27,7 +27,6 @@ CONTROLLER_TAG = '{{.ControllerTag}}'
 VERSION = '{{.Version}}'
 API_ADDRESSES = """{{range .ControllerInfo.Addrs}}{{.}}
 {{end}}""".splitlines()
-API_PASSWORD = '{{.ControllerInfo.Password }}'
 
 BASE_DIR = '/var/lib/juju'
 ROLLBACK_DIR = path.join(BASE_DIR, '1.25-upgrade-rollback')
@@ -66,6 +65,16 @@ storage-add
 storage-get
 storage-list
 unit-get
+""".splitlines()
+
+OLD_CONTROLLER_KEYS = """\
+stateservercert
+stateserverkey
+caprivatekey
+apiport
+stateport
+sharedsecret
+systemidentity
 """.splitlines()
 
 # Ensure specific text is represented in literal format.
@@ -135,6 +144,12 @@ def write_agent_config(agent, data):
         yaml.dump(data, stream=f, default_flow_style=False)
 
 def update_machine_config(agent, data):
+    # None of these machines will need to manage the environ anymore.
+    data['jobs'] = ['JobHostUnits']
+    # Get rid of API/mongo hosting keys.
+    for name in OLD_CONTROLLER_KEYS:
+        if name in data:
+            del data[name]
     return update_unit_config(agent, data)
 
 def update_unit_config(agent, data):
@@ -146,7 +161,6 @@ def update_unit_config(agent, data):
     data['upgradedToVersion'] = VERSION
     data['cacert'] = Literal(CA_CERT)
 
-    data['apipassword'] = API_PASSWORD
     data['apiaddresses'] = API_ADDRESSES
 
     # Get rid of unneeded attributes.
