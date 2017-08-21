@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -86,25 +85,7 @@ func (c *rollbackAgentsImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	var badMachines []string
-	for i, res := range results {
-		if res.Code != 0 {
-			logger.Errorf("failed to rollback on machine %s: exited with %d", machines[i].ID, res.Code)
-			badMachines = append(badMachines, machines[i].ID)
-		}
-	}
-
-	if len(badMachines) > 0 {
-		plural := "s"
-		if len(badMachines) == 1 {
-			plural = ""
-		}
-		return errors.Errorf("rollback failed on machine%s %s",
-			plural, strings.Join(badMachines, ", "))
-	}
-
-	return nil
+	return errors.Trace(reportResults(ctx, "rollback", machines, results))
 }
 
 func (c *rollbackAgentsImplCommand) loadMachines() ([]FlatMachine, error) {

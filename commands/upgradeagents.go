@@ -181,22 +181,7 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	for i, result := range results {
-		if result.Code != 0 {
-			fmt.Fprintf(
-				ctx.Stdout,
-				"Upgrading agents on machine %s returned %d:\nOutput was:\n%s\n\nError was:\n%s\n",
-				machines[i].ID,
-				result.Code,
-				result.Stdout,
-				result.Stderr,
-			)
-		}
-	}
-	logger.Debugf("results: %#v", results)
-
-	return errors.Errorf("this command not yet finished")
+	return errors.Trace(reportResults(ctx, "upgrade", machines, results))
 }
 
 func (c *upgradeAgentsImplCommand) getTools(ctx *cmd.Context, client *http.Client, ver version.Number, toolsURLPrefix, seriesArch string) error {
