@@ -10,11 +10,16 @@ import os
 from os import path
 import shutil
 import sys
+import yaml
+
+FILE_FORMAT = '2.0'
 
 # Config passed in from the upgrade tool.
-FILE_FORMAT = '2.0'
 CA_CERT = """{{.ControllerInfo.CACert}}"""
 CONTROLLER_TAG = '{{.ControllerTag}}'
+VERSION = '{{.Version}}'
+API_ADDRESSES = """{{range .ControllerInfo.Addrs}}{{.}}
+{{end}}""".splitlines()
 
 BASE_DIR = '/var/lib/juju'
 ROLLBACK_DIR = path.join(BASE_DIR, '1.25-upgrade-rollback')
@@ -55,6 +60,25 @@ storage-list
 unit-get
 """.splitlines()
 
+OLD_CONTROLLER_KEYS = """\
+stateservercert
+stateserverkey
+caprivatekey
+apiport
+stateport
+sharedsecret
+systemidentity
+""".splitlines()
+
+# Ensure specific text is represented in literal format.
+class Literal(str):
+    pass
+
+def literal_presenter(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+yaml.add_representer(Literal, literal_presenter)
+
+
 def all_agents():
     return os.listdir(AGENTS_DIR)
 
@@ -91,7 +115,52 @@ def make_links(in_dir, names, target):
         os.symlink(target, link_path)
 
 def update_configs():
-    pass
+    for agent in all_agents():
+        data = read_agent_config(agent)
+        if agent.startswith('machine-'):
+            data = update_machine_config(agent, data)
+        else:
+            data = update_unit_config(agent, data)
+        write_agent_config(agent, data)
+
+def config_path(agent):
+    return path.join(AGENTS_DIR, agent, 'agent.conf')
+
+def read_agent_config(agent):
+    with open(config_path(agent)) as f:
+        data = yaml.load(f)
+    return data
+
+def write_agent_config(agent, data):
+    with open(config_path(agent), 'w') as f:
+        f.write('# format %s\n' % FILE_FORMAT)
+        yaml.dump(data, stream=f, default_flow_style=False)
+
+def update_machine_config(agent, data):
+    # None of these machines will need to manage the environ anymore.
+    data['jobs'] = ['JobHostUnits']
+    # Get rid of API/mongo hosting keys.
+    for name in OLD_CONTROLLER_KEYS:
+        if name in data:
+            del data[name]
+    return update_unit_config(agent, data)
+
+def update_unit_config(agent, data):
+    # Set controller and model.
+    env_tag = data['environment']
+    data['model'] = env_tag.replace('environment', 'model')
+    data['controller'] = CONTROLLER_TAG
+
+    data['upgradedToVersion'] = VERSION
+    data['cacert'] = Literal(CA_CERT)
+
+    data['apiaddresses'] = API_ADDRESSES
+
+    # Get rid of unneeded attributes.
+    for name in ('environment', 'stateaddresses', 'statepassword'):
+        del data[name]
+
+    return data
 
 def main():
     assert not path.exists(ROLLBACK_DIR), 'saved rollback information found - aborting'

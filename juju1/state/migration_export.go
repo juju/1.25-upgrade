@@ -126,14 +126,6 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	// <---- migration checked up to here...
-	if err := export.actions(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := export.cloudimagemetadata(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

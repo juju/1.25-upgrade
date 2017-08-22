@@ -2,8 +2,11 @@ package commands
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -213,4 +216,42 @@ func (w *prefixWriter) Write(data []byte) (int, error) {
 		data = data[i+1:]
 	}
 	return ndata, nil
+}
+
+func reportResults(ctx *cmd.Context, operation string, machines []FlatMachine, results []execResult) error {
+	resultsOutput, err := json.MarshalIndent(results, "", "   ")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("full %s results: %s", operation, string(resultsOutput))
+
+	var badMachines []string
+	for i, res := range results {
+		machine := machines[i].ID
+		if res.Code == 0 {
+			fmt.Fprintf(ctx.Stdout, "%s successful on machine %s\n", operation, machine)
+		} else {
+			fmt.Fprintf(
+				ctx.Stdout,
+				"%s failed on machine %s: exited with %d\nOutput was:\n%s\nError was:\n%s\n\n",
+				operation,
+				machine,
+				res.Code,
+				res.Stdout,
+				res.Stderr,
+			)
+			badMachines = append(badMachines, machine)
+		}
+	}
+
+	if len(badMachines) > 0 {
+		plural := "s"
+		if len(badMachines) == 1 {
+			plural = ""
+		}
+		return errors.Errorf("%s failed on machine%s %s",
+			operation, plural, strings.Join(badMachines, ", "))
+	}
+
+	return nil
 }

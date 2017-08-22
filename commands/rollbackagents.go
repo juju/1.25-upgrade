@@ -4,7 +4,9 @@
 package commands
 
 import (
-	"strings"
+	"encoding/json"
+	"io/ioutil"
+	"path"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -74,13 +76,7 @@ func (c *rollbackAgentsImplCommand) Info() *cmd.Info {
 }
 
 func (c *rollbackAgentsImplCommand) Run(ctx *cmd.Context) error {
-	st, err := c.getState(ctx)
-	if err != nil {
-		return errors.Annotate(err, "getting state")
-	}
-	defer st.Close()
-
-	machines, err := getMachines(st)
+	machines, err := c.loadMachines()
 	if err != nil {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
@@ -89,23 +85,18 @@ func (c *rollbackAgentsImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	return errors.Trace(reportResults(ctx, "rollback", machines, results))
+}
 
-	var badMachines []string
-	for i, res := range results {
-		if res.Code != 0 {
-			logger.Errorf("failed to rollback on machine %s: exited with %d", machines[i].ID, res.Code)
-			badMachines = append(badMachines, machines[i].ID)
-		}
+func (c *rollbackAgentsImplCommand) loadMachines() ([]FlatMachine, error) {
+	data, err := ioutil.ReadFile(path.Join(toolsDir, "saved-machines.json"))
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	if len(badMachines) > 0 {
-		plural := "s"
-		if len(badMachines) == 1 {
-			plural = ""
-		}
-		return errors.Errorf("rollback failed on machine%s %s",
-			plural, strings.Join(badMachines, ", "))
+	var machines []FlatMachine
+	err = json.Unmarshal(data, &machines)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	return nil
+	return machines, nil
 }

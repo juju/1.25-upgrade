@@ -124,6 +124,12 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
 
+	// Save machine addresses so that we don't need to be able to talk
+	// to the database to rollback the agent upgrades.
+	if err := c.saveMachines(machines); err != nil {
+		return errors.Annotate(err, "saving machine addresses")
+	}
+
 	conn, err := c.getControllerConnection()
 	if err != nil {
 		return errors.Annotate(err, "getting controller connection")
@@ -144,6 +150,7 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	scriptPath, err := c.writeUpgradeScript(&scriptConfig{
 		ControllerTag:  conn.ControllerTag().String(),
 		ControllerInfo: c.controllerInfo,
+		Version:        ver,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -170,14 +177,11 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	}
 
 	targets := flatMachineExecTargets(machines...)
-	results, err := parallelExec(targets, "python3 ~/1.25-agent-upgrade/agent-upgrade.py")
+	results, err := parallelExec(targets, "apt-get install --yes python3 python3-yaml; python3 ~/1.25-agent-upgrade/agent-upgrade.py")
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	logger.Debugf("results: %#v", results)
-
-	return errors.Errorf("this command not yet finished")
+	return errors.Trace(reportResults(ctx, "upgrade", machines, results))
 }
 
 func (c *upgradeAgentsImplCommand) getTools(ctx *cmd.Context, client *http.Client, ver version.Number, toolsURLPrefix, seriesArch string) error {
@@ -207,6 +211,17 @@ func (c *upgradeAgentsImplCommand) getTools(ctx *cmd.Context, client *http.Clien
 		return errors.Errorf("cannot unpack tools: %v", err)
 	}
 	return nil
+}
+
+func (c *upgradeAgentsImplCommand) saveMachines(machines []FlatMachine) error {
+	fileData, err := json.Marshal(machines)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(writeFile(
+		path.Join(toolsDir, "saved-machines.json"),
+		0644,
+		bytes.NewBuffer(fileData)))
 }
 
 func (c *upgradeAgentsImplCommand) pushTools(ctx *cmd.Context, ver version.Number, scriptPath string, machines []FlatMachine) error {
@@ -366,4 +381,5 @@ func seriesArch(machine FlatMachine) string {
 type scriptConfig struct {
 	ControllerInfo *api.Info
 	ControllerTag  string
+	Version        version.Number
 }
