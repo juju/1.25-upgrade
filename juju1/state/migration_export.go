@@ -22,6 +22,18 @@ import (
 	version1 "github.com/juju/1.25-upgrade/juju1/version"
 )
 
+var disallowedModelConfigAttrs = [...]string{
+	"admin-secret",
+	"ca-private-key",
+}
+
+var controllerOnlyConfigAttrs = [...]string{
+	"api-port",
+	"ca-cert",
+	"state-port",
+	"set-numa-control-policy",
+}
+
 // Export the current model for the State.
 func (st *State) Export() (description.Model, error) {
 	dbModel, err := st.Environment()
@@ -174,14 +186,14 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 		modelConfig[key] = value
 	}
 	// discard controller config items
-	for _, key := range []string{"api-port", "ca-cert", "state-port"} {
+	for _, key := range controllerOnlyConfigAttrs {
 		delete(modelConfig, key)
 	}
-	cloudType := modelConfig["type"].(string)
-	creds.Cloud = names2.NewCloudTag(cloudType)
+	creds.Cloud = names2.NewCloudTag(modelConfig["name"].(string))
 	creds.Owner = e.userTag(e.dbModel.Owner())
 	creds.Name = fmt.Sprintf("%s-%s", creds.Owner.Name(), creds.Cloud.Id())
 
+	cloudType := modelConfig["type"].(string)
 	switch cloudType {
 	case "ec2":
 		creds.AuthType = "access-key"
@@ -201,6 +213,7 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 		}
 		delete(modelConfig, "maas-oauth")
 		delete(modelConfig, "maas-server")
+		delete(modelConfig, "maas-agent-name")
 		// any region?
 	case "openstack":
 		creds.AuthType = modelConfig["auth-mode"].(string)
@@ -235,7 +248,9 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 	}
 
 	// TODO: delete all bootstrap only config values from modelConfig
-	//
+	for _, key := range disallowedModelConfigAttrs {
+		delete(modelConfig, key)
+	}
 
 	return modelConfig, creds, region, nil
 }
@@ -1640,6 +1655,10 @@ func (e *exporter) storagePools() error {
 		return errors.Annotate(err, "listing pools")
 	}
 	for _, cfg := range poolConfigs {
+		if e.model.Config()["type"].(string) != "ec2" && cfg.Name() == "ebs-ssd" {
+			// This storage pool is registered by default but it's not meaningful.
+			continue
+		}
 		e.model.AddStoragePool(description.StoragePoolArgs{
 			Name:       cfg.Name(),
 			Provider:   string(cfg.Provider()),

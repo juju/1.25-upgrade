@@ -109,30 +109,37 @@ func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "dry-running LXC migration")
 	}
 
-	return errors.Annotate(exportModel(ctx, st), "exporting model")
+	return errors.Annotate(writeModel(ctx, st), "exporting model")
 }
 
-func exportModel(ctx *cmd.Context, st *state.State) error {
+func exportModel(st *state.State) ([]byte, error) {
 	model, err := st.Export()
 	if err != nil {
-		return errors.Annotate(err, "exporting model representation")
+		return nil, errors.Annotate(err, "exporting model representation")
 	}
 
 	if envCfg, err := st.EnvironConfig(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	} else if envCfg.Type() == "maas" {
 		// Juju 1.25 doesn't have complete link-layer device definitions
 		// (it has network interfaces, but they lack some of the details)
 		// or IP addresses. Query MAAS for those using the Juju 2.x code,
 		// and fill in the blanks.
 		if err := addMAASNetworkEntities(model, st); err != nil {
-			return errors.Annotate(err, "adding MAAS network entities")
+			return nil, errors.Annotate(err, "adding MAAS network entities")
 		}
 	}
-
 	bytes, err := description.Serialize(model)
 	if err != nil {
-		return errors.Annotate(err, "serializing model representation")
+		return nil, errors.Annotate(err, "serializing model representation")
+	}
+	return bytes, nil
+}
+
+func writeModel(ctx *cmd.Context, st *state.State) error {
+	bytes, err := exportModel(st)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	_, err = ctx.GetStdout().Write(bytes)
