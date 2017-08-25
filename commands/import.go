@@ -5,6 +5,7 @@ package commands
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/description"
 	"github.com/juju/errors"
 
 	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
@@ -103,13 +104,17 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	targetAPI := migrationtarget.NewClient(conn)
 
 	logger.Debugf("exporting model from source environmment %s", st.EnvironTag().Id())
-	modelBytes, err := exportModel(st)
+	model, err := exportModel(st)
 	if err != nil {
 		return errors.Annotate(err, "exporting")
 	}
 
+	bytes, err := description.Serialize(model)
+	if err != nil {
+		return errors.Annotate(err, "serializing model representation")
+	}
 	logger.Debugf("importing model to target controller %s", conn.ControllerTag().Id())
-	err = targetAPI.Import(modelBytes)
+	err = targetAPI.Import(bytes)
 	// We want to try to clean up the model in the target even if
 	// there's an error importing - that can still leave the model
 	// around.
