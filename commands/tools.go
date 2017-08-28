@@ -49,11 +49,11 @@ func (w *toolsWrangler) getTools(seriesArch string) error {
 	toolsURL := fmt.Sprintf(toolsURLTemplate, w.conn.Addr(), w.version(), seriesArch)
 	toolsVersion := version.MustParseBinary(w.version() + "-" + seriesArch)
 
-	// Look to see if the directory is already there, if it is, assume
+	// Look to see if the file is already there, if it is, assume
 	// that it is good.
-	downloadedToolsDir := path.Join(toolsDir, toolsVersion.String())
-	if _, err := os.Stat(downloadedToolsDir); err == nil {
-		logger.Infof("%s exists\n", downloadedToolsDir)
+	downloadedTools := toolsFilePath(w.version(), seriesArch)
+	if _, err := os.Stat(downloadedTools); err == nil {
+		logger.Infof("%s exists\n", downloadedTools)
 		return nil
 	}
 
@@ -67,9 +67,9 @@ func (w *toolsWrangler) getTools(seriesArch string) error {
 		return errors.Errorf("bad HTTP response: %v", resp.Status)
 	}
 
-	err = UnpackTools(toolsDir, toolsVersion, resp.Body)
+	err = writeFile(downloadedTools, 0644, resp.Body)
 	if err != nil {
-		return errors.Errorf("cannot unpack tools: %v", err)
+		return errors.Errorf("cannot save tools: %v", err)
 	}
 	return nil
 
@@ -158,4 +158,8 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 	defer f.Close()
 	_, err = io.Copy(f, r)
 	return err
+}
+
+func toolsFilePath(version, seriesArch string) string {
+	return path.Join(toolsDir, fmt.Sprintf("%s-%s.tgz", version, seriesArch))
 }

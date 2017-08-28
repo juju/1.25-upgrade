@@ -7,14 +7,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
@@ -118,6 +116,11 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
 
+	// Make a dir to put the downloaded tools into.
+	if err := os.MkdirAll(toolsDir, 0755); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Save machine addresses so that we don't need to be able to talk
 	// to the database to rollback the agent upgrades.
 	if err := c.saveMachines(machines); err != nil {
@@ -134,11 +137,6 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "Controller version: %s\n", ver)
 	fmt.Fprintf(ctx.Stdout, "Controller addresses: %#v\n", conn.APIHostPorts())
 	fmt.Fprintf(ctx.Stdout, "Controller UUID: %s\n", conn.ControllerTag().Id())
-
-	// Make a dir to put the downloaded tools into.
-	if err := os.MkdirAll(toolsDir, 0755); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Emit the upgrade script for pushing to other machines.
 	scriptPath, err := c.writeUpgradeScript(&scriptConfig{
@@ -214,11 +212,11 @@ func (c *upgradeAgentsImplCommand) pushToolsToMachine(ctx *cmd.Context, ver vers
 	if rc != 0 {
 		return &cmd.RcPassthroughError{Code: rc}
 	}
-	toolsPath := path.Join(toolsDir, fmt.Sprintf("%s-%s", ver, seriesArch(machine)))
+	toolsPath := toolsFilePath(ver.String(), seriesArch(machine))
 	options := defaultSSHOptions()
 	options.SetIdentities(systemIdentity)
 	logger.Debugf("copying upgrade script and %s to machine %s", toolsPath, machine.ID)
-	args := []string{"-r", toolsPath, scriptPath, fmt.Sprintf("ubuntu@%s:~/1.25-agent-upgrade/", machine.Address)}
+	args := []string{toolsPath, scriptPath, fmt.Sprintf("ubuntu@%s:~/1.25-agent-upgrade/", machine.Address)}
 	err = ssh.Copy(args, &options)
 	if err != nil {
 		return errors.Trace(err)
