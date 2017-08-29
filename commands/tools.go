@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/1.25-upgrade/juju2/api"
+	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
 	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
@@ -95,6 +96,9 @@ func (tw *toolsWrangler) metadata(seriesArch string) (*coretools.Tools, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// Calculate the hash from the file on disk rather than doing it
+	// as it's being downloaded - sometimes the file will already be
+	// here.
 	hash := sha256.New()
 	f, err := os.Open(toolsFile)
 	if err != nil {
@@ -112,6 +116,21 @@ func (tw *toolsWrangler) metadata(seriesArch string) (*coretools.Tools, error) {
 		Size:    info.Size(),
 		SHA256:  hex.EncodeToString(hash.Sum(nil)),
 	}, nil
+}
+
+func (tw *toolsWrangler) uploadTools(modelUUID, seriesArch string) error {
+	toolsFile := toolsFilePath(tw.version(), seriesArch)
+	binary := tw.binary(seriesArch)
+
+	f, err := os.Open(toolsFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	targetAPI := migrationtarget.NewClient(tw.conn)
+	_, err = targetAPI.UploadTools(modelUUID, f, binary)
+	return errors.Trace(err)
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {

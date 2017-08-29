@@ -8,6 +8,7 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
 	coretools "github.com/juju/1.25-upgrade/juju2/tools"
@@ -135,7 +136,7 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	// We need to update the tools in the exported model to match the
 	// ones we'll put on the agents.
 	tw := newToolsWrangler(conn)
-	err = updateToolsInModel(model, tw)
+	allTools, err := updateToolsInModel(model, tw)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -165,27 +166,39 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotate(err, "importing model on target controller")
 	}
 
+	for _, seriesArch := range allTools {
+		err = tw.uploadTools(model.Tag().Id(), seriesArch)
+		if err != nil {
+			return errors.Annotatef(err, "uploading tools %q to target controller", seriesArch)
+		}
+	}
+
 	return errors.Errorf("not finished")
 }
 
-func updateToolsInModel(model description.Model, tw *toolsWrangler) error {
+func updateToolsInModel(model description.Model, tw *toolsWrangler) ([]string, error) {
+	allTools := set.NewStrings()
 	for _, machine := range model.Machines() {
-		metadata, err := tw.metadata(seriesArchFromAgentTools(machine.Tools()))
+		seriesArch := seriesArchFromAgentTools(machine.Tools())
+		allTools.Add(seriesArch)
+		metadata, err := tw.metadata(seriesArch)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		machine.SetTools(agentToolsFromTools(metadata))
 	}
 	for _, app := range model.Applications() {
 		for _, unit := range app.Units() {
-			metadata, err := tw.metadata(seriesArchFromAgentTools(unit.Tools()))
+			seriesArch := seriesArchFromAgentTools(unit.Tools())
+			allTools.Add(seriesArch)
+			metadata, err := tw.metadata(seriesArch)
 			if err != nil {
-				return errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			unit.SetTools(agentToolsFromTools(metadata))
 		}
 	}
-	return nil
+	return allTools.Values(), nil
 }
 
 func seriesArchFromAgentTools(t description.AgentTools) string {
