@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
 )
@@ -24,7 +25,7 @@ running the import command.
 
 func newImportCommand() cmd.Command {
 	return wrap(&importCommand{
-		baseClientCommand{
+		baseClientCommand: baseClientCommand{
 			needsController: true,
 			remoteCommand:   "import-impl",
 		},
@@ -33,6 +34,8 @@ func newImportCommand() cmd.Command {
 
 type importCommand struct {
 	baseClientCommand
+
+	keepBroken bool
 }
 
 func (c *importCommand) Info() *cmd.Info {
@@ -52,6 +55,18 @@ func (c *importCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+func (c *importCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.baseClientCommand.SetFlags(f)
+	f.BoolVar(&c.keepBroken, "keep-broken", false, "Keep a failed import")
+}
+
+func (c *importCommand) Run(ctx *cmd.Context) error {
+	if c.keepBroken {
+		c.extraOptions = append(c.extraOptions, "--keep-broken")
+	}
+	return c.baseClientCommand.Run(ctx)
+}
+
 var importImplDoc = `
 
 import-impl must be run on an API server machine for a 1.25
@@ -64,12 +79,14 @@ import it as a model under the target controller.
 
 func newImportImplCommand() cmd.Command {
 	return &importImplCommand{
-		baseRemoteCommand{needsController: true},
+		baseRemoteCommand: baseRemoteCommand{needsController: true},
 	}
 }
 
 type importImplCommand struct {
 	baseRemoteCommand
+
+	keepBroken bool
 }
 
 func (c *importImplCommand) Info() *cmd.Info {
@@ -87,6 +104,11 @@ func (c *importImplCommand) Init(args []string) error {
 	}
 
 	return cmd.CheckEmpty(args)
+}
+
+func (c *importImplCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.baseRemoteCommand.SetFlags(f)
+	f.BoolVar(&c.keepBroken, "keep-broken", false, "Keep a failed import")
 }
 
 func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
@@ -119,7 +141,7 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	// there's an error importing - that can still leave the model
 	// around.
 	defer func() {
-		if err != nil {
+		if err != nil && !c.keepBroken {
 			logger.Debugf("cleaning up failed import")
 			if cleanupErr := targetAPI.Abort(st.EnvironTag().Id()); cleanupErr != nil {
 				logger.Errorf("cleanup failed: %s", cleanupErr)

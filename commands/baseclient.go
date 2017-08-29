@@ -38,6 +38,8 @@ type baseClientCommand struct {
 
 	remoteCommand string
 	remoteArgs    string
+
+	extraOptions []string
 }
 
 // Init will grab the first arg as the environment name.
@@ -163,7 +165,14 @@ func (c *baseClientCommand) getRemoteCommand(cmd string, args ...string) string 
 	if logger.IsDebugEnabled() {
 		debug = "--debug"
 	}
-	return fmt.Sprintf("./%s %s %s %s\n", pluginBase, cmd, debug, strings.Join(args, " "))
+	return fmt.Sprintf(
+		"./%s %s %s %s %s\n",
+		pluginBase,
+		cmd,
+		debug,
+		strings.Join(c.extraOptions, " "),
+		strings.Join(args, " "),
+	)
 }
 
 func (c *baseClientCommand) prepareRemote(ctx *cmd.Context) error {
@@ -182,7 +191,9 @@ func (c *baseClientCommand) Run(ctx *cmd.Context) error {
 	if err := c.prepareRemote(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	rc, err := runViaSSH(c.address, c.getRemoteCommand(c.remoteCommand, c.remoteArgs))
+	remoteCommand := c.getRemoteCommand(c.remoteCommand, c.remoteArgs)
+	logger.Debugf("running remote command: %q", remoteCommand)
+	rc, err := runViaSSH(c.address, remoteCommand)
 	if err != nil {
 		return errors.Annotatef(err, "running %s via SSH", c.remoteCommand)
 	}
