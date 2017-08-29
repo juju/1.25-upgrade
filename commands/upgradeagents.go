@@ -212,7 +212,7 @@ func (c *upgradeAgentsImplCommand) pushToolsToMachine(ctx *cmd.Context, ver vers
 	if rc != 0 {
 		return &cmd.RcPassthroughError{Code: rc}
 	}
-	toolsPath := toolsFilePath(ver.String(), seriesArch(machine))
+	toolsPath := toolsFilePath(ver, seriesArch(machine))
 	options := defaultSSHOptions()
 	options.SetIdentities(systemIdentity)
 	logger.Debugf("copying upgrade script and %s to machine %s", toolsPath, machine.ID)

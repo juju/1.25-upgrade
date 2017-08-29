@@ -10,6 +10,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
+	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
 
 var importDoc = `
@@ -131,6 +132,18 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotate(err, "exporting")
 	}
 
+	// We need to update the tools in the exported model to match the
+	// ones we'll put on the agents.
+	tw := newToolsWrangler(conn)
+	err = updateToolsInModel(model, tw)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = writeModel(ctx, model)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	bytes, err := description.Serialize(model)
 	if err != nil {
 		return errors.Annotate(err, "serializing model representation")
@@ -153,4 +166,37 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	return errors.Errorf("not finished")
+}
+
+func updateToolsInModel(model description.Model, tw *toolsWrangler) error {
+	for _, machine := range model.Machines() {
+		metadata, err := tw.metadata(seriesArchFromAgentTools(machine.Tools()))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		machine.SetTools(agentToolsFromTools(metadata))
+	}
+	for _, app := range model.Applications() {
+		for _, unit := range app.Units() {
+			metadata, err := tw.metadata(seriesArchFromAgentTools(unit.Tools()))
+			if err != nil {
+				return errors.Trace(err)
+			}
+			unit.SetTools(agentToolsFromTools(metadata))
+		}
+	}
+	return nil
+}
+
+func seriesArchFromAgentTools(t description.AgentTools) string {
+	return t.Version().Series + "-" + t.Version().Arch
+}
+
+func agentToolsFromTools(t *coretools.Tools) description.AgentToolsArgs {
+	return description.AgentToolsArgs{
+		Version: t.Version,
+		URL:     t.URL,
+		Size:    t.Size,
+		SHA256:  t.SHA256,
+	}
 }

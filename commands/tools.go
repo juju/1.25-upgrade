@@ -4,16 +4,13 @@
 package commands
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -29,36 +26,46 @@ func newToolsWrangler(conn api.Connection) *toolsWrangler {
 	return &toolsWrangler{
 		conn:   conn,
 		client: utils.GetNonValidatingHTTPClient(),
+		cache:  make(map[string]*coretools.Tools),
 	}
 }
 
 type toolsWrangler struct {
 	conn   api.Connection
 	client *http.Client
+	cache  map[string]*coretools.Tools
 }
 
-func (w *toolsWrangler) version() string {
-	version, ok := w.conn.ServerVersion()
+func (tw *toolsWrangler) version() version.Number {
+	version, ok := tw.conn.ServerVersion()
 	if !ok {
 		panic("can't download tools without logging into controller")
 	}
-	return version.String()
+	return version
 }
 
-func (w *toolsWrangler) getTools(seriesArch string) error {
-	toolsURL := fmt.Sprintf(toolsURLTemplate, w.conn.Addr(), w.version(), seriesArch)
-	toolsVersion := version.MustParseBinary(w.version() + "-" + seriesArch)
+func (tw *toolsWrangler) binary(seriesArch string) version.Binary {
+	return version.MustParseBinary(tw.version().String() + "-" + seriesArch)
+}
+
+func (tw *toolsWrangler) url(seriesArch string) string {
+	return fmt.Sprintf(toolsURLTemplate, tw.conn.Addr(), tw.version(), seriesArch)
+}
+
+func (tw *toolsWrangler) getTools(seriesArch string) error {
+	toolsURL := tw.url(seriesArch)
+	toolsVersion := tw.binary(seriesArch)
 
 	// Look to see if the file is already there, if it is, assume
 	// that it is good.
-	downloadedTools := toolsFilePath(w.version(), seriesArch)
+	downloadedTools := toolsFilePath(tw.version(), seriesArch)
 	if _, err := os.Stat(downloadedTools); err == nil {
 		logger.Infof("%s exists\n", downloadedTools)
 		return nil
 	}
 
 	logger.Infof("Downloading tools: %s\n", toolsURL)
-	resp, err := w.client.Get(toolsURL)
+	resp, err := tw.client.Get(toolsURL)
 	if err != nil {
 		return errors.Annotatef(err, "downloading tools %s", toolsVersion)
 	}
@@ -72,82 +79,39 @@ func (w *toolsWrangler) getTools(seriesArch string) error {
 		return errors.Errorf("cannot save tools: %v", err)
 	}
 	return nil
-
 }
 
-// UnpackTools reads a set of juju tools in gzipped tar-archive
-// format and unpacks them into the appropriate tools directory
-// within dataDir. If a valid tools directory already exists,
-// UnpackTools returns without error.
-func UnpackTools(dataDir string, toolsVersion version.Binary, r io.Reader) (err error) {
-	// Unpack the gzip file and compute the checksum.
-	zr, err := gzip.NewReader(r)
-	if err != nil {
-		return err
+func (tw *toolsWrangler) metadata(seriesArch string) (*coretools.Tools, error) {
+	if cached, ok := tw.cache[seriesArch]; ok {
+		return cached, nil
 	}
-	defer zr.Close()
-	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
+	err := tw.getTools(seriesArch)
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
-	_, err = io.Copy(f, zr)
+	toolsFile := toolsFilePath(tw.version(), seriesArch)
+	info, err := os.Stat(toolsFile)
 	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name())
-
-	// Make a temporary directory in the tools directory,
-	// first ensuring that the tools directory exists.
-	dir, err := ioutil.TempDir(toolsDir, "unpacking-")
-	if err != nil {
-		return err
-	}
-	defer removeAll(dir)
-
-	// Checksum matches, now reset the file and untar it.
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-	tr := tar.NewReader(f)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if strings.ContainsAny(hdr.Name, "/\\") {
-			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
-		}
-		if hdr.Typeflag != tar.TypeReg {
-			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
-		}
-		name := path.Join(dir, hdr.Name)
-		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
-			return errors.Annotatef(err, "tar extract %q failed", name)
-		}
-	}
-	// Write some metadata about the tools.
-	tools := &coretools.Tools{Version: toolsVersion}
-	toolsMetadataData, err := json.Marshal(tools)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(path.Join(dir, toolsFile), toolsMetadataData, 0644)
-	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 
-	// The tempdir is created with 0700, so we need to make it more
-	// accessable for juju-run.
-	err = os.Chmod(dir, 0755)
+	hash := sha256.New()
+	f, err := os.Open(toolsFile)
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
+	}
+	defer f.Close()
+	_, err = io.Copy(hash, f)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return os.Rename(dir, path.Join(toolsDir, toolsVersion.String()))
+	return &coretools.Tools{
+		Version: tw.binary(seriesArch),
+		URL:     tw.url(seriesArch),
+		Size:    info.Size(),
+		SHA256:  hex.EncodeToString(hash.Sum(nil)),
+	}, nil
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {
@@ -160,6 +124,6 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 	return err
 }
 
-func toolsFilePath(version, seriesArch string) string {
-	return path.Join(toolsDir, fmt.Sprintf("%s-%s.tgz", version, seriesArch))
+func toolsFilePath(ver version.Number, seriesArch string) string {
+	return path.Join(toolsDir, fmt.Sprintf("%s-%s.tgz", ver, seriesArch))
 }

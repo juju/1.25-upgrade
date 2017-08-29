@@ -6,7 +6,6 @@ package commands
 import (
 	"strings"
 
-	"github.com/juju/1.25-upgrade/juju1/state"
 	_ "github.com/juju/1.25-upgrade/juju2/provider/maas"
 	"github.com/juju/cmd"
 	"github.com/juju/description"
@@ -103,14 +102,14 @@ func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "dry-running LXC migration")
 	}
 
-	return errors.Annotate(writeModel(ctx, st), "exporting model")
-}
-
-func writeModel(ctx *cmd.Context, st *state.State) error {
 	model, err := exportModel(st)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "exporting model")
 	}
+	return errors.Annotate(writeModel(ctx, model), "writing model")
+}
+
+func writeModel(ctx *cmd.Context, model description.Model) error {
 	bytes, err := description.Serialize(model)
 	if err != nil {
 		return errors.Annotate(err, "serializing model representation")
