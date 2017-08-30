@@ -4,12 +4,19 @@
 package commands
 
 import (
+	"io"
+	"io/ioutil"
+
 	"github.com/juju/cmd"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/set"
+	charmv5 "gopkg.in/juju/charm.v5"
+	charmv6 "gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/1.25-upgrade/juju1/state"
+	"github.com/juju/1.25-upgrade/juju1/state/storage"
 	"github.com/juju/1.25-upgrade/juju2/api/migrationtarget"
 	coretools "github.com/juju/1.25-upgrade/juju2/tools"
 )
@@ -140,9 +147,11 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = writeModel(ctx, model)
-	if err != nil {
-		return errors.Trace(err)
+	if logger.IsDebugEnabled() {
+		err = writeModel(ctx, model)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	bytes, err := description.Serialize(model)
@@ -173,7 +182,11 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	return errors.Errorf("not finished")
+	usedCharms := set.NewStrings()
+	for _, app := range model.Applications() {
+		usedCharms.Add(app.CharmURL())
+	}
+	return errors.Trace(transferCharms(st, usedCharms.SortedValues(), targetAPI))
 }
 
 func updateToolsInModel(model description.Model, tw *toolsWrangler) ([]string, error) {
@@ -211,5 +224,57 @@ func agentToolsFromTools(t *coretools.Tools) description.AgentToolsArgs {
 		URL:     t.URL,
 		Size:    t.Size,
 		SHA256:  t.SHA256,
+	}
+}
+
+func transferCharms(st *state.State, charms []string, targetAPI *migrationtarget.Client) error {
+	store := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	for _, curl := range charms {
+		logger.Debugf("uploading charm %q", curl)
+		if err := transferCharm(st, store, curl, targetAPI); err != nil {
+			return errors.Annotatef(err, "uploading charm %q", curl)
+		}
+	}
+	return nil
+}
+
+func transferCharm(st *state.State, store storage.Storage, curlString string, targetAPI *migrationtarget.Client) error {
+	curl, err := charmv5.ParseURL(curlString)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, err := st.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	reader, _, err := store.Get(ch.StoragePath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	localFile, err := ioutil.TempFile("", "charm-"+ch.URL().Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer localFile.Close()
+
+	_, err = io.Copy(localFile, reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = localFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = targetAPI.UploadCharm(st.EnvironUUID(), toV6(curl), localFile)
+	return errors.Trace(err)
+}
+
+func toV6(v5 *charmv5.URL) *charmv6.URL {
+	return &charmv6.URL{
+		Schema:   v5.Schema,
+		User:     v5.User,
+		Name:     v5.Name,
+		Revision: v5.Revision,
+		Series:   v5.Series,
 	}
 }
