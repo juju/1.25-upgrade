@@ -264,6 +264,8 @@ func transferCharm(st *state.State, store storage.Storage, curlString string, ta
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer reader.Close()
+
 	localFile, err := ioutil.TempFile("", "charm-"+ch.URL().Name)
 	if err != nil {
 		return errors.Trace(err)

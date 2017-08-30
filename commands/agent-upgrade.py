@@ -96,9 +96,9 @@ def save_rollback_info():
         shutil.copy(agent_conf, backup_path)
 
 def find_new_tools():
-    dirs = [name for name in os.listdir(UPGRADE_DIR) if path.join(UPGRADE_DIR, name).endswith('.tgz')]
-    assert len(dirs) == 1, 'too many tools dirs found: {}'.format(dirs)
-    return path.join(UPGRADE_DIR, dirs[0])
+    files = [name for name in os.listdir(UPGRADE_DIR) if path.join(UPGRADE_DIR, name).endswith('.tgz')]
+    assert len(files) == 1, 'too many tools files found: {}'.format(files)
+    return path.join(UPGRADE_DIR, files[0])
 
 def unpack_tools(source, dest_path):
     with tarfile.open(name=source, mode='r:gz') as contents:
