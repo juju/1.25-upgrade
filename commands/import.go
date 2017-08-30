@@ -175,6 +175,19 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotate(err, "importing model on target controller")
 	}
 
+	// Sanity check - ask the target controller whether the machines
+	// match what it expects.
+	checkResults, err := targetAPI.CheckMachines(model.Tag().Id())
+	if err != nil {
+		return errors.Annotate(err, "sanity checking machines in imported model")
+	}
+	if len(checkResults) > 0 {
+		for _, err := range checkResults {
+			logger.Errorf(err.Error())
+		}
+		return errors.Errorf("machine sanity check failed in imported model")
+	}
+
 	for _, seriesArch := range allTools {
 		err = tw.uploadTools(model.Tag().Id(), seriesArch)
 		if err != nil {
