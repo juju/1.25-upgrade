@@ -67,18 +67,9 @@ func (c *startAgentsImplCommand) Info() *cmd.Info {
 }
 
 func (c *startAgentsImplCommand) Run(ctx *cmd.Context) error {
-	st, err := c.getState(ctx)
+	machines, err := loadMachines()
 	if err != nil {
-		return errors.Annotate(err, "getting state")
-	}
-	defer st.Close()
-
-	// Here we always use the 1.25 environment to get all of the machine
-	// addresses. We then use those to ssh into every one of those machine
-	// and run the service status script against all the agents.
-	machines, err := getMachines(st)
-	if err != nil {
-		return errors.Annotate(err, "unable to get addresses for machines")
+		return errors.Annotate(err, "getting machines")
 	}
 
 	if _, err := agentServiceCommand(ctx, machines, "start"); err != nil {

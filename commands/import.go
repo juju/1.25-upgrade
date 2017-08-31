@@ -122,7 +122,7 @@ func (c *importImplCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
-	st, err := c.getState(ctx)
+	st, err := getState()
 	if err != nil {
 		return errors.Annotate(err, "getting state")
 	}
