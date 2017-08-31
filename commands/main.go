@@ -59,4 +59,6 @@ func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newUpdateMAASAgentNameImplCommand())
 	super.Register(newImportCommand())
 	super.Register(newImportImplCommand())
+	super.Register(newActivateCommand())
+	super.Register(newActivateImplCommand())
 }
