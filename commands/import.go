@@ -148,6 +148,9 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	model.Config()["agent-version"] = tw.version()
+
 	if logger.IsDebugEnabled() {
 		err = writeModel(ctx, model)
 		if err != nil {
