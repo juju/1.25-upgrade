@@ -75,6 +75,10 @@ func (tw *toolsWrangler) getTools(seriesArch string) error {
 		return errors.Errorf("bad HTTP response: %v", resp.Status)
 	}
 
+	// Ensure the toolsDir exists.
+	if err := os.MkdirAll(toolsDir, 0755); err != nil {
+		return errors.Trace(err)
+	}
 	err = writeFile(downloadedTools, 0644, resp.Body)
 	if err != nil {
 		return errors.Errorf("cannot save tools: %v", err)

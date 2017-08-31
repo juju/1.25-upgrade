@@ -116,11 +116,6 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
 
-	// Make a dir to put the downloaded tools into.
-	if err := os.MkdirAll(toolsDir, 0755); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Save machine addresses so that we don't need to be able to talk
 	// to the database to rollback the agent upgrades.
 	if err := c.saveMachines(machines); err != nil {
@@ -176,6 +171,10 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *upgradeAgentsImplCommand) saveMachines(machines []FlatMachine) error {
+	// Ensure the toolsDir exists.
+	if err := os.MkdirAll(toolsDir, 0755); err != nil {
+		return errors.Trace(err)
+	}
 	fileData, err := json.Marshal(machines)
 	if err != nil {
 		return errors.Trace(err)
