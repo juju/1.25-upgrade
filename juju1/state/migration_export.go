@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/1.25-upgrade/juju1/payload"
+	"github.com/juju/1.25-upgrade/juju1/storage"
 	"github.com/juju/1.25-upgrade/juju1/storage/poolmanager"
 	version1 "github.com/juju/1.25-upgrade/juju1/version"
 )
@@ -32,6 +33,21 @@ var controllerOnlyConfigAttrs = [...]string{
 	"ca-cert",
 	"state-port",
 	"set-numa-control-policy",
+}
+
+var commonStorageProviders = [...]storage.ProviderType{
+	"loop",
+	"rootfs",
+	"tmpfs",
+}
+var storageProviderTypeMap = map[string]storage.ProviderType{
+	"local":     "hostloop",
+	"gce":       "gce",
+	"ec2":       "ebs",
+	"maas":      "maas",
+	"openstack": "cinder",
+	"azure":     "azure",
+	"dummy":     "dummy",
 }
 
 // Export the current model for the State.
@@ -1655,8 +1671,8 @@ func (e *exporter) storagePools() error {
 		return errors.Annotate(err, "listing pools")
 	}
 	for _, cfg := range poolConfigs {
-		if e.model.Config()["type"].(string) != "ec2" && cfg.Name() == "ebs-ssd" {
-			// This storage pool is registered by default but it's not meaningful.
+		if !isCommonStorageType(cfg.Provider()) && !e.storageTypeMatchesEnvProvider(cfg.Provider()) {
+			// This just represents default settings for a storage pool that shouldn't be exported.
 			continue
 		}
 		e.model.AddStoragePool(description.StoragePoolArgs{
@@ -1666,6 +1682,11 @@ func (e *exporter) storagePools() error {
 		})
 	}
 	return nil
+}
+
+func (e *exporter) storageTypeMatchesEnvProvider(t storage.ProviderType) bool {
+	envProvider := e.model.Config()["type"].(string)
+	return storageProviderTypeMap[envProvider] == t
 }
 
 type storagePoolSettingsManager struct {
@@ -1681,4 +1702,13 @@ func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]m
 		}
 	}
 	return result, nil
+}
+
+func isCommonStorageType(t storage.ProviderType) bool {
+	for _, val := range commonStorageProviders {
+		if val == t {
+			return true
+		}
+	}
+	return false
 }
