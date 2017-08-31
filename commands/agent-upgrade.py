@@ -6,10 +6,12 @@ beside this script. Keeps all changed files in
 /var/lib/juju/1.25-upgrade-rollback so that they can be restored if
 needed.
 """
+import json
 import os
 from os import path
 import shutil
 import sys
+import tarfile
 import yaml
 
 FILE_FORMAT = '2.0'
@@ -94,14 +96,29 @@ def save_rollback_info():
         shutil.copy(agent_conf, backup_path)
 
 def find_new_tools():
-    dirs = [name for name in os.listdir(UPGRADE_DIR) if path.isdir(path.join(UPGRADE_DIR, name))]
-    assert len(dirs) == 1, 'too many tools dirs found: {}'.format(dirs)
-    return path.join(UPGRADE_DIR, dirs[0])
+    files = [name for name in os.listdir(UPGRADE_DIR) if path.join(UPGRADE_DIR, name).endswith('.tgz')]
+    assert len(files) == 1, 'too many tools files found: {}'.format(files)
+    return path.join(UPGRADE_DIR, files[0])
+
+def unpack_tools(source, dest_path):
+    with tarfile.open(name=source, mode='r:gz') as contents:
+        for item in contents:
+            contents.extract(item, path=dest_path)
+            item_path = path.join(dest_path, item.name)
+            shutil.chown(item_path, 'root', 'root')
+
+def write_tool_metadata(version, dest_path):
+    with open(path.join(dest_path, 'downloaded-tools.txt'), 'w') as metadata:
+        json.dump(dict(version=version, url="", size=0), metadata)
 
 def install_tools():
     new_tools_path = find_new_tools()
-    dest_path = path.join(TOOLS_DIR, path.basename(new_tools_path))
-    shutil.copytree(new_tools_path, dest_path)
+    # get 2.2.3-xenial-amd64 from ~/1.25-agent-upgrade/2.2.3-xenial-amd64.tgz
+    tools_base, _ = path.splitext(path.basename(new_tools_path))
+    dest_path = path.join(TOOLS_DIR, tools_base)
+    os.mkdir(dest_path)
+    unpack_tools(new_tools_path, dest_path)
+    write_tool_metadata(tools_base, dest_path)
     # Make all the hook tools link to jujud.
     make_links(dest_path, HOOK_TOOLS, path.join(dest_path, 'jujud'))
     # Make all of the agent tools dirs link to the new version.
@@ -182,7 +199,8 @@ def rollback():
         backup_path = path.join(ROLLBACK_DIR, agent + '_agent.conf')
         shutil.copy(backup_path, agent_conf)
 
-    added_tools = path.join(TOOLS_DIR, path.basename(find_new_tools()))
+    tools_base, _ = path.splitext(path.basename(find_new_tools()))
+    added_tools = path.join(TOOLS_DIR, tools_base)
     shutil.rmtree(added_tools)
     shutil.rmtree(ROLLBACK_DIR)
 
