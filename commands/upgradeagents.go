@@ -157,8 +157,7 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	err = c.pushTools(ctx, ver, scriptPath, machines)
-	if err != nil {
+	if err := c.pushTools(ctx, ver, scriptPath, machines); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -167,7 +166,15 @@ func (c *upgradeAgentsImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(reportResults(ctx, "upgrade", machines, results))
+	if err := reportResults(ctx, "upgrade", machines, results); err != nil {
+		return errors.Trace(err)
+	}
+
+	results, err = parallelExec(targets, connectionCheckScript)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(reportResults(ctx, "connection check", machines, results))
 }
 
 func (c *upgradeAgentsImplCommand) saveMachines(machines []FlatMachine) error {
@@ -258,3 +265,20 @@ type scriptConfig struct {
 	ControllerTag  string
 	Version        version.Number
 }
+
+const connectionCheckScript = `
+set -u
+failures=0
+cd /var/lib/juju/agents
+for agent in *; do
+    cd /var/lib/juju
+    tools/$agent/jujud check-connection $agent
+    if [ $? -eq 0 ]; then
+        echo connection check succeeded for $agent
+    else
+        echo connection check failed for $agent
+        failures=1
+    fi
+done
+exit $failures
+`
