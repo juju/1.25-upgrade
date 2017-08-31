@@ -4,10 +4,6 @@
 package commands
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"path"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 )
@@ -76,7 +72,7 @@ func (c *rollbackAgentsImplCommand) Info() *cmd.Info {
 }
 
 func (c *rollbackAgentsImplCommand) Run(ctx *cmd.Context) error {
-	machines, err := c.loadMachines()
+	machines, err := loadMachines()
 	if err != nil {
 		return errors.Annotate(err, "unable to get addresses for machines")
 	}
@@ -86,17 +82,4 @@ func (c *rollbackAgentsImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(reportResults(ctx, "rollback", machines, results))
-}
-
-func (c *rollbackAgentsImplCommand) loadMachines() ([]FlatMachine, error) {
-	data, err := ioutil.ReadFile(path.Join(toolsDir, "saved-machines.json"))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var machines []FlatMachine
-	err = json.Unmarshal(data, &machines)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return machines, nil
 }

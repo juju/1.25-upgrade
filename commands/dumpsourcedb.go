@@ -58,7 +58,7 @@ func (c *dumpSourceDBImpl) Info() *cmd.Info {
 }
 
 func (c *dumpSourceDBImpl) Run(ctx *cmd.Context) error {
-	st, err := c.getState(ctx)
+	st, err := getState()
 	if err != nil {
 		return errors.Annotate(err, "getting state")
 	}

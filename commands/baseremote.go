@@ -75,7 +75,7 @@ func (c *baseRemoteCommand) getControllerConnection() (api.Connection, error) {
 	return api.Open(c.controllerInfo, api.DefaultDialOpts())
 }
 
-func (c *baseRemoteCommand) getState(ctx *cmd.Context) (*state.State, error) {
+func getState() (*state.State, error) {
 	tag, err := getCurrentMachineTag(dataDir)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding machine tag")

@@ -4,6 +4,11 @@
 package commands
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
@@ -73,23 +78,52 @@ func (c *agentStatusImplCommand) Info() *cmd.Info {
 }
 
 func (c *agentStatusImplCommand) Run(ctx *cmd.Context) error {
-	st, err := c.getState(ctx)
+	machines, err := loadMachines()
 	if err != nil {
-		return errors.Annotate(err, "getting state")
-	}
-	defer st.Close()
-
-	// Here we always use the 1.25 environment to get all of the machine
-	// addresses. We then use those to ssh into every one of those machine
-	// and run the service status script against all the agents.
-	machines, err := getMachines(st)
-	if err != nil {
-		return errors.Annotate(err, "unable to get addresses for machines")
+		return errors.Trace(err)
 	}
 
 	// The information is then gathered and parsed and formatted here before
 	// the data is passed back to the caller.
 	return printServiceStatus(ctx, machines)
+}
+
+func loadMachines() ([]FlatMachine, error) {
+	// Use saved machines if available - if it's been created then the
+	// agent confs have been rewritten, so connecting to state might
+	// not work.
+	machines, err := loadSavedMachines()
+	if os.IsNotExist(errors.Cause(err)) {
+		st, err := getState()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting state")
+		}
+		defer st.Close()
+		// Otherwise use the 1.25 environment to get all of the machine
+		// addresses. We then use those to ssh into every one of those
+		// machine and run the service status script against all the
+		// agents.
+		machines, err = getMachines(st)
+		if err != nil {
+			return nil, errors.Annotate(err, "unable to get addresses for machines from state")
+		}
+	} else if err != nil {
+		return nil, errors.Annotate(err, "loading saved machines")
+	}
+	return machines, nil
+}
+
+func loadSavedMachines() ([]FlatMachine, error) {
+	data, err := ioutil.ReadFile(path.Join(toolsDir, "saved-machines.json"))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var machines []FlatMachine
+	err = json.Unmarshal(data, &machines)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machines, nil
 }
 
 func getMachines(st *state.State) ([]FlatMachine, error) {

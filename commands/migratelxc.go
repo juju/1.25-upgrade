@@ -77,7 +77,7 @@ func (c *migrateLXCImplCommand) Info() *cmd.Info {
 }
 
 func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
-	st, err := c.getState(ctx)
+	st, err := getState()
 	if err != nil {
 		return errors.Annotate(err, "getting state")
 	}
