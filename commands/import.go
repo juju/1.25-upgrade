@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -199,7 +200,13 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	for _, app := range model.Applications() {
 		usedCharms.Add(app.CharmURL())
 	}
-	return errors.Trace(transferCharms(st, usedCharms.SortedValues(), targetAPI))
+	err = transferCharms(st, usedCharms.SortedValues(), targetAPI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	fmt.Fprintf(ctx.Stdout, "import completed successfully\n")
+	return nil
 }
 
 func updateToolsInModel(model description.Model, tw *toolsWrangler) ([]string, error) {
