@@ -35,7 +35,7 @@ type activateCommand struct {
 func (c *activateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "activate",
-		Args:    "<environment name>",
+		Args:    "<environment name> <controller name>",
 		Purpose: "activate the new model in the target controller",
 		Doc:     activateDoc,
 	}
