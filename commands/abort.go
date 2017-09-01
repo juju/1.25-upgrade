@@ -93,11 +93,11 @@ func (c *abortImplCommand) Info() *cmd.Info {
 }
 
 func (c *abortImplCommand) Run(ctx *cmd.Context) error {
-	err := c.abortImport(ctx)
-	if err != nil {
+	modelErr := c.abortImport(ctx)
+	if modelErr != nil {
 		// We still want to rollback the agent upgrades, so just
 		// report this and continue.
-		logger.Errorf("failed to abort model: %s", err.Error())
+		logger.Errorf("failed to abort model: %s", modelErr.Error())
 	}
 
 	machines, err := loadMachines()
@@ -109,7 +109,13 @@ func (c *abortImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(reportResults(ctx, "rollback", machines, results))
+	if err := reportResults(ctx, "rollback", machines, results); err != nil {
+		return errors.Trace(err)
+	}
+
+	// If there were no problems rolling back agents but aborting the
+	// model failed, reflect that in the return code.
+	return errors.Trace(modelErr)
 }
 
 func (c *abortImplCommand) abortImport(ctx *cmd.Context) error {
