@@ -51,7 +51,7 @@ var storageProviderTypeMap = map[string]storage.ProviderType{
 }
 
 // Export the current model for the State.
-func (st *State) Export() (description.Model, error) {
+func (st *State) Export(overrideCloud string) (description.Model, error) {
 	dbModel, err := st.Environment()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -104,6 +104,10 @@ func (st *State) Export() (description.Model, error) {
 		Owner:       creds.Owner,
 		Config:      modelConfig,
 		Blocks:      blocks,
+	}
+	if overrideCloud != "" {
+		args.Cloud = overrideCloud
+		creds.Cloud = names2.NewCloudTag(overrideCloud)
 	}
 	export.model = description.NewModel(args)
 	export.model.SetCloudCredential(creds)

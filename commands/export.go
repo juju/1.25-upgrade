@@ -17,8 +17,8 @@ import (
 	"github.com/juju/1.25-upgrade/juju2/instance"
 )
 
-func exportModel(st *state.State) (description.Model, error) {
-	model, err := st.Export()
+func exportModel(st *state.State, targetCloud string) (description.Model, error) {
+	model, err := st.Export(targetCloud)
 	if err != nil {
 		return nil, errors.Annotate(err, "exporting model representation")
 	}
