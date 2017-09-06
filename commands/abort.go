@@ -93,29 +93,32 @@ func (c *abortImplCommand) Info() *cmd.Info {
 }
 
 func (c *abortImplCommand) Run(ctx *cmd.Context) error {
+	// Abort import, roll back agent upgrade and undo provider tag
+	// changes. We want to attempt to do all of these steps, even if a
+	// preceding one fails.
 	modelErr := c.abortImport(ctx)
 	if modelErr != nil {
-		// We still want to rollback the agent upgrades, so just
-		// report this and continue.
-		logger.Errorf("failed to abort model: %s", modelErr.Error())
+		logger.Errorf("aborting model failed: %s", modelErr.Error())
 	}
 
-	machines, err := loadMachines()
-	if err != nil {
-		return errors.Annotate(err, "unable to get addresses for machines")
-	}
-	targets := flatMachineExecTargets(machines...)
-	results, err := parallelExec(targets, "python3 ~/1.25-agent-upgrade/agent-upgrade.py rollback")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := reportResults(ctx, "rollback", machines, results); err != nil {
-		return errors.Trace(err)
+	rollbackErr := c.rollbackAgents(ctx)
+	if rollbackErr != nil {
+		logger.Errorf("rolling back agent upgrades failed: %s", rollbackErr.Error())
 	}
 
-	// If there were no problems rolling back agents but aborting the
-	// model failed, reflect that in the return code.
-	return errors.Trace(modelErr)
+	// This is a bit funny - if the agent upgrade failed we might not
+	// be able to open a state to talk to the environ
+	// provider. Although if the rollback failed because it was
+	// already done that would be ok.
+	tagErr := c.downgradeTags(ctx)
+	if tagErr != nil {
+		logger.Errorf("downgrading tags failed: %s", tagErr.Error())
+	}
+
+	if modelErr != nil || rollbackErr != nil || tagErr != nil {
+		return errors.Errorf("at least one error occurred aborting the upgrade")
+	}
+	return nil
 }
 
 func (c *abortImplCommand) abortImport(ctx *cmd.Context) error {
@@ -136,6 +139,35 @@ func (c *abortImplCommand) abortImport(ctx *cmd.Context) error {
 		return errors.Annotate(err, "aborting new model")
 	}
 	fmt.Fprintf(ctx.Stdout, "model %q aborted\n", modelUUID)
+	return nil
+}
+
+func (c *abortImplCommand) rollbackAgents(ctx *cmd.Context) error {
+	machines, err := loadMachines()
+	if err != nil {
+		return errors.Annotate(err, "unable to get addresses for machines")
+	}
+	targets := flatMachineExecTargets(machines...)
+	results, err := parallelExec(targets, "python3 ~/1.25-agent-upgrade/agent-upgrade.py rollback")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := reportResults(ctx, "rollback", machines, results); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *abortImplCommand) downgradeTags(ctx *cmd.Context) error {
+	st, err := getState()
+	if err != nil {
+		return errors.Annotate(err, "getting state")
+	}
+	err = downgradeTags(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fmt.Fprintf(ctx.Stdout, "tags downgraded\n")
 	return nil
 }
 
