@@ -103,7 +103,13 @@ func (c *activateImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "activating new model")
 	}
-	fmt.Fprintf(ctx.Stdout, "model %q activated\n", modelUUID)
+	fmt.Fprintf(ctx.Stdout, "model %s activated\n", modelUUID)
+
+	err = targetAPI.AdoptResources(modelUUID)
+	if err != nil {
+		return errors.Annotate(err, "adopting resources")
+	}
+	fmt.Fprintf(ctx.Stdout, "model %s resources adopted by target controller\n", modelUUID)
 	return nil
 }
 
