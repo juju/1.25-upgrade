@@ -40,6 +40,7 @@ import (
 	"github.com/juju/1.25-upgrade/juju1/provider/common"
 	"github.com/juju/1.25-upgrade/juju1/state"
 	"github.com/juju/1.25-upgrade/juju1/tools"
+	tags2 "github.com/juju/1.25-upgrade/juju2/environs/tags"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -1702,4 +1703,43 @@ func (e *environ) TagInstance(id instance.Id, tags map[string]string) error {
 		return errors.Annotate(err, "setting server metadata")
 	}
 	return nil
+}
+
+func (e *environ) changeTags(tags map[string]string) error {
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, inst := range instances {
+		err = e.TagInstance(inst.Id(), tags)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// UpgradeTags is part of the TagUpgrader interface.
+func (e *environ) UpgradeTags() error {
+	modelUUID, ok := e.ecfg().UUID()
+	if !ok {
+		return errors.Errorf("no model uuid in environ config")
+	}
+	return errors.Trace(e.changeTags(map[string]string{
+		tags2.JujuModel: modelUUID,
+		tags.JujuEnv:    "",
+	}))
+}
+
+// DowngradeTags is part of the TagUpgrader interface.
+func (e *environ) DowngradeTags() error {
+	modelUUID, ok := e.ecfg().UUID()
+	if !ok {
+		return errors.Errorf("no model uuid in environ config")
+	}
+	return errors.Trace(e.changeTags(map[string]string{
+		tags2.JujuModel:      "",
+		tags2.JujuController: "",
+		tags.JujuEnv:         modelUUID,
+	}))
 }
