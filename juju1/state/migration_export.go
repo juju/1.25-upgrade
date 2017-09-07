@@ -990,6 +990,19 @@ func (e *exporter) relations() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
+				// Logic for skipping invalid relation units ported
+				// back from juju2.
+				valid, err := ru.Valid()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !valid {
+					// It doesn't make sense for this application to have a
+					// relations scope for this endpoint. For example the
+					// situation where we have a subordinate charm related to
+					// two different principals.
+					continue
+				}
 				key := ru.currentKey()
 				if !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
