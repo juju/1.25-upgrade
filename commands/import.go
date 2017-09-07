@@ -186,6 +186,14 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotate(err, "importing model on target controller")
 	}
 
+	// We need to upgrade the tags in the environment before checking
+	// machines, since in most providers that's how we determine which
+	// instances belong to this environment/model.
+	err = upgradeTags(st)
+	if err != nil {
+		return errors.Annotate(err, "upgrading environment tags")
+	}
+
 	// Sanity check - ask the target controller whether the machines
 	// match what it expects.
 	checkResults, err := targetAPI.CheckMachines(model.Tag().Id())
