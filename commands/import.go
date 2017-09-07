@@ -45,7 +45,8 @@ func newImportCommand() cmd.Command {
 type importCommand struct {
 	baseClientCommand
 
-	keepBroken bool
+	keepBroken  bool
+	targetCloud string
 }
 
 func (c *importCommand) Info() *cmd.Info {
@@ -68,11 +69,15 @@ func (c *importCommand) Init(args []string) error {
 func (c *importCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.baseClientCommand.SetFlags(f)
 	f.BoolVar(&c.keepBroken, "keep-broken", false, "Keep a failed import")
+	f.StringVar(&c.targetCloud, "target-cloud", "", "The name of the cloud in the target controller")
 }
 
 func (c *importCommand) Run(ctx *cmd.Context) error {
 	if c.keepBroken {
 		c.extraOptions = append(c.extraOptions, "--keep-broken")
+	}
+	if c.targetCloud != "" {
+		c.extraOptions = append(c.extraOptions, "--target-cloud", c.targetCloud)
 	}
 	return c.baseClientCommand.Run(ctx)
 }
@@ -96,7 +101,8 @@ func newImportImplCommand() cmd.Command {
 type importImplCommand struct {
 	baseRemoteCommand
 
-	keepBroken bool
+	keepBroken  bool
+	targetCloud string
 }
 
 func (c *importImplCommand) Info() *cmd.Info {
@@ -119,6 +125,7 @@ func (c *importImplCommand) Init(args []string) error {
 func (c *importImplCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.baseRemoteCommand.SetFlags(f)
 	f.BoolVar(&c.keepBroken, "keep-broken", false, "Keep a failed import")
+	f.StringVar(&c.targetCloud, "target-cloud", "", "The name of the cloud in the target controller")
 }
 
 func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
@@ -136,7 +143,7 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	targetAPI := migrationtarget.NewClient(conn)
 
 	logger.Debugf("exporting model from source environmment %s", st.EnvironTag().Id())
-	model, err := exportModel(st)
+	model, err := exportModel(st, c.targetCloud)
 	if err != nil {
 		return errors.Annotate(err, "exporting")
 	}

@@ -102,7 +102,7 @@ func (c *verifySourceImplCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "dry-running LXC migration")
 	}
 
-	model, err := exportModel(st)
+	model, err := exportModel(st, "")
 	if err != nil {
 		return errors.Annotate(err, "exporting model")
 	}
