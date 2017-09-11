@@ -292,7 +292,13 @@ func (e *exporter) sequences() error {
 	}
 
 	for _, doc := range docs {
-		e.model.SetSequence(doc.Name, doc.Counter)
+		name := doc.Name
+		// Rename any service sequences to be application sequences.
+		if svcTag, err := names1.ParseServiceTag(doc.Name); err == nil {
+			appTag := names2.NewApplicationTag(svcTag.Id())
+			name = appTag.String()
+		}
+		e.model.SetSequence(name, doc.Counter)
 	}
 	return nil
 }
