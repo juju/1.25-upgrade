@@ -1,9 +1,10 @@
 # 1.25-upgrade
-Tools to upgrade and move a 1.25 environment to a 2.1 controller
+Tools to upgrade and move a 1.25 environment to a 2.2.4 controller
 
 
 ## Update MAAS agent name
 
+(This is only needed if the source environment are in a MAAS.)
 There's one setting we need to change in MAAS which we can't do in any other way than by using PSQL on the MAAS region controller.
 
     juju 1.25-upgrade update-maas-agentname <envname>
@@ -13,7 +14,7 @@ This will display a command that needs to be run from a shell on the region cont
 
 ## Initial checks
 
-Verify that you have access to both the source 1.25 environment, and a valid 2.2.3 controller.
+Verify that you have access to both the source 1.25 environment, and a valid 2.2.4 controller.
 
     juju 1.25-upgrade verify-source <envname>
 
@@ -41,6 +42,7 @@ You can see that the model has been created in the target controller by running
     juju models
 
 The new model will be shown as busy until the upgrade is finished and the model is activated.
+If the provider is one where we use tagging to determine which resources are part of the environment (like Openstack), the tags will also be upgraded here.
 
 ## Upgrade the agent tools and configuration on the source env machines
 
@@ -72,6 +74,7 @@ Run
     juju 1.25-upgrade abort <envname> <controller>
 
 This will removed the imported model on the target controller (as long
-as it wasn't activated), and undo the upgrade-agent steps.
+as it wasn't activated), undo the upgrade-agent steps and downgrade the 
+provider tagging if relevant.
 
     juju 1.25-upgrade start-agents <envname>
