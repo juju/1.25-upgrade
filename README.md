@@ -28,10 +28,44 @@ Check the status of all the agents.
     juju 1.25-upgrade stop-agents <envname>
 
 
-## Stop and backup the LXC containers in the source environment.
-## Migrate LXC containers in the source environment to LXD.
-### Start LXD containers, stop agents
+## Stop and backup the LXC containers in the source environment (optional/recommended)
 
+Run the following command to take a backup of the LXC containers in the
+original environment:
+
+    juju 1.25-upgrade backup-lxc <envname> <backup-dir>
+
+where "backup-dir" is a client-local directory in which backups of the LXC
+containers will be stored. This command will backup all LXC containers in
+the environment, so plan your capacity accordingly, and expect this to take
+some time if your client is far from the environment.
+
+WARNING: backing up the LXC containers requires that they be stopped first.
+After a container is backed up, it will be started again.
+
+To back up the containers individually, you can supply a regular expression
+via the --match flag, which matches the container IDs. You can also supply
+the --dry-run flag to list the containers that will be backed up.
+
+You can skip the backup-lxc step at your own risk. The migration to LXD
+will discard the LXC root filesystem.
+
+## Migrate LXC containers in the source environment to LXD.
+
+After backing up the LXC containers, migrate them to LXD:
+
+    juju 1.25-upgrade migrate-lxc <envname>
+
+After this command is run, the containers will have been migrated to LXD,
+and renamed according to how Juju 2.2.3 expects them.
+
+WARNING: migrating the LXC containers requires that they be stopped first.
+After a container is migrated, it will be started again (as a LXD container),
+and the Juju agent running within it will be stopped.
+
+To migrate the containers individually, you can supply a regular expression
+via the --match flag, which matches the container IDs. You can also supply
+the --dry-run flag to list the containers that will be migrated.
 
 ## Import the environment into the controller
 
@@ -76,5 +110,13 @@ Run
 This will removed the imported model on the target controller (as long
 as it wasn't activated), undo the upgrade-agent steps and downgrade the 
 provider tagging if relevant.
+
+Note that the migrate-lxc command does not store backups on the hosts,
+as the hosts may not have sufficient disk space for duplicate root
+filesystems. If an error occurs, then you will have to copy the backups
+to the hosts, and reinstate the LXC containers.
+
+After aborting the upgrade, you should start the
+agents back up:
 
     juju 1.25-upgrade start-agents <envname>
