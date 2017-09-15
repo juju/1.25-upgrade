@@ -122,6 +122,30 @@ func StopLXCContainer(container, host *state.Machine) error {
 	return nil
 }
 
+// StartLXCContainer starts the specified LXC container machine.
+func StartLXCContainer(container, host *state.Machine) error {
+	hostAddr, err := getMachineAddress(host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	instanceId, err := container.InstanceId()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rc, err := runViaSSH(
+		hostAddr,
+		"lxc-start -d -n "+string(instanceId),
+		withSystemIdentity(),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 && rc != 2 {
+		return errors.Errorf("lxc-start exited %d", rc)
+	}
+	return nil
+}
+
 // BackupLXCContainer backups up the specified container as an archive,
 // written to the given writer.
 func BackupLXCContainer(container, host *state.Machine, out io.Writer) error {
