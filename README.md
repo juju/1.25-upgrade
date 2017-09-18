@@ -1,6 +1,13 @@
 # 1.25-upgrade
-Tools to upgrade and move a 1.25 environment to a 2.2.4 controller
+Tools to upgrade and move a 1.25 environment to a 2.2.4 controller.
 
+The basic approach for the upgrade is to run a series of commands which:
+* Stop all of the agents in the source environment.
+* Export the state database from the source environment (in the 2.x export format) and import that into the target controller.
+* Convert any LXC containers in the environment into LXD containers (2.2.4 doesn't support LXC containers).
+* Update the agent binaries on all of the machines to those for the target controller, and rewrite the agent configuration files to talk to the target.
+* Activate the migrated model in the target controller.
+* Start the agents - at this point the Juju model should be fully functional and hosted in the target controller.
 
 ## Update MAAS agent name
 
@@ -70,6 +77,8 @@ the --dry-run flag to list the containers that will be migrated.
 ## Import the environment into the controller
 
     juju 1.25-upgrade import <envname> <controller>
+    
+If the name of the 1.25 environment isn't the same as the name of the cloud in the target, specify the cloud name using the `--target-cloud` option.
 
 You can see that the model has been created in the target controller by running
 
