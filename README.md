@@ -3,8 +3,8 @@ Tools to upgrade and move a 1.25 environment to a 2.2.4 controller.
 
 The basic approach for the upgrade is to run a series of commands which:
 * Stop all of the agents in the source environment.
-* Export the state database from the source environment (in the 2.x export format) and import that into the target controller.
 * Convert any LXC containers in the environment into LXD containers (2.2.4 doesn't support LXC containers).
+* Export the state database from the source environment (in the 2.x export format) and import that into the target controller.
 * Update the agent binaries on all of the machines to those for the target controller, and rewrite the agent configuration files to talk to the target.
 * Activate the migrated model in the target controller.
 * Start the agents - at this point the Juju model should be fully functional and hosted in the target controller.
@@ -86,6 +86,8 @@ You can see that the model has been created in the target controller by running
 
 The new model will be shown as busy until the upgrade is finished and the model is activated.
 If the provider is one where we use tagging to determine which resources are part of the environment (like Openstack), the tags will also be upgraded here.
+
+This command doesn't modify the source environment's state database.
 
 ## Upgrade the agent tools and configuration on the source env machines
 
