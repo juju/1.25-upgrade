@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"golang.org/x/sync/errgroup"
 
@@ -18,8 +20,15 @@ import (
 )
 
 var backupLXCDoc = ` 
-The purpose of the backup-lxc command is to create a backup of all the
+The purpose of the backup-lxc command is to create a backup of the
 LXC containers in a 1.25 environment.
+
+If --match is specified, it is treated as a regular expression for
+matching container names. Only containers whose names match will
+be backed up.
+
+If --dry-run is specified, then no backups will be created, nor
+will the containers be stopped.
 `
 
 func newBackupLXCCommand() cmd.Command {
@@ -31,13 +40,15 @@ func newBackupLXCCommand() cmd.Command {
 type backupLXCCommand struct {
 	baseClientCommand
 	backupDir string
+	dryRun    bool
+	match     string
 }
 
 func (c *backupLXCCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "backup-lxc",
 		Args:    "<environment name> <backup dir>",
-		Purpose: "create a backup of all the LXC containers for the specified environment",
+		Purpose: "create a backup of LXC containers for the specified environment",
 		Doc:     backupLXCDoc,
 	}
 }
@@ -54,9 +65,24 @@ func (c *backupLXCCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+func (c *backupLXCCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.baseClientCommand.SetFlags(f)
+	f.BoolVar(&c.dryRun, "dry-run", false, "perform a dry run, without making any changes")
+	f.StringVar(&c.match, "match", "", "regular expression for matching LXC container IDs to back up")
+}
+
 func (c *backupLXCCommand) Run(ctx *cmd.Context) error {
 	if _, err := os.Stat(c.backupDir); err != nil {
 		return errors.Annotate(err, "checking backup dir")
+	}
+
+	match := func(string) bool { return true }
+	if c.match != "" {
+		matchRE, err := regexp.Compile(c.match)
+		if err != nil {
+			return errors.Annotate(err, "parsing --match")
+		}
+		match = matchRE.MatchString
 	}
 
 	if err := c.prepareRemote(ctx); err != nil {
@@ -70,7 +96,6 @@ func (c *backupLXCCommand) Run(ctx *cmd.Context) error {
 	}
 
 	doBackup := func(containerName, outpath string) error {
-		ctx.Infof("Backing up container %q to %s", containerName, outpath)
 		temp := outpath + ".tmp"
 		f, err := os.Create(temp)
 		if err != nil {
@@ -91,11 +116,20 @@ func (c *backupLXCCommand) Run(ctx *cmd.Context) error {
 		return utils.ReplaceFile(temp, outpath)
 	}
 
-	// Create a backup of each container.
+	// Create a backup of each container matching --match,
+	// or all machines if --match isn't specified.
 	var group errgroup.Group
 	for _, container := range lxcContainers {
 		containerName := container.Id
+		if !match(containerName) {
+			ctx.Infof("Skipping non-matching container %q", containerName)
+			continue
+		}
 		outpath := filepath.Join(c.backupDir, container.InstanceId+".tar.xz")
+		ctx.Infof("Backing up container %q to %s", containerName, outpath)
+		if c.dryRun {
+			continue
+		}
 		group.Go(func() error {
 			return errors.Annotatef(
 				doBackup(containerName, outpath),
@@ -144,8 +178,8 @@ environment.
 
 The command will get a list of all the LXC containers when run without
 arguments. When run with the name of a container, the command will
-SSH to the container's host, stop the container, and send an archive
-of the container over stdout.
+SSH to the container's host, stop the container, send an archive
+of the container over stdout, and then start the container again.
 
 `
 
@@ -203,6 +237,10 @@ func (c *backupLXCImplCommand) Run(ctx *cmd.Context) error {
 	logger.Debugf("creating backup of LXC container %q", c.containerName)
 	if err := BackupLXCContainer(containerMachine, hostMachine, ctx.GetStdout()); err != nil {
 		return errors.Annotate(err, "backing up LXC container")
+	}
+	logger.Debugf("restarting LXC container %q", c.containerName)
+	if err := StartLXCContainer(containerMachine, hostMachine); err != nil {
+		return errors.Annotate(err, "starting LXC container")
 	}
 	return nil
 }

@@ -6,11 +6,14 @@ package commands
 import (
 	"context"
 	"io/ioutil"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"golang.org/x/sync/errgroup"
 
@@ -19,8 +22,15 @@ import (
 )
 
 var migrateLXCDoc = ` 
-The purpose of the migrate-lxc command is to migrate all of the
+The purpose of the migrate-lxc command is to migrate the
 LXC containers in a 1.25 environment to LXD.
+
+If --match is specified, it is treated as a regular expression for
+matching container names. Only containers whose names match will
+be backed up.
+
+If --dry-run is specified, then no backups will be created, nor
+will the containers be stopped.
 `
 
 func newMigrateLXCCommand() cmd.Command {
@@ -31,7 +41,8 @@ func newMigrateLXCCommand() cmd.Command {
 
 type migrateLXCCommand struct {
 	baseClientCommand
-	migrateDir string
+	dryRun bool
+	match  string
 }
 
 func (c *migrateLXCCommand) Info() *cmd.Info {
@@ -43,12 +54,28 @@ func (c *migrateLXCCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *migrateLXCCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.baseClientCommand.SetFlags(f)
+	f.BoolVar(&c.dryRun, "dry-run", false, "perform a dry run, without making any changes")
+	f.StringVar(&c.match, "match", "", "regular expression for matching LXC container IDs to migrate")
+}
+
 func (c *migrateLXCCommand) Init(args []string) error {
 	args, err := c.baseClientCommand.init(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return cmd.CheckEmpty(args)
+}
+
+func (c *migrateLXCCommand) Run(ctx *cmd.Context) error {
+	if c.match != "" {
+		c.extraOptions = append(c.extraOptions, utils.ShQuote("--match="+c.match))
+	}
+	if c.dryRun {
+		c.extraOptions = append(c.extraOptions, "--dry-run")
+	}
+	return c.baseClientCommand.Run(ctx)
 }
 
 var migrateLXCImplDoc = `
@@ -66,6 +93,8 @@ func newMigrateLXCImplCommand() cmd.Command {
 
 type migrateLXCImplCommand struct {
 	baseRemoteCommand
+	dryRun bool
+	match  string
 }
 
 func (c *migrateLXCImplCommand) Info() *cmd.Info {
@@ -76,7 +105,22 @@ func (c *migrateLXCImplCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *migrateLXCImplCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.baseRemoteCommand.SetFlags(f)
+	f.BoolVar(&c.dryRun, "dry-run", false, "perform a dry run, without making any changes")
+	f.StringVar(&c.match, "match", "", "regular expression for matching LXC container IDs to migrate")
+}
+
 func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
+	match := func(string) bool { return true }
+	if c.match != "" {
+		matchRE, err := regexp.Compile(c.match)
+		if err != nil {
+			return errors.Annotate(err, "parsing --match")
+		}
+		match = matchRE.MatchString
+	}
+
 	st, err := getState()
 	if err != nil {
 		return errors.Annotate(err, "getting state")
@@ -88,6 +132,22 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	for host, containers := range lxcByHost {
+		matching := make([]*state.Machine, 0, len(containers))
+		for _, container := range containers {
+			if !match(container.Id()) {
+				ctx.Infof("Skipping non-matching container %q", container.Id())
+				continue
+			}
+			matching = append(matching, container)
+		}
+		if len(matching) == 0 {
+			delete(lxcByHost, host)
+			continue
+		}
+		lxcByHost[host] = matching
+	}
+
 	environUUID := st.EnvironUUID()
 	containerNames, err := getContainerNames(lxcByHost, environUUID)
 	if err != nil {
@@ -108,7 +168,14 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 
 	// Determine which LXC containers still need to be migrated,
 	// by looking for LXD containers of the same (or new) names.
-	lxcToMigrateByHost := getLXCContainersToMigrate(lxcByHost, lxdByHost, containerNames)
+	lxcToMigrateByHost := getLXCContainersToMigrate(
+		ctx, lxcByHost, lxdByHost, containerNames,
+	)
+
+	if c.dryRun {
+		return nil
+	}
+
 	if err := stopLXCContainers(lxcToMigrateByHost); err != nil {
 		return errors.Annotate(err, "stopping LXC containers")
 	}
@@ -248,6 +315,7 @@ func getContainerNames(
 // getLXCContainersToMigrate returns the LXC containers to be migrated,
 // grouped by host.
 func getLXCContainersToMigrate(
+	ctx *cmd.Context,
 	lxcByHost map[*state.Machine][]*state.Machine,
 	lxdByHost map[*state.Machine]map[string]*lxdContainer,
 	containerNames map[*state.Machine]containerNames,
@@ -260,7 +328,7 @@ func getLXCContainersToMigrate(
 			names := containerNames[container]
 			if lxdContainers[names.oldName] != nil {
 				// migrated but not yet renamed
-				logger.Debugf(
+				ctx.Infof(
 					"LXC container %q already migrated to LXD (%q)",
 					container.Id(), names.oldName,
 				)
@@ -268,12 +336,16 @@ func getLXCContainersToMigrate(
 			}
 			if lxdContainers[names.newName] != nil {
 				// migrated and renamed
-				logger.Debugf(
+				ctx.Infof(
 					"LXC container %q already migrated to LXD (%q)",
 					container.Id(), names.newName,
 				)
 				continue
 			}
+			ctx.Infof(
+				"Migrating LXC container %q to LXD (%q)",
+				container.Id(), names.newName,
+			)
 			nonMigrated = append(nonMigrated, container)
 		}
 		if len(nonMigrated) > 0 {
