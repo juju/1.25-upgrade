@@ -19,6 +19,7 @@ const systemIdentity = "/var/lib/juju/system-identity"
 
 type execOptions struct {
 	ssh.Options
+	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
 }
@@ -32,6 +33,12 @@ func withSystemIdentity() execOption {
 func withIdentity(identity string) execOption {
 	return func(opts *execOptions) {
 		opts.SetIdentities(identity)
+	}
+}
+
+func withStdin(r io.Reader) execOption {
+	return func(opts *execOptions) {
+		opts.stdin = r
 	}
 }
 
@@ -92,6 +99,7 @@ func runViaSSH(addr, script string, opts ...execOption) (int, error) {
 		[]string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)},
 		&options.Options,
 	)
+	userCmd.Stdin = options.stdin
 	userCmd.Stdout = options.stdout
 	userCmd.Stderr = options.stderr
 

@@ -124,10 +124,11 @@ provider tagging if relevant.
 
 Note that the migrate-lxc command does not store backups on the hosts,
 as the hosts may not have sufficient disk space for duplicate root
-filesystems. If an error occurs, then you will have to copy the backups
-to the hosts, and reinstate the LXC containers.
+filesystems. If an error occurs, then you will also have to restore
+the LXC containers:
 
-After aborting the upgrade, you should start the
-agents back up:
+    juju 1.25-upgrade restore-lxc <envname> <backup-dir>
+
+After aborting the upgrade, you should start the agents back up:
 
     juju 1.25-upgrade start-agents <envname>

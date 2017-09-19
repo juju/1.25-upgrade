@@ -172,6 +172,28 @@ func BackupLXCContainer(container, host *state.Machine, out io.Writer) error {
 	return nil
 }
 
+// RestoreLXCContainer restores the specified container's rootfs from an
+// archive, read from the given writer.
+func RestoreLXCContainer(container, host *state.Machine, in io.Reader) error {
+	hostAddr, err := getMachineAddress(host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rc, err := runViaSSH(
+		hostAddr,
+		"tar -C /var/lib/lxc -xJ ",
+		withSystemIdentity(),
+		withStdin(in),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 {
+		return errors.Errorf("restoring LXC container exited %d", rc)
+	}
+	return nil
+}
+
 // StartLXCContainer starts the specified LXD container machine.
 func StartLXDContainers(containerNames []string, host *state.Machine) error {
 	hostAddr, err := getMachineAddress(host)
