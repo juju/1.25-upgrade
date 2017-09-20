@@ -9,6 +9,8 @@ The basic approach for the upgrade is to run a series of commands which:
 * Activate the migrated model in the target controller.
 * Start the agents - at this point the Juju model should be fully functional and hosted in the target controller.
 
+Before you start, ensure that you can ssh to the source environment's machine-0 as ubuntu - this is needed so the 1.25-upgrade binary can copy itself into the source environment and perform upgrade steps.
+
 ## Update MAAS agent name
 
 (This is only needed if the source environment is in MAAS.)
