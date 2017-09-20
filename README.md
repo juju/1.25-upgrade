@@ -11,7 +11,7 @@ The basic approach for the upgrade is to run a series of commands which:
 
 ## Update MAAS agent name
 
-(This is only needed if the source environment are in a MAAS.)
+(This is only needed if the source environment is in MAAS.)
 There's one setting we need to change in MAAS which we can't do in any other way than by using PSQL on the MAAS region controller.
 
     juju 1.25-upgrade update-maas-agentname <envname>
