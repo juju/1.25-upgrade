@@ -39,7 +39,7 @@ keys_to_check = [
     'lxc.pivotdir',
     # 'lxc.hook.pre-start',
     # 'lxc.hook.pre-mount',
-    # 'lxc.hook.mount',
+    'lxc.hook.mount',
     # 'lxc.hook.autodev',
     # 'lxc.hook.start',
     # 'lxc.hook.stop',
