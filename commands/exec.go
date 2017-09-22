@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -150,6 +151,65 @@ type execResult struct {
 	Stderr string
 }
 
+const maxPerHost = 5
+const acquireTimeout = 5 * time.Minute
+
+// hostThrottler prevents us from trying to open too many ssh
+// connections to a host (especially for proxied connections to
+// containers).
+type hostThrottler struct {
+	chans map[string]chan struct{}
+}
+
+func newHostThrottler(targets []execTarget) *hostThrottler {
+	chans := make(map[string]chan struct{})
+	for _, target := range targets {
+		hostAddr := target.hostAddr
+		if hostAddr == "" {
+			// So we can count connections to the host as well as
+			// proxied ones.
+			hostAddr = target.addr
+		}
+		// Only create a chan once for each addr.
+		_, found := chans[hostAddr]
+		if found {
+			continue
+		}
+		hostChan := make(chan struct{}, maxPerHost)
+		for i := 0; i < maxPerHost; i++ {
+			hostChan <- struct{}{}
+		}
+		chans[hostAddr] = hostChan
+	}
+	return &hostThrottler{chans: chans}
+}
+
+func (t *hostThrottler) Acquire(address string) {
+	hostChan, found := t.chans[address]
+	if !found {
+		panic("must initialise hostThrottler with all addresses")
+	}
+	select {
+	case <-hostChan:
+		return
+	case <-time.After(acquireTimeout):
+		panic(fmt.Sprintf("timed out waiting for SSH throttling to %q - missing Release?", address))
+	}
+}
+
+func (t *hostThrottler) Release(address string) {
+	hostChan, found := t.chans[address]
+	if !found {
+		panic("must initialise hostThrottler with all addresses")
+	}
+	select {
+	case hostChan <- struct{}{}:
+		return
+	default:
+		panic(fmt.Sprintf("too many releases for %q - missing Acquire?", address))
+	}
+}
+
 // parallelExec executes a script on each of the given targets,
 // and returns their results. An error is only returned if any
 // of the the SSH executions cannot proceed; if the execution
@@ -159,6 +219,7 @@ type execResult struct {
 func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 	results := make([]execResult, len(targets))
 	var group errgroup.Group
+	throttler := newHostThrottler(targets)
 	for i, target := range targets {
 		i, target := i, target // copy for closure
 		group.Go(func() error {
@@ -169,11 +230,16 @@ func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 				withStdout(&stdoutBuf),
 				withStderr(&stderrBuf),
 			}
+			throttleAddr := target.addr
 			if target.hostAddr != "" {
 				// This is a container; proxy through
 				// the host machine.
 				opts = append(opts, withProxyCommandForHost(target.hostAddr))
+				throttleAddr = target.hostAddr
 			}
+			throttler.Acquire(throttleAddr)
+			defer throttler.Release(throttleAddr)
+
 			rc, err := runViaSSH(target.addr, script, opts...)
 			if err != nil {
 				return err
