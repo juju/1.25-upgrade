@@ -9,7 +9,9 @@ The basic approach for the upgrade is to run a series of commands which:
 * Activate the migrated model in the target controller.
 * Start the agents - at this point the Juju model should be fully functional and hosted in the target controller.
 
-Before you start, ensure that you can ssh to the source environment's machine-0 as ubuntu - this is needed so the 1.25-upgrade binary can copy itself into the source environment and perform upgrade steps.
+Before you start, ensure that you can ssh to the source environment's machine-0 as ubuntu - this is needed so the 1.25-upgrade binary can copy itself into the source environment and perform upgrade steps. SSH keys can be added to the machine using the Juju 1 `authorized-keys add` command.
+
+Note: the juju-1.25-upgrade binary runs as a [Juju plugin](https://jujucharms.com/docs/2.2/juju-plugins) - it can be run using either the juju1 or juju2 command (however they're installed) It embeds client code for both Juju 1.25 and Juju 2.2.4, so it doesn't need to run the commands or need them to be installed in specific paths.
 
 ## Update MAAS agent name
 
@@ -82,9 +84,9 @@ the --dry-run flag to list the containers that will be migrated.
     
 If the name of the 1.25 environment isn't the same as the name of the cloud in the target, specify the cloud name using the `--target-cloud` option.
 
-You can see that the model has been created in the target controller by running
+You can see that the model has been created in the target controller by running (with Juju 2, however that's installed):
 
-    juju models
+    juju2 models
 
 The new model will be shown as busy until the upgrade is finished and the model is activated.
 If the provider is one where we use tagging to determine which resources are part of the environment (like Openstack), the tags will also be upgraded here.
@@ -106,8 +108,17 @@ target controller API.
 ## Start the agents
 
     juju 1.25-upgrade start-agents <envname>
+    
+## Post-upgrade cleanup
 
+Once the new model is up and running under the target controller the old
+machine 0 can be removed (assuming that wasn't hosting any actual workload
+units).
 
+If your model is running under Openstack the upgrade will have left security
+groups with old names behind, which can be removed now using Openstack tools. 
+These will have names matching the patterns `juju-<environmentname>` or 
+`juju-<environmentname>-0`.
 
 
 # In the case of an error during upgrade
