@@ -23,9 +23,10 @@ import (
 	version1 "github.com/juju/1.25-upgrade/juju1/version"
 )
 
-var disallowedModelConfigAttrs = [...]string{
+var removeModelConfigAttrs = [...]string{
 	"admin-secret",
 	"ca-private-key",
+	"proxy-ssh",
 }
 
 var controllerOnlyConfigAttrs = [...]string{
@@ -268,7 +269,7 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 	}
 
 	// TODO: delete all bootstrap only config values from modelConfig
-	for _, key := range disallowedModelConfigAttrs {
+	for _, key := range removeModelConfigAttrs {
 		delete(modelConfig, key)
 	}
 
