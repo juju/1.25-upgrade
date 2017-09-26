@@ -1725,10 +1725,50 @@ func (e *environ) UpgradeTags() error {
 	if !ok {
 		return errors.Errorf("no model uuid in environ config")
 	}
-	return errors.Trace(e.changeTags(map[string]string{
+	err := e.changeTags(map[string]string{
 		tags2.JujuModel: modelUUID,
 		tags.JujuEnv:    "",
-	}))
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(e.upgradeGroups(modelUUID))
+}
+
+func (e *environ) upgradeGroups(modelUUID string) error {
+	client := e.nova()
+	groups, err := client.ListSecurityGroups()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	groupPrefix := e.jujuGroupName()
+	for _, group := range groups {
+		if !strings.HasPrefix(group.Name, groupPrefix) {
+			continue
+		}
+
+		rest := group.Name[len(groupPrefix):]
+		newName := fmt.Sprintf("%s-%s%s", e.jujuGroupName(), modelUUID, rest)
+		newRules := make([]nova.RuleInfo, len(group.Rules))
+		for i, rule := range group.Rules {
+			if rule.IPProtocol != nil {
+				newRules[i].IPProtocol = *rule.IPProtocol
+			}
+			if rule.FromPort != nil {
+				newRules[i].FromPort = *rule.FromPort
+			}
+			if rule.ToPort != nil {
+				newRules[i].ToPort = *rule.ToPort
+			}
+			newRules[i].Cidr = rule.IPRange["cidr"]
+		}
+		_, err := e.ensureGroup(newName, newRules)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // DowngradeTags is part of the TagUpgrader interface.
@@ -1737,9 +1777,32 @@ func (e *environ) DowngradeTags() error {
 	if !ok {
 		return errors.Errorf("no model uuid in environ config")
 	}
-	return errors.Trace(e.changeTags(map[string]string{
+	err := e.changeTags(map[string]string{
 		tags2.JujuModel:      "",
 		tags2.JujuController: "",
 		tags.JujuEnv:         modelUUID,
-	}))
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(e.downgradeGroups(modelUUID))
+}
+
+func (e *environ) downgradeGroups(modelUUID string) error {
+	client := e.nova()
+	groups, err := client.ListSecurityGroups()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	groupPrefix := e.jujuGroupName() + "-" + modelUUID
+	for _, group := range groups {
+		if !strings.HasPrefix(group.Name, groupPrefix) {
+			continue
+		}
+		if err := client.DeleteSecurityGroup(group.Id); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
