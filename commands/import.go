@@ -189,7 +189,7 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	// We need to upgrade the tags in the environment before checking
 	// machines, since in most providers that's how we determine which
 	// instances belong to this environment/model.
-	err = upgradeTags(st)
+	err = upgradeTags(st, conn.ControllerTag().Id())
 	if err != nil {
 		return errors.Annotate(err, "upgrading environment tags")
 	}

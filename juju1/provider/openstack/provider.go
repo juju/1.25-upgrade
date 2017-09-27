@@ -1720,15 +1720,79 @@ func (e *environ) changeTags(tags map[string]string) error {
 }
 
 // UpgradeTags is part of the TagUpgrader interface.
-func (e *environ) UpgradeTags() error {
+func (e *environ) UpgradeTags(controllerUUID string) error {
 	modelUUID, ok := e.ecfg().UUID()
 	if !ok {
 		return errors.Errorf("no model uuid in environ config")
 	}
-	return errors.Trace(e.changeTags(map[string]string{
+	err := e.changeTags(map[string]string{
 		tags2.JujuModel: modelUUID,
 		tags.JujuEnv:    "",
-	}))
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(e.upgradeGroups(controllerUUID, modelUUID))
+}
+
+func (e *environ) upgradeGroups(controllerUUID, modelUUID string) error {
+	client := e.nova()
+	groups, err := client.ListSecurityGroups()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	newNames := make(map[string]string)
+	groupPrefix := e.jujuGroupName()
+	for _, group := range groups {
+		if !strings.HasPrefix(group.Name, groupPrefix) {
+			continue
+		}
+
+		rest := group.Name[len(groupPrefix):]
+		newName := fmt.Sprintf("juju-%s-%s%s", controllerUUID, modelUUID, rest)
+		newNames[group.Name] = newName
+		newRules := make([]nova.RuleInfo, len(group.Rules))
+		for i, rule := range group.Rules {
+			if rule.IPProtocol != nil {
+				newRules[i].IPProtocol = *rule.IPProtocol
+			}
+			if rule.FromPort != nil {
+				newRules[i].FromPort = *rule.FromPort
+			}
+			if rule.ToPort != nil {
+				newRules[i].ToPort = *rule.ToPort
+			}
+			newRules[i].Cidr = rule.IPRange["cidr"]
+		}
+		_, err := e.ensureGroup(newName, newRules)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Add the new groups to the instances marked with the old ones.
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, inst := range instances {
+		osInst := inst.(*openstackInstance)
+		details := osInst.getServerDetail()
+		for _, group := range details.Groups {
+			newName, ok := newNames[group.Name]
+			if !ok {
+				// Not a juju group.
+				continue
+			}
+			err := client.AddServerSecurityGroup(details.Id, newName)
+			if err != nil {
+				return errors.Annotatef(err, "adding %q group to instance %q", newName, details.Id)
+			}
+		}
+	}
+
+	return nil
 }
 
 // DowngradeTags is part of the TagUpgrader interface.
@@ -1737,9 +1801,32 @@ func (e *environ) DowngradeTags() error {
 	if !ok {
 		return errors.Errorf("no model uuid in environ config")
 	}
-	return errors.Trace(e.changeTags(map[string]string{
+	err := e.changeTags(map[string]string{
 		tags2.JujuModel:      "",
 		tags2.JujuController: "",
 		tags.JujuEnv:         modelUUID,
-	}))
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(e.downgradeGroups(modelUUID))
+}
+
+func (e *environ) downgradeGroups(modelUUID string) error {
+	client := e.nova()
+	groups, err := client.ListSecurityGroups()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	groupPrefix := e.jujuGroupName() + "-" + modelUUID
+	for _, group := range groups {
+		if !strings.HasPrefix(group.Name, groupPrefix) {
+			continue
+		}
+		if err := client.DeleteSecurityGroup(group.Id); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
