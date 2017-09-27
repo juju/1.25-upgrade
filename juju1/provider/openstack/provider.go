@@ -1720,7 +1720,7 @@ func (e *environ) changeTags(tags map[string]string) error {
 }
 
 // UpgradeTags is part of the TagUpgrader interface.
-func (e *environ) UpgradeTags() error {
+func (e *environ) UpgradeTags(controllerUUID string) error {
 	modelUUID, ok := e.ecfg().UUID()
 	if !ok {
 		return errors.Errorf("no model uuid in environ config")
@@ -1733,15 +1733,16 @@ func (e *environ) UpgradeTags() error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(e.upgradeGroups(modelUUID))
+	return errors.Trace(e.upgradeGroups(controllerUUID, modelUUID))
 }
 
-func (e *environ) upgradeGroups(modelUUID string) error {
+func (e *environ) upgradeGroups(controllerUUID, modelUUID string) error {
 	client := e.nova()
 	groups, err := client.ListSecurityGroups()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	newNames := make(map[string]string)
 	groupPrefix := e.jujuGroupName()
 	for _, group := range groups {
 		if !strings.HasPrefix(group.Name, groupPrefix) {
@@ -1749,7 +1750,8 @@ func (e *environ) upgradeGroups(modelUUID string) error {
 		}
 
 		rest := group.Name[len(groupPrefix):]
-		newName := fmt.Sprintf("%s-%s%s", e.jujuGroupName(), modelUUID, rest)
+		newName := fmt.Sprintf("juju-%s-%s%s", controllerUUID, modelUUID, rest)
+		newNames[group.Name] = newName
 		newRules := make([]nova.RuleInfo, len(group.Rules))
 		for i, rule := range group.Rules {
 			if rule.IPProtocol != nil {
@@ -1768,6 +1770,28 @@ func (e *environ) upgradeGroups(modelUUID string) error {
 			return errors.Trace(err)
 		}
 	}
+
+	// Add the new groups to the instances marked with the old ones.
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, inst := range instances {
+		osInst := inst.(*openstackInstance)
+		details := osInst.getServerDetail()
+		for _, group := range details.Groups {
+			newName, ok := newNames[group.Name]
+			if !ok {
+				// Not a juju group.
+				continue
+			}
+			err := client.AddServerSecurityGroup(details.Id, newName)
+			if err != nil {
+				return errors.Annotatef(err, "adding %q group to instance %q", newName, details.Id)
+			}
+		}
+	}
+
 	return nil
 }
 

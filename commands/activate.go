@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -106,7 +107,7 @@ func (c *activateImplCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "model %s activated\n", modelUUID)
 
 	err = targetAPI.AdoptResources(modelUUID)
-	if err != nil {
+	if err != nil && !isControllerGroupError(err) {
 		return errors.Annotate(err, "adopting resources")
 	}
 	fmt.Fprintf(ctx.Stdout, "model %s resources adopted by target controller\n", modelUUID)
@@ -125,4 +126,12 @@ func getModelUUID() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return config.Model().Id(), nil
+}
+
+func isControllerGroupError(err error) bool {
+	if err == nil {
+		return false
+	}
+	const groupErrorPrefix = "errors updating controller for security groups:"
+	return strings.HasPrefix(errors.Cause(err).Error(), groupErrorPrefix)
 }
