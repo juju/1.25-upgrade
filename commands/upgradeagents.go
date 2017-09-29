@@ -207,11 +207,19 @@ func (c *upgradeAgentsImplCommand) pushTools(ctx *cmd.Context, ver version.Numbe
 }
 
 func (c *upgradeAgentsImplCommand) pushToolsToMachine(ctx *cmd.Context, ver version.Number, scriptPath string, machine FlatMachine) error {
+	sshOptions := []execOption{withSystemIdentity()}
+	throttleAddress := machine.Address
+	if machine.HostAddress != "" {
+		throttleAddress = machine.HostAddress
+		sshOptions = append(sshOptions, withProxyCommandForHost(machine.HostAddress))
+	}
+
 	logger.Debugf("making target dir for machine %s", machine.ID)
 	rc, err := runViaSSH(
 		machine.Address,
 		"rm -rf 1.25-agent-upgrade; mkdir 1.25-agent-upgrade; chown ubuntu:ubuntu 1.25-agent-upgrade",
-		withSystemIdentity())
+		sshOptions...,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -221,8 +229,15 @@ func (c *upgradeAgentsImplCommand) pushToolsToMachine(ctx *cmd.Context, ver vers
 	toolsPath := toolsFilePath(ver, seriesArch(machine))
 	options := defaultSSHOptions()
 	options.SetIdentities(systemIdentity)
+	if machine.HostAddress != "" {
+		options.SetProxyCommand(makeProxyCommand(machine.HostAddress)...)
+	}
 	logger.Debugf("copying upgrade script and %s to machine %s", toolsPath, machine.ID)
 	args := []string{toolsPath, scriptPath, fmt.Sprintf("ubuntu@%s:~/1.25-agent-upgrade/", machine.Address)}
+
+	throttler.Acquire(throttleAddress)
+	defer throttler.Release(throttleAddress)
+
 	err = ssh.Copy(args, &options)
 	if err != nil {
 		return errors.Trace(err)
