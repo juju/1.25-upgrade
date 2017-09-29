@@ -23,33 +23,41 @@ import (
 	version1 "github.com/juju/1.25-upgrade/juju1/version"
 )
 
-var removeModelConfigAttrs = [...]string{
-	"admin-secret",
-	"ca-private-key",
-	"proxy-ssh",
-}
+var (
+	removeModelConfigAttrs = [...]string{
+		"admin-secret",
+		"ca-private-key",
+		"proxy-ssh",
+	}
+	newRequiredDefaults = map[string]string{
+		"max-action-results-age":  "336h",
+		"max-action-results-size": "5G",
+		"max-status-history-age":  "336h",
+		"max-status-history-size": "5G",
+	}
 
-var controllerOnlyConfigAttrs = [...]string{
-	"api-port",
-	"ca-cert",
-	"state-port",
-	"set-numa-control-policy",
-}
+	controllerOnlyConfigAttrs = [...]string{
+		"api-port",
+		"ca-cert",
+		"state-port",
+		"set-numa-control-policy",
+	}
 
-var commonStorageProviders = [...]storage.ProviderType{
-	"loop",
-	"rootfs",
-	"tmpfs",
-}
-var storageProviderTypeMap = map[string]storage.ProviderType{
-	"local":     "hostloop",
-	"gce":       "gce",
-	"ec2":       "ebs",
-	"maas":      "maas",
-	"openstack": "cinder",
-	"azure":     "azure",
-	"dummy":     "dummy",
-}
+	commonStorageProviders = [...]storage.ProviderType{
+		"loop",
+		"rootfs",
+		"tmpfs",
+	}
+	storageProviderTypeMap = map[string]storage.ProviderType{
+		"local":     "hostloop",
+		"gce":       "gce",
+		"ec2":       "ebs",
+		"maas":      "maas",
+		"openstack": "cinder",
+		"azure":     "azure",
+		"dummy":     "dummy",
+	}
+)
 
 // Export the current model for the State.
 func (st *State) Export(overrideCloud string) (description.Model, error) {
@@ -271,6 +279,12 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 	// TODO: delete all bootstrap only config values from modelConfig
 	for _, key := range removeModelConfigAttrs {
 		delete(modelConfig, key)
+	}
+	for key, value := range newRequiredDefaults {
+		_, found := modelConfig[key]
+		if !found {
+			modelConfig[key] = value
+		}
 	}
 
 	return modelConfig, creds, region, nil
