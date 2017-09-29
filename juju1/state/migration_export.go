@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -302,6 +303,8 @@ func (e *exporter) userTag(t names1.UserTag) names2.UserTag {
 	return names2.NewUserTag(t.Canonical())
 }
 
+var lxcSequenceRe = regexp.MustCompile(`^machine(\d+)lxcContainer$`)
+
 func (e *exporter) sequences() error {
 	sequences, closer := e.st.getCollection(sequenceC)
 	defer closer()
@@ -317,6 +320,10 @@ func (e *exporter) sequences() error {
 		if svcTag, err := names1.ParseServiceTag(doc.Name); err == nil {
 			appTag := names2.NewApplicationTag(svcTag.Id())
 			name = appTag.String()
+		}
+		// Rename machine lxc sequences to lxd.
+		if lxcSequenceRe.MatchString(name) {
+			name = lxcSequenceRe.ReplaceAllString(name, "machine${1}lxdContainer")
 		}
 		e.model.SetSequence(name, doc.Counter)
 	}
@@ -462,24 +469,37 @@ func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, erro
 	return result, nil
 }
 
+func lxcToLXD(ct string) string {
+	if ct == "lxc" {
+		return "lxd"
+	}
+	return ct
+}
+
+func lxcIdToLXDMachineTag(tag string) names2.MachineTag {
+	parts := strings.Split(tag, "/")
+	if len(parts) == 3 {
+		parts[1] = lxcToLXD(parts[1])
+	}
+	return names2.NewMachineTag(strings.Join(parts, "/"))
+}
+
 func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
-		Id:           names2.NewMachineTag(machine.MachineTag().Id()),
-		Nonce:        machine.doc.Nonce,
-		PasswordHash: machine.doc.PasswordHash,
-		Placement:    machine.doc.Placement,
-		Series:       machine.doc.Series,
-		// TODO (thumper): consider transpose of LXC -> LXD
-		ContainerType: machine.doc.ContainerType,
+		Id:            lxcIdToLXDMachineTag(machine.MachineTag().Id()),
+		Nonce:         machine.doc.Nonce,
+		PasswordHash:  machine.doc.PasswordHash,
+		Placement:     machine.doc.Placement,
+		Series:        machine.doc.Series,
+		ContainerType: lxcToLXD(machine.doc.ContainerType),
 		Jobs:          []string{"host-units"},
 	}
 
 	if supported, ok := machine.SupportedContainers(); ok {
 		containers := make([]string, len(supported))
 		for i, containerType := range supported {
-			containers[i] = string(containerType)
+			containers[i] = lxcToLXD(string(containerType))
 		}
-		// TODO (thumper): consider transpose of LXC -> LXD
 		args.SupportedContainers = &containers
 	}
 
@@ -611,9 +631,17 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	}
 }
 
+func lxcToLXDInstance(id string) string {
+	parts := strings.Split(id, "-")
+	if len(parts) == 5 {
+		parts[3] = lxcToLXD(parts[3])
+	}
+	return strings.Join(parts, "-")
+}
+
 func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
 	inst := description.CloudInstanceArgs{
-		InstanceId: string(data.InstanceId),
+		InstanceId: lxcToLXDInstance(string(data.InstanceId)),
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch
@@ -828,7 +856,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 		args := description.UnitArgs{
 			Tag:     names2.NewUnitTag(unit.Name()),
-			Machine: names2.NewMachineTag(unit.doc.MachineId),
+			Machine: lxcIdToLXDMachineTag(unit.doc.MachineId),
 			// WorkloadVersion not supported.
 			PasswordHash:    unit.doc.PasswordHash,
 			MeterStatusCode: unitMeterStatus.Code,
@@ -1515,7 +1543,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		va := volumeAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
 		args := description.VolumeAttachmentArgs{
-			Machine: names2.NewMachineTag(va.Machine().Id()),
+			Machine: lxcIdToLXDMachineTag(va.Machine().Id()),
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
@@ -1614,7 +1642,7 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 		va := filesystemAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
 		args := description.FilesystemAttachmentArgs{
-			Machine: names2.NewMachineTag(va.Machine().Id()),
+			Machine: lxcIdToLXDMachineTag(va.Machine().Id()),
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
