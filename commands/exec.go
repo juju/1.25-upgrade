@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -20,9 +21,10 @@ const systemIdentity = "/var/lib/juju/system-identity"
 
 type execOptions struct {
 	ssh.Options
-	stdin  io.Reader
-	stdout io.Writer
-	stderr io.Writer
+	stdin    io.Reader
+	stdout   io.Writer
+	stderr   io.Writer
+	hostAddr string
 }
 
 type execOption func(*execOptions)
@@ -55,22 +57,22 @@ func withStderr(w io.Writer) execOption {
 	}
 }
 
-// withProxyCommandForHost returns an option decorator for setting
-// an SSH proxy command to proxy through the given host.
-func withProxyCommandForHost(hostAddr string) execOption {
-	return withProxyCommand(
-		"ssh", "-q",
+func makeProxyCommand(hostAddr string) []string {
+	return []string{"ssh", "-q",
 		"-i", systemIdentity,
 		"-o", "StrictHostKeyChecking no",
 		"-o UserKnownHostsFile /dev/null",
-		"ubuntu@"+hostAddr,
+		"ubuntu@" + hostAddr,
 		"nc %h %p",
-	)
+	}
 }
 
-func withProxyCommand(cmd ...string) execOption {
+// withProxyCommandForHost returns an option decorator for setting
+// an SSH proxy command to proxy through the given host.
+func withProxyCommandForHost(hostAddr string) execOption {
 	return func(opts *execOptions) {
-		opts.SetProxyCommand(cmd...)
+		opts.hostAddr = hostAddr
+		opts.SetProxyCommand(makeProxyCommand(hostAddr)...)
 	}
 }
 
@@ -85,15 +87,20 @@ func defaultSSHOptions() ssh.Options {
 
 // runViaSSH runs script in the remote machine with address addr.
 func runViaSSH(addr, script string, opts ...execOption) (int, error) {
-	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
-	userAddr := "ubuntu@" + addr
-
 	options := execOptions{Options: defaultSSHOptions()}
 	options.stdout = os.Stdout
 	options.stderr = os.Stderr
+	options.hostAddr = addr
 	for _, opt := range opts {
 		opt(&options)
 	}
+
+	// Throttle on the host address if we're proxying.
+	throttler.Acquire(options.hostAddr)
+	defer throttler.Release(options.hostAddr)
+
+	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
+	userAddr := "ubuntu@" + addr
 
 	userCmd := ssh.Command(
 		userAddr,
@@ -158,37 +165,30 @@ const acquireTimeout = 5 * time.Minute
 // connections to a host (especially for proxied connections to
 // containers).
 type hostThrottler struct {
+	mu    sync.Mutex
 	chans map[string]chan struct{}
 }
 
-func newHostThrottler(targets []execTarget) *hostThrottler {
-	chans := make(map[string]chan struct{})
-	for _, target := range targets {
-		hostAddr := target.hostAddr
-		if hostAddr == "" {
-			// So we can count connections to the host as well as
-			// proxied ones.
-			hostAddr = target.addr
-		}
-		// Only create a chan once for each addr.
-		_, found := chans[hostAddr]
-		if found {
-			continue
-		}
-		hostChan := make(chan struct{}, maxPerHost)
+func newHostThrottler() *hostThrottler {
+	return &hostThrottler{chans: make(map[string]chan struct{})}
+}
+
+func (t *hostThrottler) getChan(address string) chan struct{} {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	hostChan, found := t.chans[address]
+	if !found {
+		hostChan = make(chan struct{}, maxPerHost)
 		for i := 0; i < maxPerHost; i++ {
 			hostChan <- struct{}{}
 		}
-		chans[hostAddr] = hostChan
+		t.chans[address] = hostChan
 	}
-	return &hostThrottler{chans: chans}
+	return hostChan
 }
 
 func (t *hostThrottler) Acquire(address string) {
-	hostChan, found := t.chans[address]
-	if !found {
-		panic("must initialise hostThrottler with all addresses")
-	}
+	hostChan := t.getChan(address)
 	select {
 	case <-hostChan:
 		return
@@ -198,10 +198,7 @@ func (t *hostThrottler) Acquire(address string) {
 }
 
 func (t *hostThrottler) Release(address string) {
-	hostChan, found := t.chans[address]
-	if !found {
-		panic("must initialise hostThrottler with all addresses")
-	}
+	hostChan := t.getChan(address)
 	select {
 	case hostChan <- struct{}{}:
 		return
@@ -209,6 +206,8 @@ func (t *hostThrottler) Release(address string) {
 		panic(fmt.Sprintf("too many releases for %q - missing Acquire?", address))
 	}
 }
+
+var throttler = newHostThrottler()
 
 // parallelExec executes a script on each of the given targets,
 // and returns their results. An error is only returned if any
@@ -219,7 +218,6 @@ func (t *hostThrottler) Release(address string) {
 func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 	results := make([]execResult, len(targets))
 	var group errgroup.Group
-	throttler := newHostThrottler(targets)
 	for i, target := range targets {
 		i, target := i, target // copy for closure
 		group.Go(func() error {
@@ -230,16 +228,11 @@ func parallelExec(targets []execTarget, script string) ([]execResult, error) {
 				withStdout(&stdoutBuf),
 				withStderr(&stderrBuf),
 			}
-			throttleAddr := target.addr
 			if target.hostAddr != "" {
 				// This is a container; proxy through
 				// the host machine.
 				opts = append(opts, withProxyCommandForHost(target.hostAddr))
-				throttleAddr = target.hostAddr
 			}
-			throttler.Acquire(throttleAddr)
-			defer throttler.Release(throttleAddr)
-
 			rc, err := runViaSSH(target.addr, script, opts...)
 			if err != nil {
 				return err
