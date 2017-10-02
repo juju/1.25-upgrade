@@ -84,6 +84,23 @@ yaml.add_representer(Literal, literal_presenter)
 def all_agents():
     return os.listdir(AGENTS_DIR)
 
+def convert_container_agent(agent, from_type, to_type):
+    parts = agent.split('-')
+    match = False
+    output = []
+    for part in parts:
+        if part == from_type:
+            match = True
+            part = to_type
+        output.append(part)
+    return match, '-'.join(output)
+
+def convert_lxc_agent(agent):
+    return convert_container_agent(agent, 'lxc', 'lxd')
+
+def convert_lxd_agent(agent):
+    return convert_container_agent(agent, 'lxd', 'lxc')
+
 def save_rollback_info():
     os.mkdir(ROLLBACK_DIR)
     for agent in all_agents():
@@ -122,7 +139,7 @@ def install_tools():
     # Make all the hook tools link to jujud.
     make_links(dest_path, HOOK_TOOLS, path.join(dest_path, 'jujud'))
     # Make all of the agent tools dirs link to the new version.
-    make_links(TOOLS_DIR, all_agents(), dest_path)
+    make_links(TOOLS_DIR, [convert_lxc_agent(a)[1] for a in all_agents()], dest_path)
 
 def make_links(in_dir, names, target):
     for name in names:
@@ -133,6 +150,10 @@ def make_links(in_dir, names, target):
 
 def update_configs():
     for agent in all_agents():
+        lxc, lxd_agent = convert_lxc_agent(agent)
+        if lxc:
+            os.rename(path.join(AGENTS_DIR, agent), path.join(AGENTS_DIR, lxd_agent))
+            agent = lxd_agent
         data = read_agent_config(agent)
         if agent.startswith('machine-'):
             data = update_machine_config(agent, data)
@@ -160,6 +181,8 @@ def update_machine_config(agent, data):
     for name in OLD_CONTROLLER_KEYS:
         if name in data:
             del data[name]
+    # Convert any lxc agent tags to lxd
+    data['tag'] = convert_lxc_agent(data['tag'])[1]
     return update_unit_config(agent, data)
 
 def update_unit_config(agent, data):
@@ -188,6 +211,18 @@ def main():
 def rollback():
     assert path.exists(ROLLBACK_DIR), 'no rollback information found'
     for agent in all_agents():
+        lxd, lxc_agent = convert_lxd_agent(agent)
+        if lxd:
+            # We need to rename the agent dir and get rid of the tools
+            # link for the lxd version of the agent.
+            os.rename(
+                path.join(AGENTS_DIR, agent),
+                path.join(AGENTS_DIR, lxc_agent))
+            lxd_tools_link = path.join(TOOLS_DIR, agent)
+            if path.exists(lxd_tools_link):
+                os.unlink(lxd_tools_link)
+            agent = lxc_agent
+
         link_path = path.join(ROLLBACK_DIR, agent)
         target = os.readlink(link_path)
         dest = path.join(TOOLS_DIR, agent)
