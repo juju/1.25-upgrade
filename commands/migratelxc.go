@@ -196,7 +196,7 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 	}
 	if err := waitLXDContainersReady(
 		lxcByHost, containerNames,
-		time.Minute, // should be long enough for anyone
+		5*time.Minute, // should be long enough for anyone
 	); err != nil {
 		return errors.Annotate(err, "waiting for LXD containers to have addresses")
 	}
@@ -298,7 +298,8 @@ func getContainerNames(
 
 			// The new name, expected by Juju 2.x, uses a model
 			// UUID namespace.
-			newName, err := namespace.Hostname(container.Id())
+			newName, err := namespace.Hostname(strings.Replace(
+				container.Id(), "lxc", "lxd", 1))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
