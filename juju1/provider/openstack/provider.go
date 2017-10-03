@@ -1772,12 +1772,7 @@ func (e *environ) upgradeGroups(controllerUUID, modelUUID string) error {
 	}
 
 	// Add the new groups to the instances marked with the old ones.
-	instances, err := e.AllInstances()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, inst := range instances {
-		osInst := inst.(*openstackInstance)
+	err = e.forAllOpenstackInstances(func(osInst *openstackInstance) error {
 		details := osInst.getServerDetail()
 		for _, group := range details.Groups {
 			newName, ok := newNames[group.Name]
@@ -1789,6 +1784,25 @@ func (e *environ) upgradeGroups(controllerUUID, modelUUID string) error {
 			if err != nil {
 				return errors.Annotatef(err, "adding %q group to instance %q", newName, details.Id)
 			}
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (e *environ) forAllOpenstackInstances(f func(*openstackInstance) error) error {
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, inst := range instances {
+		osInst := inst.(*openstackInstance)
+		if err := f(osInst); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -1813,15 +1827,34 @@ func (e *environ) DowngradeTags() error {
 	return errors.Trace(e.downgradeGroups(modelUUID))
 }
 
+const securityGroupPrefix = `^juju-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-`
+
 func (e *environ) downgradeGroups(modelUUID string) error {
 	client := e.nova()
+	groupPrefixRe, err := regexp.Compile(securityGroupPrefix + modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = e.forAllOpenstackInstances(func(osInst *openstackInstance) error {
+		details := osInst.getServerDetail()
+		for _, group := range details.Groups {
+			if !groupPrefixRe.MatchString(group.Name) {
+				continue
+			}
+			if err := client.RemoveServerSecurityGroup(details.Id, group.Name); err != nil {
+				return errors.Annotatef(err, "removing %q group from instance %q", group.Name, details.Id)
+			}
+		}
+		return nil
+	})
+
 	groups, err := client.ListSecurityGroups()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	groupPrefix := e.jujuGroupName() + "-" + modelUUID
 	for _, group := range groups {
-		if !strings.HasPrefix(group.Name, groupPrefix) {
+		if !groupPrefixRe.MatchString(group.Name) {
 			continue
 		}
 		if err := client.DeleteSecurityGroup(group.Id); err != nil {
