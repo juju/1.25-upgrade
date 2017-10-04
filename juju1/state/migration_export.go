@@ -1317,10 +1317,15 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	return result, nil
 }
 
+const maxStatusHistoryEntries = 20
+
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
 	result := make([]description.StatusArgs, len(history))
 	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	if len(history) > maxStatusHistoryEntries {
+		history = history[:maxStatusHistoryEntries]
+	}
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
