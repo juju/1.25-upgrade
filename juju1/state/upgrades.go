@@ -2211,3 +2211,26 @@ func AddMissingUnitStatus(st *State) error {
 	}
 	return err
 }
+
+// Add UUID to the environ config if it's not present.
+func MaybeAddConfigUUID(st *State) error {
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, found := config.UUID(); found {
+		return nil
+	}
+
+	logger.Debugf("uuid isn't set in environment config - setting it now")
+	settings, err := st.ReadSettings(environGlobalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settings.Set("uuid", st.EnvironUUID())
+	_, err = settings.Write()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

@@ -286,6 +286,11 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 			modelConfig[key] = value
 		}
 	}
+	// Some older versions don't have the uuid set in config - it's
+	// required for import, so ensure it's set.
+	if modelConfig["uuid"] == nil {
+		modelConfig["uuid"] = e.dbModel.UUID()
+	}
 
 	return modelConfig, creds, region, nil
 }
@@ -1307,7 +1312,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	dataMap := map[string]interface{}(data)
 	updated, ok := statusDoc["updated"].(int64)
 	if !ok {
-		return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
+		if statusDoc["updated"] == nil {
+			updated = time.Now().UnixNano()
+		} else {
+			return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
+		}
 	}
 
 	result.Value = status
