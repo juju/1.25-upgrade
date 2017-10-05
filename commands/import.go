@@ -135,6 +135,12 @@ func (c *importImplCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer st.Close()
 
+	// In some cases the UUID isn't set in config; it needs to be
+	// for a number of things that happen later.
+	if err := state.MaybeAddConfigUUID(st); err != nil {
+		return errors.Annotate(err, "setting the environment UUID in config")
+	}
+
 	conn, err := c.getControllerConnection()
 	if err != nil {
 		return errors.Annotate(err, "getting controller connection")
