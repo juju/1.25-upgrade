@@ -177,10 +177,14 @@ def make_links(in_dir, names, target):
         force_symlink(target, link_path)
 
 def update_configs():
+    series = get_series()
+    need_init_reload = False
     for agent in all_agents():
         lxc, lxd_agent = convert_lxc_agent(agent)
         if lxc:
             os.rename(path.join(AGENTS_DIR, agent), path.join(AGENTS_DIR, lxd_agent))
+            update_init_scripts(series, agent, lxd_agent)
+            need_init_reload = True
             agent = lxd_agent
         data = read_agent_config(agent)
         if agent.startswith('machine-'):
@@ -188,6 +192,8 @@ def update_configs():
         else:
             data = update_unit_config(agent, data)
         write_agent_config(agent, data)
+    if need_init_reload:
+        reload_init(series)
 
 def config_path(agent):
     return path.join(AGENTS_DIR, agent, 'agent.conf')
@@ -230,6 +236,46 @@ def update_unit_config(agent, data):
 
     return data
 
+def update_init_scripts(series, lxc_agent, lxd_agent):
+    if series == 'trusty':
+        update_upstart_scripts(lxc_agent, lxd_agent)
+    else:
+        update_systemd_scripts(lxc_agent, lxd_agent)
+
+def update_upstart_scripts(lxc_agent, lxd_agent):
+    lxc_path = path.join(UPSTART_DIR, upstart_conf(lxc_agent))
+    lxd_path = path.join(UPSTART_DIR, upstart_conf(lxd_agent))
+    rewrite_lxc_to_lxd(lxc_path, lxd_path)
+    safe_unlink(lxc_path)
+
+def rewrite_lxc_to_lxd(lxc_path, lxd_path):
+    "Copies contents of lxc_path file into lxd_path, converting lxc->lxd on the way"
+    with open(lxc_path, 'r') as source:
+        data = source.read()
+    updated = data.replace('lxc', 'lxd')
+    with open(lxd_path, 'w') as dest:
+        dest.write(updated)
+
+def update_systemd_scripts(lxc_agent, lxd_agent):
+    lxc_dir = path.join(INIT_DIR, 'jujud-' + lxc_agent)
+    lxd_dir = path.join(INIT_DIR, 'jujud-' + lxd_agent)
+
+    # Create lxd versions of service file and exec-start script.
+    os.mkdir(lxd_dir)
+    lxd_service_path = path.join(lxd_dir, systemd_conf(lxd_agent))
+    rewrite_lxc_to_lxd(
+        path.join(lxc_dir, systemd_conf(lxc_agent)),
+        lxd_service_path)
+    lxd_exec_start = path.join(lxd_dir, 'exec-start.sh')
+    rewrite_lxc_to_lxd(path.join(lxc_dir, 'exec-start.sh'), lxd_exec_start)
+    os.chmod(lxd_exec_start, 0o755)
+
+    shutil.rmtree(lxc_dir)
+
+    # Correct the link from /etc/systemd/system
+    os.unlink(path.join(SYSTEMD_DIR, systemd_conf(lxc_agent)))
+    force_symlink(lxd_service_path, path.join(SYSTEMD_DIR, systemd_conf(lxd_agent)))
+
 def get_series():
     return subprocess.check_output(['/usr/bin/lsb_release', '-cs']).decode().strip()
 
@@ -240,7 +286,8 @@ def main():
     update_configs()
 
 def safe_unlink(location):
-    if path.exists(location):
+    # path.exists returns False for broken symlinks.
+    if path.exists(location) or path.islink(location):
         os.unlink(location)
 
 def force_symlink(target, dest):
@@ -284,7 +331,7 @@ def rollback_init_files(series, lxd_agent, lxc_agent):
 
 def reload_init(series):
     if series == 'trusty':
-        command = ['/sbin/initctl', 'reload']
+        command = ['/sbin/initctl', 'reload-configuration']
     else:
         command = ['/bin/systemctl', 'daemon-reload']
     subprocess.check_call(command)
