@@ -1307,7 +1307,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	dataMap := map[string]interface{}(data)
 	updated, ok := statusDoc["updated"].(int64)
 	if !ok {
-		return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
+		if statusDoc["updated"] == nil {
+			updated = time.Now().UnixNano()
+		} else {
+			return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
+		}
 	}
 
 	result.Value = status
