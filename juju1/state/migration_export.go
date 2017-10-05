@@ -286,6 +286,11 @@ func (e *exporter) splitEnvironConfig() (map[string]interface{}, description.Clo
 			modelConfig[key] = value
 		}
 	}
+	// Some older versions don't have the uuid set in config - it's
+	// required for import, so ensure it's set.
+	if modelConfig["uuid"] == nil {
+		modelConfig["uuid"] = e.dbModel.UUID()
+	}
 
 	return modelConfig, creds, region, nil
 }
