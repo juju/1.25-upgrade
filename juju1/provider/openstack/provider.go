@@ -1780,9 +1780,11 @@ func (e *environ) upgradeGroups(controllerUUID, modelUUID string) error {
 				// Not a juju group.
 				continue
 			}
-			err := client.AddServerSecurityGroup(details.Id, newName)
-			if err != nil {
+			if err := client.AddServerSecurityGroup(details.Id, newName); err != nil {
 				return errors.Annotatef(err, "adding %q group to instance %q", newName, details.Id)
+			}
+			if err := client.RemoveServerSecurityGroup(details.Id, group.Name); err != nil {
+				return errors.Annotatef(err, "removing %q group from instance %q", group.Name, details.Id)
 			}
 		}
 		return nil
@@ -1829,6 +1831,12 @@ func (e *environ) DowngradeTags() error {
 
 const securityGroupPrefix = `^juju-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-`
 
+func (e *environ) newGroupNameToOld(newName string) string {
+	// juju-(uuid)-(uuid) = 5 + 36 + 1 + 36 = 78
+	const prefixLength = 78
+	return e.jujuGroupName() + newName[prefixLength:]
+}
+
 func (e *environ) downgradeGroups(modelUUID string) error {
 	client := e.nova()
 	groupPrefixRe, err := regexp.Compile(securityGroupPrefix + modelUUID)
@@ -1841,6 +1849,10 @@ func (e *environ) downgradeGroups(modelUUID string) error {
 		for _, group := range details.Groups {
 			if !groupPrefixRe.MatchString(group.Name) {
 				continue
+			}
+			oldGroupName := e.newGroupNameToOld(group.Name)
+			if err := client.AddServerSecurityGroup(details.Id, oldGroupName); err != nil {
+				return errors.Annotatef(err, "adding %q group to instance %q", oldGroupName, details.Id)
 			}
 			if err := client.RemoveServerSecurityGroup(details.Id, group.Name); err != nil {
 				return errors.Annotatef(err, "removing %q group from instance %q", group.Name, details.Id)
