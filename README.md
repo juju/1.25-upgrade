@@ -33,6 +33,16 @@ Check the status of all the agents.
 
     juju 1.25-upgrade agent-status <envname>
 
+### Check that there are no LXC monitors in the same systemd control group as jujud machine agents.
+(If you don't have any LXC containers in your environment *or* all of the container hosts are running Trusty, then you won't need to worry about this.) Any LXC containers in the jujud machine agent's service control group will be shut down when `stop-agents` is run, interrupting any workload they're running. You can detect this situation by looking at the status for the jujud machine agent service on the host:
+
+    systemctl status jujud-machine-<n>.service
+    
+If the CGroup for the service includes any processes that look like:
+
+    [lxc monitor] /var/lib/lxc juju-machine-<n>-lxc-<m>
+    
+... then those containers will be stopped along with the jujud process. To avoid this, you can restart the containers one by one (hopefully allowing the workload they're handling to failover between them) - this will remove them from the machine agent's control group.
 
 ## Stop all the agents in the source environment.
 
