@@ -563,11 +563,11 @@ func waitContainerReady(ctx context.Context, containerName, containerAddr, hostA
 func stopContainerAgents(
 	ctx *cmd.Context,
 	st *state.State,
-	lxcByHost map[*state.Machine][]*state.Machine,
+	containersByHost map[*state.Machine][]*state.Machine,
 ) error {
 	// Stop the Juju agents on the containers.
 	var flatMachines []FlatMachine
-	for _, containers := range lxcByHost {
+	for _, containers := range containersByHost {
 		for _, container := range containers {
 			fm, err := makeFlatMachine(st, container)
 			if err != nil {

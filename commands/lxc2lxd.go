@@ -122,6 +122,27 @@ func StopLXCContainer(container, host *state.Machine) error {
 	return nil
 }
 
+// StopLXDContainer stops the specified LXD container on the host
+// machine.
+func StopLXDContainer(name string, host *state.Machine) error {
+	hostAddr, err := getMachineAddress(host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rc, err := runViaSSH(
+		hostAddr,
+		"lxc stop "+name,
+		withSystemIdentity(),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rc != 0 {
+		return errors.Errorf("`lxc stop` exited %d", rc)
+	}
+	return nil
+}
+
 // StartLXCContainer starts the specified LXC container machine.
 func StartLXCContainer(container, host *state.Machine) error {
 	hostAddr, err := getMachineAddress(host)
