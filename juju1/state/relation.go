@@ -243,7 +243,7 @@ func (r *Relation) Endpoint(serviceName string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	return Endpoint{}, errors.NotFoundf("service %q is not a member of %q", serviceName, r)
 }
 
 // Endpoints returns the endpoints for the relation.

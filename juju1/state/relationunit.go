@@ -354,6 +354,62 @@ func (ru *RelationUnit) LeaveScope() error {
 	return nil
 }
 
+// Valid returns whether this RelationUnit is one that can actually
+// exist in the relation. For container-scoped relations, RUs can be
+// created for subordinate units whose principal unit isn't a member
+// of the relation. There are too many places that rely on being able
+// to construct a nonsensical RU to query InScope or Joined, so we
+// allow them to be constructed but they will always return false for
+// Valid.
+// Ported back from juju2 for use in export.
+func (ru *RelationUnit) Valid() (bool, error) {
+	if ru.endpoint.Scope != charm.ScopeContainer || ru.unit.IsPrincipal() {
+		return true, nil
+	}
+	// A subordinate container-scoped relation unit is valid if:
+	// the other end of the relation is also a subordinate charm
+	// or its principal unit is also a member of the relation.
+	appName, err := names.UnitService(ru.unit.Name())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	var otherAppName string
+	for _, ep := range ru.relation.Endpoints() {
+		if ep.ServiceName != appName {
+			otherAppName = ep.ServiceName
+		}
+	}
+	if otherAppName == "" {
+		return false, errors.Errorf("couldn't find other endpoint")
+	}
+	otherApp, err := ru.st.Service(otherAppName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if !otherApp.IsPrincipal() {
+		return true, nil
+	}
+
+	unit, err := ru.st.Unit(ru.unit.Name())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// No need to check the flag here - we know we're subordinate.
+	pName, _ := unit.PrincipalName()
+	principalAppName, err := names.UnitService(pName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// If the other application is a principal, only allow it if it's in the relation.
+	_, err = ru.relation.Endpoint(principalAppName)
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
+}
+
 // InScope returns whether the relation unit has entered scope and not left it.
 func (ru *RelationUnit) InScope() (bool, error) {
 	return ru.inScope(nil)
