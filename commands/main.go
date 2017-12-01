@@ -63,4 +63,6 @@ func registerCommands(super *cmd.SuperCommand) {
 	super.Register(newImportImplCommand())
 	super.Register(newActivateCommand())
 	super.Register(newActivateImplCommand())
+	super.Register(newRevertLXDCommand())
+	super.Register(newRevertLXDImplCommand())
 }

@@ -27,10 +27,10 @@ LXC containers in a 1.25 environment to LXD.
 
 If --match is specified, it is treated as a regular expression for
 matching container names. Only containers whose names match will
-be backed up.
+be migrated.
 
-If --dry-run is specified, then no backups will be created, nor
-will the containers be stopped.
+If --dry-run is specified, then no migration will actually be
+performed, nor will the containers be stopped.
 `
 
 func newMigrateLXCCommand() cmd.Command {
@@ -194,13 +194,13 @@ func (c *migrateLXCImplCommand) Run(ctx *cmd.Context) error {
 	if err := startLXDContainers(lxcByHost, lxdByHost, containerNames); err != nil {
 		return errors.Annotate(err, "starting LXD containers")
 	}
-	if err := waitLXDContainersReady(
-		lxcByHost, containerNames,
+	if err := waitContainersReady(
+		"lxd", lxcByHost, containerNames,
 		5*time.Minute, // should be long enough for anyone
 	); err != nil {
 		return errors.Annotate(err, "waiting for LXD containers to have addresses")
 	}
-	if err := stopLXDContainerAgents(ctx, st, lxcByHost); err != nil {
+	if err := stopContainerAgents(ctx, st, lxcByHost); err != nil {
 		return errors.Annotate(err, "stopping Juju agents in LXD containers")
 	}
 
@@ -492,10 +492,11 @@ func startLXDContainers(
 	return group.Wait()
 }
 
-// waitLXDContainersReady waits for the LXD containers to have
-// addresses, as recorded in the state database, and be ready to
-// accept SSH connections.
-func waitLXDContainersReady(
+// waitContainersReady waits for the containers to have addresses, as
+// recorded in the state database, and be ready to accept SSH
+// connections.
+func waitContainersReady(
+	containerType string,
 	lxcByHost map[*state.Machine][]*state.Machine,
 	containerNames map[*state.Machine]containerNames,
 	timeout time.Duration,
@@ -504,7 +505,7 @@ func waitLXDContainersReady(
 	defer cancel()
 	group, ctx := errgroup.WithContext(ctx)
 
-	logger.Debugf("waiting for LXD containers to be ready for SSH connections")
+	logger.Debugf("waiting for %s containers to be ready for SSH connections", containerType)
 	for host, containers := range lxcByHost {
 		hostAddr, err := getMachineAddress(host)
 		if err != nil {
@@ -515,10 +516,15 @@ func waitLXDContainersReady(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			containerName := containerNames[container].newName
+			var containerName string
+			if containerType == "lxd" {
+				containerName = containerNames[container].newName
+			} else {
+				containerName = containerNames[container].oldName
+			}
 			group.Go(func() error {
 				return errors.Annotatef(
-					waitLXDContainerReady(ctx, containerName, containerAddr, hostAddr),
+					waitContainerReady(ctx, containerName, containerAddr, hostAddr),
 					"waiting for %q to be ready for SSH connections",
 					containerName,
 				)
@@ -528,7 +534,7 @@ func waitLXDContainersReady(
 	return group.Wait()
 }
 
-func waitLXDContainerReady(ctx context.Context, containerName, containerAddr, hostAddr string) error {
+func waitContainerReady(ctx context.Context, containerName, containerAddr, hostAddr string) error {
 	const interval = time.Second // time to wait between checks
 	for {
 		logger.Debugf(
@@ -552,16 +558,16 @@ func waitLXDContainerReady(ctx context.Context, containerName, containerAddr, ho
 	}
 }
 
-// stopLXDContainerAgents stops the Juju agents running inside
-// LXD containers. The LXD containers are expected to be running.
-func stopLXDContainerAgents(
+// stopContainerAgents stops the Juju agents running inside
+// LXC or LXD containers. The containers are expected to be running.
+func stopContainerAgents(
 	ctx *cmd.Context,
 	st *state.State,
-	lxcByHost map[*state.Machine][]*state.Machine,
+	containersByHost map[*state.Machine][]*state.Machine,
 ) error {
-	// Stop the Juju agents on the LXD containers.
+	// Stop the Juju agents on the containers.
 	var flatMachines []FlatMachine
-	for _, containers := range lxcByHost {
+	for _, containers := range containersByHost {
 		for _, container := range containers {
 			fm, err := makeFlatMachine(st, container)
 			if err != nil {
@@ -571,7 +577,7 @@ func stopLXDContainerAgents(
 		}
 	}
 
-	logger.Debugf("stopping Juju agents running in LXD machines")
+	logger.Debugf("stopping Juju agents running in container machines")
 	_, err := agentServiceCommand(ctx, flatMachines, "stop")
 	return errors.Trace(err)
 }
