@@ -2018,7 +2018,7 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 }
 
 // UpgradeTags is part of the TagUpgrader interface.
-func (environ *maasEnviron) UpgradeTags() error {
+func (environ *maasEnviron) UpgradeTags(string) error {
 	// We don't track machines in environments by tag in MAAS 1.9.
 	return nil
 }
