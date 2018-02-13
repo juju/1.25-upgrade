@@ -694,8 +694,6 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	_ = meterStatus
-	_ = payloads
 	for _, service := range services {
 		name := service.Name()
 		applicationUnits := e.units[name]
@@ -808,6 +806,20 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
 
+	endpoints, err := application.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bindings := make(map[string]string)
+	// No spaces in 1.25 so all endpoints should be bound to the
+	// default space.
+	for _, ep := range endpoints {
+		if ep.Name == "juju-info" {
+			continue
+		}
+		bindings[ep.Name] = ""
+	}
+
 	args := description.ApplicationArgs{
 		Tag:         names2.NewApplicationTag(appName),
 		Series:      application.doc.Series,
@@ -825,6 +837,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Leader:             ctx.leader,
 		LeadershipSettings: leadershipSettings,
 		MetricsCredentials: application.doc.MetricCredentials,
+		EndpointBindings:   bindings,
 	}
 	if constraints, found := e.modelStorageConstraints[globalKey]; found {
 		args.StorageConstraints = e.storageConstraints(constraints)
