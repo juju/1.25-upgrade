@@ -88,17 +88,21 @@ To migrate the containers individually, you can supply a regular expression
 via the --match flag, which matches the container IDs. You can also supply
 the --dry-run flag to list the containers that will be migrated.
 
+NOTE: if the container needs multiple NICs (for example if it hosts a
+neutron-gateway unit), the container's configuration will need to be
+updated to allow it to mount /run/netns. The simplest way to do this
+is to run
+
+    juju run --machine $HOSTID lxc config set $CONTAINERNAME security.nesting true
+
+for each multi-nic container.
+
 ## Import the environment into the controller
 
     juju 1.25-upgrade import <envname> <controller>
     
 If the name of the 1.25 environment isn't the same as the name of the cloud in the target, specify the cloud name using the `--target-cloud` option.
 
-You can see that the model has been created in the target controller by running (with Juju 2, however that's installed):
-
-    juju2 models
-
-The new model will be shown as busy until the upgrade is finished and the model is activated.
 If the provider is one where we use tagging to determine which resources are part of the environment (like Openstack), the tags will also be upgraded here.
 
 This command doesn't modify the source environment's state database.
