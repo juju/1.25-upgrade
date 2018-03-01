@@ -4,7 +4,11 @@
 package state
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -17,8 +21,10 @@ import (
 	"github.com/juju/version"
 	names2 "gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/1.25-upgrade/juju1/payload"
+	statestorage "github.com/juju/1.25-upgrade/juju1/state/storage"
 	"github.com/juju/1.25-upgrade/juju1/storage"
 	"github.com/juju/1.25-upgrade/juju1/storage/poolmanager"
 	version1 "github.com/juju/1.25-upgrade/juju1/version"
@@ -819,6 +825,13 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 		bindings[ep.Name] = ""
 	}
+	extras, err := extraBindings(application)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, b := range extras {
+		bindings[b] = ""
+	}
 
 	args := description.ApplicationArgs{
 		Tag:         names2.NewApplicationTag(appName),
@@ -929,6 +942,80 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	return nil
+}
+
+func extraBindings(application *Service) ([]string, error) {
+	// Collect any extra bindings from the charm. These aren't
+	// captured in the db but they're stored in the charm blob, in the
+	// metadata file.
+	ch, _, err := application.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	st := application.st
+	store := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	reader, _, err := store.Get(ch.StoragePath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer reader.Close()
+
+	localFile, err := ioutil.TempFile("", "charm-"+ch.URL().Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		localFile.Close()
+		os.Remove(localFile.Name())
+	}()
+
+	numBytes, err := io.Copy(localFile, reader)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	zipFile, err := zip.NewReader(localFile, numBytes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Find metadata.yaml.
+	var metadataFile *zip.File
+	for _, f := range zipFile.File {
+		if f.Name == "metadata.yaml" {
+			metadataFile = f
+		}
+	}
+	if metadataFile == nil {
+		logger.Warningf("no metadata file in %q charm!", ch.Meta().Name)
+		return nil, nil
+	}
+
+	metadataReader, err := metadataFile.Open()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer metadataReader.Close()
+
+	content, err := ioutil.ReadAll(metadataReader)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var target struct {
+		ExtraBindings map[string]interface{} `yaml:"extra-bindings"`
+	}
+	err = goyaml.Unmarshal(content, &target)
+	if err != nil {
+		logger.Warningf("couldn't parse metadata.yaml for %q: %s", ch.Meta().Name, err)
+		return nil, nil
+	}
+
+	var results []string
+	for k := range target.ExtraBindings {
+		results = append(results, k)
+	}
+	return results, nil
 }
 
 func version2Number(v version1.Number) version.Number {
