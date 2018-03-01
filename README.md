@@ -94,11 +94,6 @@ the --dry-run flag to list the containers that will be migrated.
     
 If the name of the 1.25 environment isn't the same as the name of the cloud in the target, specify the cloud name using the `--target-cloud` option.
 
-You can see that the model has been created in the target controller by running (with Juju 2, however that's installed):
-
-    juju2 models
-
-The new model will be shown as busy until the upgrade is finished and the model is activated.
 If the provider is one where we use tagging to determine which resources are part of the environment (like Openstack), the tags will also be upgraded here.
 
 This command doesn't modify the source environment's state database.
