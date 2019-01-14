@@ -11,32 +11,32 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/1.25-upgrade/juju2/apiserver/action"
-	"github.com/juju/juju/apiserver/agent" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/agent" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/agenttools"
-	"github.com/juju/juju/apiserver/annotations" // ModelUser Write
-	"github.com/juju/juju/apiserver/application" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/annotations" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/application" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/applicationoffers"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/applicationscaler"
-	"github.com/juju/juju/apiserver/backups" // ModelUser Write
-	"github.com/juju/juju/apiserver/block"   // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/backups" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/block"   // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/bundle"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/charms" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/charms" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/cleaner"
-	"github.com/juju/juju/apiserver/client" // ModelUser Write
-	"github.com/juju/juju/apiserver/cloud"  // ModelUser Read
+	"github.com/juju/1.25-upgrade/juju2/apiserver/client" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/cloud"  // ModelUser Read
 	"github.com/juju/1.25-upgrade/juju2/apiserver/common"
-	"github.com/juju/juju/apiserver/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/1.25-upgrade/juju2/apiserver/controller" // ModelUser Admin (although some methods check for read only)
 	"github.com/juju/1.25-upgrade/juju2/apiserver/deployer"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/diskmanager"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/facade"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/firewaller"
-	"github.com/juju/juju/apiserver/highavailability" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/highavailability" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/hostkeyreporter"
-	"github.com/juju/juju/apiserver/imagemanager" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/imagemanager" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/imagemetadata"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/instancepoller"
-	"github.com/juju/juju/apiserver/keymanager" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/keymanager" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/keyupdater"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/leadership"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/lifeflag"
@@ -44,18 +44,18 @@ import (
 	loggerapi "github.com/juju/1.25-upgrade/juju2/apiserver/logger"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/machine"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/machineactions"
-	"github.com/juju/juju/apiserver/machinemanager" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/machinemanager" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/machineundertaker"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/meterstatus"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsadder"
-	"github.com/juju/juju/apiserver/metricsdebug" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsdebug" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/metricsmanager"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/migrationflag"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/migrationmaster"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/migrationminion"
-	"github.com/juju/juju/apiserver/migrationtarget" // ModelUser Write
-	"github.com/juju/juju/apiserver/modelconfig"     // ModelUser Write
-	"github.com/juju/juju/apiserver/modelmanager"    // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/migrationtarget" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/modelconfig"     // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/modelmanager"    // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/modelupgrader"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/payloads"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/payloadshookcontext"
@@ -69,8 +69,8 @@ import (
 	"github.com/juju/1.25-upgrade/juju2/apiserver/resumer"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/retrystrategy"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/singular"
-	"github.com/juju/juju/apiserver/spaces"    // ModelUser Write
-	"github.com/juju/juju/apiserver/sshclient" // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/spaces"    // ModelUser Write
+	"github.com/juju/1.25-upgrade/juju2/apiserver/sshclient" // ModelUser Write
 	"github.com/juju/1.25-upgrade/juju2/apiserver/statushistory"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/storage"
 	"github.com/juju/1.25-upgrade/juju2/apiserver/storageprovisioner"

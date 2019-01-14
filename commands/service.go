@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/1.25-upgrade/juju2/cmd/output"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/output"
 )
 
 func printServiceStatus(ctx *cmd.Context, machines []FlatMachine) error {
