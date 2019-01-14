@@ -28,6 +28,7 @@ import (
 	"github.com/juju/1.25-upgrade/juju1/storage"
 	"github.com/juju/1.25-upgrade/juju1/storage/poolmanager"
 	version1 "github.com/juju/1.25-upgrade/juju1/version"
+	"github.com/juju/1.25-upgrade/juju2/instance"
 )
 
 var (
@@ -530,7 +531,11 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	if !found {
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
-	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+	cloudInstanceArgs, err := e.newCloudInstanceArgs(instData)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cloud instance args for machine %s", machine.Id())
+	}
+	exMachine.SetInstance(cloudInstanceArgs)
 
 	// There're no status records for instances in 1.25 - fake them.
 	instance := exMachine.Instance()
@@ -637,17 +642,34 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	}
 }
 
-func lxcToLXDInstance(id string) string {
+func lxcToLXDInstance(modelUUID, id string) (string, error) {
 	parts := strings.Split(id, "-")
-	if len(parts) == 5 {
-		parts[3] = lxcToLXD(parts[3])
+	if len(parts) != 5 || parts[0] != "juju" || parts[1] != "machine" {
+		// Not a container, leave it.
+		return id, nil
 	}
-	return strings.Join(parts, "-")
+	parts[3] = lxcToLXD(parts[3])
+	// Convert juju-machine-1-lxd-2 to 1/lxd/2.
+	machineID := strings.Join(parts[2:], "/")
+	// Then convert that to juju-b7e869-1-lxd-2
+	ns, err := instance.NewNamespace(modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	result, err := ns.Hostname(machineID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return result, nil
 }
 
-func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
+func (e *exporter) newCloudInstanceArgs(data instanceData) (description.CloudInstanceArgs, error) {
+	updatedID, err := lxcToLXDInstance(e.dbModel.UUID(), string(data.InstanceId))
+	if err != nil {
+		return description.CloudInstanceArgs{}, errors.Trace(err)
+	}
 	inst := description.CloudInstanceArgs{
-		InstanceId: lxcToLXDInstance(string(data.InstanceId)),
+		InstanceId: updatedID,
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch
@@ -670,7 +692,7 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	if data.AvailZone != nil {
 		inst.AvailabilityZone = *data.AvailZone
 	}
-	return inst
+	return inst, nil
 }
 
 func (e *exporter) applications() error {
